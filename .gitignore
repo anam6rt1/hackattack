@@ -1,0 +1,55 @@
+# .NET build outputs and IDE caches
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Local credentials and configuration (keep shareable examples)
+.env
+.env.*
+!.env.example
+!.env.sample
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+.pgpass
+pgpass.conf
+*.pfx
+*.p12
+*.key
+
+# Database backups and local runtime data; SQL migrations stay versioned
+*.dump
+*.backup
+*.bak
+/database/backups/
+/database/.local/
+
+# Test outputs, coverage and logs
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+*.log
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.swp
+*~
+
+# Keep packages.lock.json and dotnet-tools.json: they make restores reproducible.
