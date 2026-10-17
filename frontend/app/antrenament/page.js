@@ -1,13 +1,11 @@
-// TEMPORAR: pagina /antrenament. O înlocuiește P2 cu harta de capitole și nivele.
-import PaginaInCurand from '@/components/PaginaInCurand'
+import HartaInsule from "@/components/HartaInsule";
+import { T } from "@/lib/tema";
 
-export default function Antrenament() {
+export default function PaginaHarta() {
   return (
-    <PaginaInCurand
-      eticheta="Antrenament"
-      titlu="Harta capitolelor vine aici."
-      text="Fiecare operă e o insulă, cu nivele de parcurs: video, resurse de la alți elevi și un joc la final."
-      seed={13}
-    />
-  )
+    <main className={`min-h-screen p-4 ${T.pagina}`}>
+      <HartaInsule />
+    </main>
+  );
 }
+

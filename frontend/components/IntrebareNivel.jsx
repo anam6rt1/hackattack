@@ -57,7 +57,7 @@ export default function IntrebareNivel({ nivelId }) {
     return (
       <Ecran>
         <p className="text-lg font-bold">Nivelul acesta nu există.</p>
-        <Link href="/harta" className={`mt-4 inline-block rounded-xl px-4 py-2 font-black ${T.accent}`}>
+        <Link href="/antrenament" className={`mt-4 inline-block rounded-xl px-4 py-2 font-black ${T.accent}`}>
           Înapoi la hartă
         </Link>
       </Ecran>
