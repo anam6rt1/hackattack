@@ -111,7 +111,7 @@ internal static class Verification
             // Roundtrip only on the disposable database, never on the real application database.
             await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
             await db.Database.MigrateAsync();
-            Check(await db.Utilizators.CountAsync() == 4, "trivia rollback/reapply preserves original application entities");
+            Check(await db.Utilizatori.CountAsync() == 4, "trivia rollback/reapply preserves original application entities");
 
             // Exercise adoption with real application data and an absent EF history table.
             await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
@@ -121,7 +121,7 @@ internal static class Verification
             await DatabaseTools.Adopt(connection);
             await DatabaseTools.Adopt(connection);
             await db.Database.MigrateAsync();
-            Check(await db.Utilizators.CountAsync() == 4, "adopt existing schema and upgrade preserves data; adoption is repeatable");
+            Check(await db.Utilizatori.CountAsync() == 4, "adopt existing schema and upgrade preserves data; adoption is repeatable");
             Check(await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_constraint WHERE connamespace='mark_ai'::regnamespace AND conname='utilizator_username_key'").SingleAsync() == 0,
                 "legacy unique constraint normalized to EF unique index");
             Console.WriteLine("All integration checks passed against PostgreSQL.");

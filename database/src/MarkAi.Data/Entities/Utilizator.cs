@@ -17,22 +17,22 @@ public partial class Utilizator
 
     public DateTime CreatLa { get; set; }
 
-    public virtual ICollection<EvenimentRecompensa> EvenimentRecompensas { get; set; } = new List<EvenimentRecompensa>();
+    public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
-    public virtual ICollection<Graf> Grafs { get; set; } = new List<Graf>();
+    public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();
 
     public virtual PreferinteUtilizator? PreferinteUtilizator { get; set; }
 
     public virtual ProfilMentor? ProfilMentor { get; set; }
 
-    public virtual ICollection<Rezervare> Rezervares { get; set; } = new List<Rezervare>();
+    public virtual ICollection<Rezervare> Rezervari { get; set; } = new List<Rezervare>();
 
-    public virtual ICollection<Sesiune> Sesiunes { get; set; } = new List<Sesiune>();
+    public virtual ICollection<Sesiune> Sesiuni { get; set; } = new List<Sesiune>();
 
-    public virtual ICollection<UtilizatorMaterie> UtilizatorMateries { get; set; } = new List<UtilizatorMaterie>();
+    public virtual ICollection<UtilizatorMaterie> Materii { get; set; } = new List<UtilizatorMaterie>();
 
-    public virtual ICollection<UtilizatorRealizare> UtilizatorRealizares { get; set; } = new List<UtilizatorRealizare>();
+    public virtual ICollection<UtilizatorRealizare> Realizari { get; set; } = new List<UtilizatorRealizare>();
 
-    public virtual ICollection<UtilizatorRol> UtilizatorRols { get; set; } = new List<UtilizatorRol>();
+    public virtual ICollection<UtilizatorRol> Roluri { get; set; } = new List<UtilizatorRol>();
 }
 

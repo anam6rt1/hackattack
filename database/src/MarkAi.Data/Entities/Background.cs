@@ -21,8 +21,8 @@ public partial class Background
 
     public DateTime? DisponibilPanaLa { get; set; }
 
-    public virtual ICollection<PreferinteUtilizator> PreferinteUtilizators { get; set; } = new List<PreferinteUtilizator>();
+    public virtual ICollection<PreferinteUtilizator> PreferinteUtilizatori { get; set; } = new List<PreferinteUtilizator>();
 
-    public virtual ICollection<RegulaBackground> RegulaBackgrounds { get; set; } = new List<RegulaBackground>();
+    public virtual ICollection<RegulaBackground> ReguliBackground { get; set; } = new List<RegulaBackground>();
 }
 

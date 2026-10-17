@@ -15,12 +15,12 @@ public partial class Curs
 
     public string? Continut { get; set; }
 
-    public virtual ICollection<CameraTutoring> CameraTutorings { get; set; } = new List<CameraTutoring>();
+    public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
-    public virtual ICollection<GrafCurs> GrafCurs { get; set; } = new List<GrafCurs>();
+    public virtual ICollection<GrafCurs> GrafuriCurs { get; set; } = new List<GrafCurs>();
 
     public virtual Materie Materie { get; set; } = null!;
 
-    public virtual ICollection<Sesiune> Sesiunes { get; set; } = new List<Sesiune>();
+    public virtual ICollection<Sesiune> Sesiuni { get; set; } = new List<Sesiune>();
 }
 

@@ -27,8 +27,8 @@ public partial class Rezervare
 
     public virtual Utilizator Elev { get; set; } = null!;
 
-    public virtual ICollection<Plata> Plata { get; set; } = new List<Plata>();
+    public virtual ICollection<Plata> Plati { get; set; } = new List<Plata>();
 
-    public virtual ICollection<Sesiune> Sesiunes { get; set; } = new List<Sesiune>();
+    public virtual ICollection<Sesiune> Sesiuni { get; set; } = new List<Sesiune>();
 }
 

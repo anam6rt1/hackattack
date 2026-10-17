@@ -13,7 +13,7 @@ public partial class UtilizatorMaterie
 
     public DateTime SelectataLa { get; set; }
 
-    public virtual ICollection<EvenimentRecompensa> EvenimentRecompensas { get; set; } = new List<EvenimentRecompensa>();
+    public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
     public virtual Materie Materie { get; set; } = null!;
 

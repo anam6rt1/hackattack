@@ -11,12 +11,12 @@ public partial class Materie
 
     public string? Descriere { get; set; }
 
-    public virtual ICollection<CameraTutoring> CameraTutorings { get; set; } = new List<CameraTutoring>();
+    public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
-    public virtual ICollection<Curs> Curs { get; set; } = new List<Curs>();
+    public virtual ICollection<Curs> Cursuri { get; set; } = new List<Curs>();
 
-    public virtual ICollection<Graf> Grafs { get; set; } = new List<Graf>();
+    public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();
 
-    public virtual ICollection<UtilizatorMaterie> UtilizatorMateries { get; set; } = new List<UtilizatorMaterie>();
+    public virtual ICollection<UtilizatorMaterie> UtilizatoriMaterii { get; set; } = new List<UtilizatorMaterie>();
 }
 

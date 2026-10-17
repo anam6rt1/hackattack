@@ -17,8 +17,8 @@ public partial class GrafCurs
 
     public virtual Graf Graf { get; set; } = null!;
 
-    public virtual ICollection<MuchieGraf> MuchieGrafGrafCurNavigations { get; set; } = new List<MuchieGraf>();
+    public virtual ICollection<MuchieGraf> MuchiiCaSursa { get; set; } = new List<MuchieGraf>();
 
-    public virtual ICollection<MuchieGraf> MuchieGrafGrafCurs { get; set; } = new List<MuchieGraf>();
+    public virtual ICollection<MuchieGraf> MuchiiCaDestinatie { get; set; } = new List<MuchieGraf>();
 }
 

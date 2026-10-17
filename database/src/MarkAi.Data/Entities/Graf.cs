@@ -17,7 +17,7 @@ public partial class Graf
 
     public DateTime CreatLa { get; set; }
 
-    public virtual ICollection<GrafCurs> GrafCurs { get; set; } = new List<GrafCurs>();
+    public virtual ICollection<GrafCurs> CursuriGraf { get; set; } = new List<GrafCurs>();
 
     public virtual Materie Materie { get; set; } = null!;
 

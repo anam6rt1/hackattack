@@ -19,6 +19,6 @@ public partial class Realizare
 
     public bool Activa { get; set; }
 
-    public virtual ICollection<UtilizatorRealizare> UtilizatorRealizares { get; set; } = new List<UtilizatorRealizare>();
+    public virtual ICollection<UtilizatorRealizare> UtilizatoriRealizari { get; set; } = new List<UtilizatorRealizare>();
 }
 

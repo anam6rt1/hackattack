@@ -21,7 +21,7 @@ public partial class Decontare
 
     public DateTime? PlatitaLa { get; set; }
 
-    public virtual ICollection<ComisionMentor> ComisionMentors { get; set; } = new List<ComisionMentor>();
+    public virtual ICollection<ComisionMentor> ComisioaneMentor { get; set; } = new List<ComisionMentor>();
 
     public virtual ProfilMentor Mentor { get; set; } = null!;
 }

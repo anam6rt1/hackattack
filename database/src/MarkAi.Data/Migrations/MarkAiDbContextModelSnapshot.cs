@@ -1595,25 +1595,25 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.CameraTutoring", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
-                        .WithMany("CameraTutorings")
+                        .WithMany("CamereTutoring")
                         .HasForeignKey("MaterieId")
                         .IsRequired()
                         .HasConstraintName("camera_tutoring_materie_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.ProfilMentor", "Mentor")
-                        .WithMany("CameraTutorings")
+                        .WithMany("CamereTutoring")
                         .HasForeignKey("MentorId")
                         .IsRequired()
                         .HasConstraintName("camera_tutoring_mentor_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.TarifFix", "Tarif")
-                        .WithMany("CameraTutorings")
+                        .WithMany("CamereTutoring")
                         .HasForeignKey("TarifId")
                         .IsRequired()
                         .HasConstraintName("camera_tutoring_tarif_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
-                        .WithMany("CameraTutorings")
+                        .WithMany("CamereTutoring")
                         .HasForeignKey("CursId", "MaterieId")
                         .HasPrincipalKey("Id", "MaterieId")
                         .HasConstraintName("camera_tutoring_curs_id_materie_id_fkey");
@@ -1630,7 +1630,7 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.ComisionMentor", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.ProfilMentor", "Mentor")
-                        .WithMany("ComisionMentors")
+                        .WithMany("Comisioane")
                         .HasForeignKey("MentorId")
                         .IsRequired()
                         .HasConstraintName("comision_mentor_mentor_id_fkey");
@@ -1642,7 +1642,7 @@ namespace MarkAi.Data.Migrations
                         .HasConstraintName("comision_mentor_rezervare_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Decontare", "Decontare")
-                        .WithMany("ComisionMentors")
+                        .WithMany("ComisioaneMentor")
                         .HasForeignKey("DecontareId", "MentorId", "Moneda")
                         .HasPrincipalKey("Id", "MentorId", "Moneda")
                         .HasConstraintName("comision_mentor_decontare_id_mentor_id_moneda_fkey");
@@ -1657,7 +1657,7 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Curs", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
-                        .WithMany("Curs")
+                        .WithMany("Cursuri")
                         .HasForeignKey("MaterieId")
                         .IsRequired()
                         .HasConstraintName("curs_materie_id_fkey");
@@ -1668,7 +1668,7 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Decontare", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.ProfilMentor", "Mentor")
-                        .WithMany("Decontares")
+                        .WithMany("Decontari")
                         .HasForeignKey("MentorId")
                         .IsRequired()
                         .HasConstraintName("decontare_mentor_id_fkey");
@@ -1679,19 +1679,19 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.EvenimentRecompensa", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
-                        .WithMany("EvenimentRecompensas")
+                        .WithMany("EvenimenteRecompensa")
                         .HasForeignKey("UtilizatorId")
                         .IsRequired()
                         .HasConstraintName("eveniment_recompensa_utilizator_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Sesiune", "Sesiune")
-                        .WithMany("EvenimentRecompensas")
+                        .WithMany("EvenimenteRecompensa")
                         .HasForeignKey("SesiuneId", "UtilizatorId")
                         .HasPrincipalKey("Id", "UtilizatorId")
                         .HasConstraintName("eveniment_recompensa_sesiune_id_utilizator_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.UtilizatorMaterie", "UtilizatorMaterie")
-                        .WithMany("EvenimentRecompensas")
+                        .WithMany("EvenimenteRecompensa")
                         .HasForeignKey("UtilizatorId", "MaterieId")
                         .HasConstraintName("eveniment_recompensa_utilizator_id_materie_id_fkey");
 
@@ -1705,13 +1705,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Graf", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
-                        .WithMany("Grafs")
+                        .WithMany("Grafuri")
                         .HasForeignKey("MaterieId")
                         .IsRequired()
                         .HasConstraintName("graf_materie_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Owner")
-                        .WithMany("Grafs")
+                        .WithMany("Grafuri")
                         .HasForeignKey("OwnerId")
                         .IsRequired()
                         .HasConstraintName("graf_owner_id_fkey");
@@ -1724,14 +1724,14 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.GrafCurs", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
-                        .WithMany("GrafCurs")
+                        .WithMany("GrafuriCurs")
                         .HasForeignKey("CursId", "MaterieId")
                         .HasPrincipalKey("Id", "MaterieId")
                         .IsRequired()
                         .HasConstraintName("graf_curs_curs_id_materie_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Graf", "Graf")
-                        .WithMany("GrafCurs")
+                        .WithMany("CursuriGraf")
                         .HasForeignKey("GrafId", "MaterieId")
                         .HasPrincipalKey("Id", "MaterieId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1746,7 +1746,7 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Mesaj", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Sesiune", "Sesiune")
-                        .WithMany("Mesajs")
+                        .WithMany("Mesaje")
                         .HasForeignKey("SesiuneId")
                         .IsRequired()
                         .HasConstraintName("mesaj_sesiune_id_fkey");
@@ -1757,14 +1757,14 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.MuchieGraf", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.GrafCurs", "GrafCurs")
-                        .WithMany("MuchieGrafGrafCurs")
+                        .WithMany("MuchiiCaDestinatie")
                         .HasForeignKey("GrafId", "CursDestinatieId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("muchie_graf_graf_id_curs_destinatie_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.GrafCurs", "GrafCurNavigation")
-                        .WithMany("MuchieGrafGrafCurNavigations")
+                        .WithMany("MuchiiCaSursa")
                         .HasForeignKey("GrafId", "CursSursaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
@@ -1778,7 +1778,7 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Plata", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Rezervare", "Rezervare")
-                        .WithMany("Plata")
+                        .WithMany("Plati")
                         .HasForeignKey("RezervareId")
                         .IsRequired()
                         .HasConstraintName("plata_rezervare_id_fkey");
@@ -1789,12 +1789,12 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.PreferinteUtilizator", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Background", "BackgroundStatic")
-                        .WithMany("PreferinteUtilizators")
+                        .WithMany("PreferinteUtilizatori")
                         .HasForeignKey("BackgroundStaticId")
                         .HasConstraintName("preferinte_utilizator_background_static_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Interfata", "Interfata")
-                        .WithMany("PreferinteUtilizators")
+                        .WithMany("PreferinteUtilizatori")
                         .HasForeignKey("InterfataId")
                         .HasConstraintName("preferinte_utilizator_interfata_id_fkey");
 
@@ -1826,13 +1826,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.RegulaBackground", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Background", "Background")
-                        .WithMany("RegulaBackgrounds")
+                        .WithMany("ReguliBackground")
                         .HasForeignKey("BackgroundId")
                         .IsRequired()
                         .HasConstraintName("regula_background_background_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Interfata", "Interfata")
-                        .WithMany("RegulaBackgrounds")
+                        .WithMany("ReguliBackground")
                         .HasForeignKey("InterfataId")
                         .HasConstraintName("regula_background_interfata_id_fkey");
 
@@ -1844,13 +1844,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Rezervare", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.CameraTutoring", "Camera")
-                        .WithMany("Rezervares")
+                        .WithMany("Rezervari")
                         .HasForeignKey("CameraId")
                         .IsRequired()
                         .HasConstraintName("rezervare_camera_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Elev")
-                        .WithMany("Rezervares")
+                        .WithMany("Rezervari")
                         .HasForeignKey("ElevId")
                         .IsRequired()
                         .HasConstraintName("rezervare_elev_id_fkey");
@@ -1863,18 +1863,18 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Sesiune", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
-                        .WithMany("Sesiunes")
+                        .WithMany("Sesiuni")
                         .HasForeignKey("CursId")
                         .HasConstraintName("sesiune_curs_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
-                        .WithMany("Sesiunes")
+                        .WithMany("Sesiuni")
                         .HasForeignKey("UtilizatorId")
                         .IsRequired()
                         .HasConstraintName("sesiune_utilizator_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Rezervare", "Rezervare")
-                        .WithMany("Sesiunes")
+                        .WithMany("Sesiuni")
                         .HasForeignKey("RezervareId", "UtilizatorId")
                         .HasPrincipalKey("Id", "ElevId")
                         .HasConstraintName("sesiune_rezervare_id_utilizator_id_fkey");
@@ -1889,13 +1889,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.SmsLog", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Sesiune", "Sesiune")
-                        .WithMany("SmsLogs")
+                        .WithMany("JurnaleSms")
                         .HasForeignKey("SesiuneId")
                         .IsRequired()
                         .HasConstraintName("sms_log_sesiune_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Mesaj", "Mesaj")
-                        .WithMany("SmsLogs")
+                        .WithMany("JurnaleSms")
                         .HasForeignKey("MesajId", "SesiuneId")
                         .HasPrincipalKey("Id", "SesiuneId")
                         .HasConstraintName("sms_log_mesaj_id_sesiune_id_fkey");
@@ -1908,13 +1908,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.TablaPas", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Sesiune", "Sesiune")
-                        .WithMany("TablaPas")
+                        .WithMany("PasiTabla")
                         .HasForeignKey("SesiuneId")
                         .IsRequired()
                         .HasConstraintName("tabla_pas_sesiune_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Mesaj", "Mesaj")
-                        .WithMany("TablaPas")
+                        .WithMany("PasiTabla")
                         .HasForeignKey("MesajId", "SesiuneId")
                         .HasPrincipalKey("Id", "SesiuneId")
                         .HasConstraintName("tabla_pas_mesaj_id_sesiune_id_fkey");
@@ -1927,13 +1927,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.UtilizatorMaterie", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
-                        .WithMany("UtilizatorMateries")
+                        .WithMany("UtilizatoriMaterii")
                         .HasForeignKey("MaterieId")
                         .IsRequired()
                         .HasConstraintName("utilizator_materie_materie_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
-                        .WithMany("UtilizatorMateries")
+                        .WithMany("Materii")
                         .HasForeignKey("UtilizatorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
@@ -1947,13 +1947,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.UtilizatorRealizare", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Realizare", "Realizare")
-                        .WithMany("UtilizatorRealizares")
+                        .WithMany("UtilizatoriRealizari")
                         .HasForeignKey("RealizareId")
                         .IsRequired()
                         .HasConstraintName("utilizator_realizare_realizare_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
-                        .WithMany("UtilizatorRealizares")
+                        .WithMany("Realizari")
                         .HasForeignKey("UtilizatorId")
                         .IsRequired()
                         .HasConstraintName("utilizator_realizare_utilizator_id_fkey");
@@ -1966,13 +1966,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.UtilizatorRol", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Rol", "Rol")
-                        .WithMany("UtilizatorRols")
+                        .WithMany("UtilizatoriRoluri")
                         .HasForeignKey("RolId")
                         .IsRequired()
                         .HasConstraintName("utilizator_rol_rol_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
-                        .WithMany("UtilizatorRols")
+                        .WithMany("Roluri")
                         .HasForeignKey("UtilizatorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
@@ -2079,135 +2079,135 @@ namespace MarkAi.Data.Migrations
 
             modelBuilder.Entity("MarkAi.Data.Entities.Background", b =>
                 {
-                    b.Navigation("PreferinteUtilizators");
+                    b.Navigation("PreferinteUtilizatori");
 
-                    b.Navigation("RegulaBackgrounds");
+                    b.Navigation("ReguliBackground");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.CameraTutoring", b =>
                 {
-                    b.Navigation("Rezervares");
+                    b.Navigation("Rezervari");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Curs", b =>
                 {
-                    b.Navigation("CameraTutorings");
+                    b.Navigation("CamereTutoring");
 
-                    b.Navigation("GrafCurs");
+                    b.Navigation("GrafuriCurs");
 
-                    b.Navigation("Sesiunes");
+                    b.Navigation("Sesiuni");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Decontare", b =>
                 {
-                    b.Navigation("ComisionMentors");
+                    b.Navigation("ComisioaneMentor");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Graf", b =>
                 {
-                    b.Navigation("GrafCurs");
+                    b.Navigation("CursuriGraf");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.GrafCurs", b =>
                 {
-                    b.Navigation("MuchieGrafGrafCurNavigations");
+                    b.Navigation("MuchiiCaDestinatie");
 
-                    b.Navigation("MuchieGrafGrafCurs");
+                    b.Navigation("MuchiiCaSursa");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Interfata", b =>
                 {
-                    b.Navigation("PreferinteUtilizators");
+                    b.Navigation("PreferinteUtilizatori");
 
-                    b.Navigation("RegulaBackgrounds");
+                    b.Navigation("ReguliBackground");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Materie", b =>
                 {
-                    b.Navigation("CameraTutorings");
+                    b.Navigation("CamereTutoring");
 
-                    b.Navigation("Curs");
+                    b.Navigation("Cursuri");
 
-                    b.Navigation("Grafs");
+                    b.Navigation("Grafuri");
 
-                    b.Navigation("UtilizatorMateries");
+                    b.Navigation("UtilizatoriMaterii");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Mesaj", b =>
                 {
-                    b.Navigation("SmsLogs");
+                    b.Navigation("JurnaleSms");
 
-                    b.Navigation("TablaPas");
+                    b.Navigation("PasiTabla");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.ProfilMentor", b =>
                 {
-                    b.Navigation("CameraTutorings");
+                    b.Navigation("CamereTutoring");
 
-                    b.Navigation("ComisionMentors");
+                    b.Navigation("Comisioane");
 
-                    b.Navigation("Decontares");
+                    b.Navigation("Decontari");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Realizare", b =>
                 {
-                    b.Navigation("UtilizatorRealizares");
+                    b.Navigation("UtilizatoriRealizari");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Rezervare", b =>
                 {
                     b.Navigation("ComisionMentor");
 
-                    b.Navigation("Plata");
+                    b.Navigation("Plati");
 
-                    b.Navigation("Sesiunes");
+                    b.Navigation("Sesiuni");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Rol", b =>
                 {
-                    b.Navigation("UtilizatorRols");
+                    b.Navigation("UtilizatoriRoluri");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Sesiune", b =>
                 {
-                    b.Navigation("EvenimentRecompensas");
+                    b.Navigation("EvenimenteRecompensa");
 
-                    b.Navigation("Mesajs");
+                    b.Navigation("JurnaleSms");
 
-                    b.Navigation("SmsLogs");
+                    b.Navigation("Mesaje");
 
-                    b.Navigation("TablaPas");
+                    b.Navigation("PasiTabla");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.TarifFix", b =>
                 {
-                    b.Navigation("CameraTutorings");
+                    b.Navigation("CamereTutoring");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Utilizator", b =>
                 {
-                    b.Navigation("EvenimentRecompensas");
+                    b.Navigation("EvenimenteRecompensa");
 
-                    b.Navigation("Grafs");
+                    b.Navigation("Grafuri");
+
+                    b.Navigation("Materii");
 
                     b.Navigation("PreferinteUtilizator");
 
                     b.Navigation("ProfilMentor");
 
-                    b.Navigation("Rezervares");
+                    b.Navigation("Realizari");
 
-                    b.Navigation("Sesiunes");
+                    b.Navigation("Rezervari");
 
-                    b.Navigation("UtilizatorMateries");
+                    b.Navigation("Roluri");
 
-                    b.Navigation("UtilizatorRealizares");
-
-                    b.Navigation("UtilizatorRols");
+                    b.Navigation("Sesiuni");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.UtilizatorMaterie", b =>
                 {
-                    b.Navigation("EvenimentRecompensas");
+                    b.Navigation("EvenimenteRecompensa");
                 });
 #pragma warning restore 612, 618
         }

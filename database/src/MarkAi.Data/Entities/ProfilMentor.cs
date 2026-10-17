@@ -15,11 +15,11 @@ public partial class ProfilMentor
 
     public DateTime? ActivatLa { get; set; }
 
-    public virtual ICollection<CameraTutoring> CameraTutorings { get; set; } = new List<CameraTutoring>();
+    public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
-    public virtual ICollection<ComisionMentor> ComisionMentors { get; set; } = new List<ComisionMentor>();
+    public virtual ICollection<ComisionMentor> Comisioane { get; set; } = new List<ComisionMentor>();
 
-    public virtual ICollection<Decontare> Decontares { get; set; } = new List<Decontare>();
+    public virtual ICollection<Decontare> Decontari { get; set; } = new List<Decontare>();
 
     public virtual Utilizator Utilizator { get; set; } = null!;
 }

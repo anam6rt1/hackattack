@@ -25,15 +25,15 @@ public partial class Sesiune
 
     public virtual Curs? Curs { get; set; }
 
-    public virtual ICollection<EvenimentRecompensa> EvenimentRecompensas { get; set; } = new List<EvenimentRecompensa>();
+    public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
-    public virtual ICollection<Mesaj> Mesajs { get; set; } = new List<Mesaj>();
+    public virtual ICollection<Mesaj> Mesaje { get; set; } = new List<Mesaj>();
 
     public virtual Rezervare? Rezervare { get; set; }
 
-    public virtual ICollection<SmsLog> SmsLogs { get; set; } = new List<SmsLog>();
+    public virtual ICollection<SmsLog> JurnaleSms { get; set; } = new List<SmsLog>();
 
-    public virtual ICollection<TablaPas> TablaPas { get; set; } = new List<TablaPas>();
+    public virtual ICollection<TablaPas> PasiTabla { get; set; } = new List<TablaPas>();
 
     public virtual Utilizator Utilizator { get; set; } = null!;
 }

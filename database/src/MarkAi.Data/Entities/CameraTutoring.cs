@@ -33,7 +33,7 @@ public partial class CameraTutoring
 
     public virtual ProfilMentor Mentor { get; set; } = null!;
 
-    public virtual ICollection<Rezervare> Rezervares { get; set; } = new List<Rezervare>();
+    public virtual ICollection<Rezervare> Rezervari { get; set; } = new List<Rezervare>();
 
     public virtual TarifFix Tarif { get; set; } = null!;
 }

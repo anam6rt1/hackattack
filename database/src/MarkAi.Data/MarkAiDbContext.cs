@@ -14,59 +14,59 @@ public partial class MarkAiDbContext : DbContext
 
     public virtual DbSet<Background> Backgrounds { get; set; }
 
-    public virtual DbSet<CameraTutoring> CameraTutorings { get; set; }
+    public virtual DbSet<CameraTutoring> CamereTutoring { get; set; }
 
-    public virtual DbSet<ComisionMentor> ComisionMentors { get; set; }
+    public virtual DbSet<ComisionMentor> ComisioaneMentor { get; set; }
 
     public virtual DbSet<Curs> Curs { get; set; }
 
-    public virtual DbSet<Decontare> Decontares { get; set; }
+    public virtual DbSet<Decontare> Decontari { get; set; }
 
-    public virtual DbSet<EvenimentRecompensa> EvenimentRecompensas { get; set; }
+    public virtual DbSet<EvenimentRecompensa> EvenimenteRecompensa { get; set; }
 
-    public virtual DbSet<Graf> Grafs { get; set; }
+    public virtual DbSet<Graf> Grafuri { get; set; }
 
-    public virtual DbSet<GrafCurs> GrafCurs { get; set; }
+    public virtual DbSet<GrafCurs> GrafuriCurs { get; set; }
 
     public virtual DbSet<Interfata> Interfata { get; set; }
 
-    public virtual DbSet<Materie> Materies { get; set; }
+    public virtual DbSet<Materie> Materii { get; set; }
 
-    public virtual DbSet<Mesaj> Mesajs { get; set; }
+    public virtual DbSet<Mesaj> Mesaje { get; set; }
 
-    public virtual DbSet<MuchieGraf> MuchieGrafs { get; set; }
+    public virtual DbSet<MuchieGraf> MuchiiGraf { get; set; }
 
-    public virtual DbSet<NivelXp> NivelXps { get; set; }
+    public virtual DbSet<NivelXp> NiveluriXp { get; set; }
 
-    public virtual DbSet<Plata> Plata { get; set; }
+    public virtual DbSet<Plata> Plati { get; set; }
 
-    public virtual DbSet<PreferinteUtilizator> PreferinteUtilizators { get; set; }
+    public virtual DbSet<PreferinteUtilizator> PreferinteUtilizatori { get; set; }
 
-    public virtual DbSet<ProfilMentor> ProfilMentors { get; set; }
+    public virtual DbSet<ProfilMentor> ProfiluriMentor { get; set; }
 
-    public virtual DbSet<Realizare> Realizares { get; set; }
+    public virtual DbSet<Realizare> Realizari { get; set; }
 
-    public virtual DbSet<RegulaBackground> RegulaBackgrounds { get; set; }
+    public virtual DbSet<RegulaBackground> ReguliBackground { get; set; }
 
-    public virtual DbSet<Rezervare> Rezervares { get; set; }
+    public virtual DbSet<Rezervare> Rezervari { get; set; }
 
-    public virtual DbSet<Rol> Rols { get; set; }
+    public virtual DbSet<Rol> Roluri { get; set; }
 
-    public virtual DbSet<Sesiune> Sesiunes { get; set; }
+    public virtual DbSet<Sesiune> Sesiuni { get; set; }
 
-    public virtual DbSet<SmsLog> SmsLogs { get; set; }
+    public virtual DbSet<SmsLog> JurnaleSms { get; set; }
 
-    public virtual DbSet<TablaPas> TablaPas { get; set; }
+    public virtual DbSet<TablaPas> PasiTabla { get; set; }
 
-    public virtual DbSet<TarifFix> TarifFixes { get; set; }
+    public virtual DbSet<TarifFix> TarifeFixe { get; set; }
 
-    public virtual DbSet<Utilizator> Utilizators { get; set; }
+    public virtual DbSet<Utilizator> Utilizatori { get; set; }
 
-    public virtual DbSet<UtilizatorMaterie> UtilizatorMateries { get; set; }
+    public virtual DbSet<UtilizatorMaterie> UtilizatoriMaterii { get; set; }
 
-    public virtual DbSet<UtilizatorRealizare> UtilizatorRealizares { get; set; }
+    public virtual DbSet<UtilizatorRealizare> UtilizatoriRealizari { get; set; }
 
-    public virtual DbSet<UtilizatorRol> UtilizatorRols { get; set; }
+    public virtual DbSet<UtilizatorRol> UtilizatoriRoluri { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -124,22 +124,22 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.TarifId).HasColumnName("tarif_id");
             entity.Property(e => e.Titlu).HasColumnName("titlu");
 
-            entity.HasOne(d => d.Materie).WithMany(p => p.CameraTutorings)
+            entity.HasOne(d => d.Materie).WithMany(p => p.CamereTutoring)
                 .HasForeignKey(d => d.MaterieId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("camera_tutoring_materie_id_fkey");
 
-            entity.HasOne(d => d.Mentor).WithMany(p => p.CameraTutorings)
+            entity.HasOne(d => d.Mentor).WithMany(p => p.CamereTutoring)
                 .HasForeignKey(d => d.MentorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("camera_tutoring_mentor_id_fkey");
 
-            entity.HasOne(d => d.Tarif).WithMany(p => p.CameraTutorings)
+            entity.HasOne(d => d.Tarif).WithMany(p => p.CamereTutoring)
                 .HasForeignKey(d => d.TarifId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("camera_tutoring_tarif_id_fkey");
 
-            entity.HasOne(d => d.Curs).WithMany(p => p.CameraTutorings)
+            entity.HasOne(d => d.Curs).WithMany(p => p.CamereTutoring)
                 .HasPrincipalKey(p => new { p.Id, p.MaterieId })
                 .HasForeignKey(d => new { d.CursId, d.MaterieId })
                 .HasConstraintName("camera_tutoring_curs_id_materie_id_fkey");
@@ -178,7 +178,7 @@ public partial class MarkAiDbContext : DbContext
                 .HasPrecision(14, 2)
                 .HasColumnName("tarif_baza");
 
-            entity.HasOne(d => d.Mentor).WithMany(p => p.ComisionMentors)
+            entity.HasOne(d => d.Mentor).WithMany(p => p.Comisioane)
                 .HasForeignKey(d => d.MentorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("comision_mentor_mentor_id_fkey");
@@ -188,7 +188,7 @@ public partial class MarkAiDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("comision_mentor_rezervare_id_fkey");
 
-            entity.HasOne(d => d.Decontare).WithMany(p => p.ComisionMentors)
+            entity.HasOne(d => d.Decontare).WithMany(p => p.ComisioaneMentor)
                 .HasPrincipalKey(p => new { p.Id, p.MentorId, p.Moneda })
                 .HasForeignKey(d => new { d.DecontareId, d.MentorId, d.Moneda })
                 .HasConstraintName("comision_mentor_decontare_id_mentor_id_moneda_fkey");
@@ -212,7 +212,7 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.MaterieId).HasColumnName("materie_id");
             entity.Property(e => e.Titlu).HasColumnName("titlu");
 
-            entity.HasOne(d => d.Materie).WithMany(p => p.Curs)
+            entity.HasOne(d => d.Materie).WithMany(p => p.Cursuri)
                 .HasForeignKey(d => d.MaterieId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("curs_materie_id_fkey");
@@ -245,7 +245,7 @@ public partial class MarkAiDbContext : DbContext
                 .HasPrecision(14, 2)
                 .HasColumnName("suma_totala");
 
-            entity.HasOne(d => d.Mentor).WithMany(p => p.Decontares)
+            entity.HasOne(d => d.Mentor).WithMany(p => p.Decontari)
                 .HasForeignKey(d => d.MentorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("decontare_mentor_id_fkey");
@@ -281,17 +281,17 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.UtilizatorId).HasColumnName("utilizator_id");
             entity.Property(e => e.XpAcordat).HasColumnName("xp_acordat");
 
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.EvenimentRecompensas)
+            entity.HasOne(d => d.Utilizator).WithMany(p => p.EvenimenteRecompensa)
                 .HasForeignKey(d => d.UtilizatorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("eveniment_recompensa_utilizator_id_fkey");
 
-            entity.HasOne(d => d.Sesiune).WithMany(p => p.EvenimentRecompensas)
+            entity.HasOne(d => d.Sesiune).WithMany(p => p.EvenimenteRecompensa)
                 .HasPrincipalKey(p => new { p.Id, p.UtilizatorId })
                 .HasForeignKey(d => new { d.SesiuneId, d.UtilizatorId })
                 .HasConstraintName("eveniment_recompensa_sesiune_id_utilizator_id_fkey");
 
-            entity.HasOne(d => d.UtilizatorMaterie).WithMany(p => p.EvenimentRecompensas)
+            entity.HasOne(d => d.UtilizatorMaterie).WithMany(p => p.EvenimenteRecompensa)
                 .HasForeignKey(d => new { d.UtilizatorId, d.MaterieId })
                 .HasConstraintName("eveniment_recompensa_utilizator_id_materie_id_fkey");
         });
@@ -319,12 +319,12 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.OwnerId).HasColumnName("owner_id");
             entity.Property(e => e.Titlu).HasColumnName("titlu");
 
-            entity.HasOne(d => d.Materie).WithMany(p => p.Grafs)
+            entity.HasOne(d => d.Materie).WithMany(p => p.Grafuri)
                 .HasForeignKey(d => d.MaterieId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("graf_materie_id_fkey");
 
-            entity.HasOne(d => d.Owner).WithMany(p => p.Grafs)
+            entity.HasOne(d => d.Owner).WithMany(p => p.Grafuri)
                 .HasForeignKey(d => d.OwnerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("graf_owner_id_fkey");
@@ -347,13 +347,13 @@ public partial class MarkAiDbContext : DbContext
                 .HasColumnName("adaugat_la");
             entity.Property(e => e.MaterieId).HasColumnName("materie_id");
 
-            entity.HasOne(d => d.Curs).WithMany(p => p.GrafCurs)
+            entity.HasOne(d => d.Curs).WithMany(p => p.GrafuriCurs)
                 .HasPrincipalKey(p => new { p.Id, p.MaterieId })
                 .HasForeignKey(d => new { d.CursId, d.MaterieId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("graf_curs_curs_id_materie_id_fkey");
 
-            entity.HasOne(d => d.Graf).WithMany(p => p.GrafCurs)
+            entity.HasOne(d => d.Graf).WithMany(p => p.CursuriGraf)
                 .HasPrincipalKey(p => new { p.Id, p.MaterieId })
                 .HasForeignKey(d => new { d.GrafId, d.MaterieId })
                 .HasConstraintName("graf_curs_graf_id_materie_id_fkey");
@@ -415,7 +415,7 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.SesiuneId).HasColumnName("sesiune_id");
             entity.Property(e => e.Tip).HasColumnName("tip");
 
-            entity.HasOne(d => d.Sesiune).WithMany(p => p.Mesajs)
+            entity.HasOne(d => d.Sesiune).WithMany(p => p.Mesaje)
                 .HasForeignKey(d => d.SesiuneId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("mesaj_sesiune_id_fkey");
@@ -435,11 +435,11 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.Descriere).HasColumnName("descriere");
             entity.Property(e => e.TipLegatura).HasColumnName("tip_legatura");
 
-            entity.HasOne(d => d.GrafCurs).WithMany(p => p.MuchieGrafGrafCurs)
+            entity.HasOne(d => d.GrafCurs).WithMany(p => p.MuchiiCaDestinatie)
                 .HasForeignKey(d => new { d.GrafId, d.CursDestinatieId })
                 .HasConstraintName("muchie_graf_graf_id_curs_destinatie_id_fkey");
 
-            entity.HasOne(d => d.GrafCurNavigation).WithMany(p => p.MuchieGrafGrafCurNavigations)
+            entity.HasOne(d => d.GrafCurNavigation).WithMany(p => p.MuchiiCaSursa)
                 .HasForeignKey(d => new { d.GrafId, d.CursSursaId })
                 .HasConstraintName("muchie_graf_graf_id_curs_sursa_id_fkey");
         });
@@ -483,7 +483,7 @@ public partial class MarkAiDbContext : DbContext
                 .HasColumnName("suma");
             entity.Property(e => e.TranzactieExterna).HasColumnName("tranzactie_externa");
 
-            entity.HasOne(d => d.Rezervare).WithMany(p => p.Plata)
+            entity.HasOne(d => d.Rezervare).WithMany(p => p.Plati)
                 .HasForeignKey(d => d.RezervareId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("plata_rezervare_id_fkey");
@@ -512,11 +512,11 @@ public partial class MarkAiDbContext : DbContext
                 .HasDefaultValueSql("'Europe/Bucharest'::text")
                 .HasColumnName("timezone");
 
-            entity.HasOne(d => d.BackgroundStatic).WithMany(p => p.PreferinteUtilizators)
+            entity.HasOne(d => d.BackgroundStatic).WithMany(p => p.PreferinteUtilizatori)
                 .HasForeignKey(d => d.BackgroundStaticId)
                 .HasConstraintName("preferinte_utilizator_background_static_id_fkey");
 
-            entity.HasOne(d => d.Interfata).WithMany(p => p.PreferinteUtilizators)
+            entity.HasOne(d => d.Interfata).WithMany(p => p.PreferinteUtilizatori)
                 .HasForeignKey(d => d.InterfataId)
                 .HasConstraintName("preferinte_utilizator_interfata_id_fkey");
 
@@ -590,12 +590,12 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.PerioadaZilei).HasColumnName("perioada_zilei");
             entity.Property(e => e.Prioritate).HasColumnName("prioritate");
 
-            entity.HasOne(d => d.Background).WithMany(p => p.RegulaBackgrounds)
+            entity.HasOne(d => d.Background).WithMany(p => p.ReguliBackground)
                 .HasForeignKey(d => d.BackgroundId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("regula_background_background_id_fkey");
 
-            entity.HasOne(d => d.Interfata).WithMany(p => p.RegulaBackgrounds)
+            entity.HasOne(d => d.Interfata).WithMany(p => p.ReguliBackground)
                 .HasForeignKey(d => d.InterfataId)
                 .HasConstraintName("regula_background_interfata_id_fkey");
         });
@@ -627,12 +627,12 @@ public partial class MarkAiDbContext : DbContext
                 .HasPrecision(14, 2)
                 .HasColumnName("tarif_achitat");
 
-            entity.HasOne(d => d.Camera).WithMany(p => p.Rezervares)
+            entity.HasOne(d => d.Camera).WithMany(p => p.Rezervari)
                 .HasForeignKey(d => d.CameraId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("rezervare_camera_id_fkey");
 
-            entity.HasOne(d => d.Elev).WithMany(p => p.Rezervares)
+            entity.HasOne(d => d.Elev).WithMany(p => p.Rezervari)
                 .HasForeignKey(d => d.ElevId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("rezervare_elev_id_fkey");
@@ -684,16 +684,16 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.TwilioCallSid).HasColumnName("twilio_call_sid");
             entity.Property(e => e.UtilizatorId).HasColumnName("utilizator_id");
 
-            entity.HasOne(d => d.Curs).WithMany(p => p.Sesiunes)
+            entity.HasOne(d => d.Curs).WithMany(p => p.Sesiuni)
                 .HasForeignKey(d => d.CursId)
                 .HasConstraintName("sesiune_curs_id_fkey");
 
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.Sesiunes)
+            entity.HasOne(d => d.Utilizator).WithMany(p => p.Sesiuni)
                 .HasForeignKey(d => d.UtilizatorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("sesiune_utilizator_id_fkey");
 
-            entity.HasOne(d => d.Rezervare).WithMany(p => p.Sesiunes)
+            entity.HasOne(d => d.Rezervare).WithMany(p => p.Sesiuni)
                 .HasPrincipalKey(p => new { p.Id, p.ElevId })
                 .HasForeignKey(d => new { d.RezervareId, d.UtilizatorId })
                 .HasConstraintName("sesiune_rezervare_id_utilizator_id_fkey");
@@ -723,12 +723,12 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.StatusLivrare).HasColumnName("status_livrare");
             entity.Property(e => e.TrimisLa).HasColumnName("trimis_la");
 
-            entity.HasOne(d => d.Sesiune).WithMany(p => p.SmsLogs)
+            entity.HasOne(d => d.Sesiune).WithMany(p => p.JurnaleSms)
                 .HasForeignKey(d => d.SesiuneId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("sms_log_sesiune_id_fkey");
 
-            entity.HasOne(d => d.Mesaj).WithMany(p => p.SmsLogs)
+            entity.HasOne(d => d.Mesaj).WithMany(p => p.JurnaleSms)
                 .HasPrincipalKey(p => new { p.Id, p.SesiuneId })
                 .HasForeignKey(d => new { d.MesajId, d.SesiuneId })
                 .HasConstraintName("sms_log_mesaj_id_sesiune_id_fkey");
@@ -756,12 +756,12 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.Ordine).HasColumnName("ordine");
             entity.Property(e => e.SesiuneId).HasColumnName("sesiune_id");
 
-            entity.HasOne(d => d.Sesiune).WithMany(p => p.TablaPas)
+            entity.HasOne(d => d.Sesiune).WithMany(p => p.PasiTabla)
                 .HasForeignKey(d => d.SesiuneId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("tabla_pas_sesiune_id_fkey");
 
-            entity.HasOne(d => d.Mesaj).WithMany(p => p.TablaPas)
+            entity.HasOne(d => d.Mesaj).WithMany(p => p.PasiTabla)
                 .HasPrincipalKey(p => new { p.Id, p.SesiuneId })
                 .HasForeignKey(d => new { d.MesajId, d.SesiuneId })
                 .HasConstraintName("tabla_pas_mesaj_id_sesiune_id_fkey");
@@ -825,12 +825,12 @@ public partial class MarkAiDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("selectata_la");
 
-            entity.HasOne(d => d.Materie).WithMany(p => p.UtilizatorMateries)
+            entity.HasOne(d => d.Materie).WithMany(p => p.UtilizatoriMaterii)
                 .HasForeignKey(d => d.MaterieId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("utilizator_materie_materie_id_fkey");
 
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.UtilizatorMateries)
+            entity.HasOne(d => d.Utilizator).WithMany(p => p.Materii)
                 .HasForeignKey(d => d.UtilizatorId)
                 .HasConstraintName("utilizator_materie_utilizator_id_fkey");
         });
@@ -849,12 +849,12 @@ public partial class MarkAiDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("deblocata_la");
 
-            entity.HasOne(d => d.Realizare).WithMany(p => p.UtilizatorRealizares)
+            entity.HasOne(d => d.Realizare).WithMany(p => p.UtilizatoriRealizari)
                 .HasForeignKey(d => d.RealizareId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("utilizator_realizare_realizare_id_fkey");
 
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.UtilizatorRealizares)
+            entity.HasOne(d => d.Utilizator).WithMany(p => p.Realizari)
                 .HasForeignKey(d => d.UtilizatorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("utilizator_realizare_utilizator_id_fkey");
@@ -874,12 +874,12 @@ public partial class MarkAiDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("atribuit_la");
 
-            entity.HasOne(d => d.Rol).WithMany(p => p.UtilizatorRols)
+            entity.HasOne(d => d.Rol).WithMany(p => p.UtilizatoriRoluri)
                 .HasForeignKey(d => d.RolId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("utilizator_rol_rol_id_fkey");
 
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.UtilizatorRols)
+            entity.HasOne(d => d.Utilizator).WithMany(p => p.Roluri)
                 .HasForeignKey(d => d.UtilizatorId)
                 .HasConstraintName("utilizator_rol_utilizator_id_fkey");
         });

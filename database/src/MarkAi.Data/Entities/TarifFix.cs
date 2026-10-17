@@ -15,6 +15,6 @@ public partial class TarifFix
 
     public bool Activ { get; set; }
 
-    public virtual ICollection<CameraTutoring> CameraTutorings { get; set; } = new List<CameraTutoring>();
+    public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 }
 

@@ -1,0 +1,791 @@
+openapi: 3.0.3
+info:
+  title: Mark AI API - contract pentru frontend
+  version: 0.1.0
+  description: Contract demonstrativ. Rutele si campurile JSON sunt in romana fara diacritice.
+servers:
+  - url: http://localhost:4010
+    description: Mock local
+tags:
+  - name: Autentificare
+  - name: Utilizatori
+  - name: Materii si cursuri
+  - name: Grafuri de invatare
+  - name: Tutoring si rezervari
+  - name: Sesiuni
+  - name: Progres si recompense
+  - name: Preferinte si aspect
+  - name: Trivia
+paths:
+  /autentificare:
+    post:
+      tags: [Autentificare]
+      summary: Autentificare demonstrativa
+      operationId: autentificare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, parola]
+              properties:
+                email: { type: string, format: email }
+                parola: { type: string }
+            example: { email: ana@example.test, parola: demo123 }
+      responses:
+        '200':
+          description: Utilizator demonstrativ autentificat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AutentificareRaspuns' }
+              example: { token: mock-token-ana, utilizator: { id: 1, nume: Ana Popescu, username: ana.popescu, email: ana@example.test, creatLa: '2026-10-01T10:00:00Z' } }
+        '401': { $ref: '#/components/responses/Neautorizat' }
+  /utilizatori:
+    get:
+      tags: [Utilizatori]
+      summary: Lista demonstrativa de utilizatori
+      operationId: listaUtilizatori
+      responses:
+        '200':
+          description: Utilizatori
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UtilizatorLista' }
+              example:
+                elemente:
+                  - { id: 1, nume: Ana Popescu, username: ana.popescu, email: ana@example.test, creatLa: '2026-10-01T10:00:00Z' }
+                  - { id: 2, nume: Mihai Ionescu, username: mihai.ionescu, email: mihai@example.test, creatLa: '2026-10-02T11:30:00Z' }
+                total: 2
+    post:
+      tags: [Utilizatori]
+      summary: Creare utilizator demonstrativ
+      operationId: creeazaUtilizator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UtilizatorNou' }
+            example: { nume: Elena Marin, username: elena.marin, email: elena@example.test }
+      responses:
+        '201':
+          description: Utilizator creat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilizator' }
+              example: { id: 3, nume: Elena Marin, username: elena.marin, email: elena@example.test, creatLa: '2026-10-17T09:00:00Z' }
+  /utilizatori/me:
+    get:
+      tags: [Utilizatori]
+      summary: Profilul utilizatorului curent
+      operationId: profilCurent
+      responses:
+        '200':
+          description: Profil demonstrativ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilizator' }
+              example: { id: 1, nume: Ana Popescu, username: ana.popescu, email: ana@example.test, creatLa: '2026-10-01T10:00:00Z' }
+        '401': { $ref: '#/components/responses/Neautorizat' }
+    patch:
+      tags: [Utilizatori]
+      summary: Actualizare profil
+      operationId: actualizeazaProfil
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nume: { type: string }
+                username: { type: string }
+                telefon: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Profil actualizat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilizator' }
+              example: { id: 1, nume: Ana Popescu, username: ana.popescu, email: ana@example.test, telefon: null, creatLa: '2026-10-01T10:00:00Z' }
+  /materii:
+    get:
+      tags: [Materii si cursuri]
+      summary: Lista materiilor
+      operationId: listaMaterii
+      responses:
+        '200':
+          description: Materii disponibile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MaterieLista' }
+              example:
+                elemente:
+                  - { id: 1, denumire: Matematica, descriere: Algebra si geometrie, numarCursuri: 2 }
+                  - { id: 2, denumire: Fizica, descriere: Mecanica si electricitate, numarCursuri: 1 }
+                total: 2
+  /materii/{materieId}:
+    get:
+      tags: [Materii si cursuri]
+      summary: Detalii materie
+      operationId: detaliiMaterie
+      parameters:
+        - { $ref: '#/components/parameters/MaterieId' }
+      responses:
+        '200':
+          description: Materie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Materie' }
+              example: { id: 1, denumire: Matematica, descriere: Algebra si geometrie, numarCursuri: 2 }
+        '404': { $ref: '#/components/responses/Negasit' }
+  /materii/{materieId}/cursuri:
+    get:
+      tags: [Materii si cursuri]
+      summary: Cursurile unei materii
+      operationId: cursuriMaterie
+      parameters:
+        - { $ref: '#/components/parameters/MaterieId' }
+      responses:
+        '200':
+          description: Cursuri
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CursLista' }
+              example:
+                elemente:
+                  - { id: 11, materieId: 1, materieDenumire: Matematica, titlu: Ecuatii de gradul al doilea, descriere: Metode de rezolvare, continut: 'Forma generala: ax^2 + bx + c = 0.' }
+                  - { id: 12, materieId: 1, materieDenumire: Matematica, titlu: Functii liniare, descriere: Grafice si panta, continut: 'Functia liniara: f(x) = mx + n.' }
+                total: 2
+  /cursuri/{cursId}:
+    get:
+      tags: [Materii si cursuri]
+      summary: Detalii curs/material
+      operationId: detaliiCurs
+      parameters:
+        - { name: cursId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Curs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Curs' }
+              example: { id: 11, materieId: 1, materieDenumire: Matematica, titlu: Ecuatii de gradul al doilea, descriere: Metode de rezolvare, continut: 'Forma generala: ax^2 + bx + c = 0.' }
+        '404': { $ref: '#/components/responses/Negasit' }
+  /grafuri:
+    get:
+      tags: [Grafuri de invatare]
+      summary: Grafurile de invatare ale utilizatorului
+      operationId: listaGrafuri
+      responses:
+        '200':
+          description: Grafuri
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GrafLista' }
+              example:
+                elemente:
+                  - id: 5
+                    titlu: Parcurs de algebra
+                    descriere: Ordinea recomandata a lectiilor
+                    materie: { id: 1, denumire: Matematica }
+                    cursuri: [{ id: 11, titlu: Ecuatii de gradul al doilea }, { id: 12, titlu: Functii liniare }]
+                    legaturi: [{ cursSursaId: 11, cursDestinatieId: 12, tip: urmator }]
+                total: 1
+    post:
+      tags: [Grafuri de invatare]
+      summary: Creare graf de invatare
+      operationId: creeazaGraf
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [materieId, titlu]
+              properties:
+                materieId: { type: integer }
+                titlu: { type: string }
+                descriere: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Graf creat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Graf' }
+              example: { id: 6, materieId: 1, titlu: Parcurs nou, descriere: null, creatLa: '2026-10-17T09:00:00Z', cursuri: [], legaturi: [] }
+  /grafuri/{grafId}/cursuri:
+    post:
+      tags: [Grafuri de invatare]
+      summary: Adauga un curs in graf
+      operationId: adaugaCursInGraf
+      parameters:
+        - { name: grafId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cursId]
+              properties:
+                cursId: { type: integer }
+      responses:
+        '201':
+          description: Curs adaugat in graf
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CursScurt' }
+              example: { id: 11, titlu: Ecuatii de gradul al doilea }
+  /camere-meditatii:
+    get:
+      tags: [Tutoring si rezervari]
+      summary: Camere de meditatii disponibile
+      operationId: listaCamereMeditatii
+      parameters:
+        - { name: materieId, in: query, required: false, schema: { type: integer } }
+      responses:
+        '200':
+          description: Camere disponibile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraMeditatiiLista' }
+              example:
+                elemente:
+                  - id: 20
+                    titlu: Algebra, grupa de seara
+                    descriere: Exercitii si intrebari
+                    status: disponibila
+                    capacitate: 4
+                    inceputLa: '2026-10-20T16:00:00Z'
+                    materie: { id: 1, denumire: Matematica }
+                    curs: { id: 11, titlu: Ecuatii de gradul al doilea }
+                    mentor: { utilizatorId: 2, nume: Mihai Ionescu, descriere: Profesor de matematica }
+                    tarif: { suma: 50, moneda: RON, durataMinute: 60 }
+                    locuriLibere: 2
+                total: 1
+  /rezervari:
+    get:
+      tags: [Tutoring si rezervari]
+      summary: Rezervarile utilizatorului curent
+      operationId: listaRezervari
+      responses:
+        '200':
+          description: Rezervari
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RezervareLista' }
+              example:
+                elemente:
+                  - id: 31
+                    status: confirmata
+                    rezervataLa: '2026-10-17T09:00:00Z'
+                    tarifAchitat: { suma: 50, moneda: RON }
+                    camera: { id: 20, titlu: Algebra, grupa de seara, inceputLa: '2026-10-20T16:00:00Z' }
+                    mentor: { utilizatorId: 2, nume: Mihai Ionescu }
+                total: 1
+    post:
+      tags: [Tutoring si rezervari]
+      summary: Rezerva un loc intr-o camera
+      operationId: creeazaRezervare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cameraId]
+              properties:
+                cameraId: { type: integer }
+      responses:
+        '201':
+          description: Rezervare creata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rezervare' }
+              example: { id: 32, cameraId: 20, status: in_asteptare, rezervataLa: '2026-10-17T09:00:00Z', tarifAchitat: { suma: 50, moneda: RON } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /sesiuni:
+    get:
+      tags: [Sesiuni]
+      summary: Sesiunile utilizatorului curent
+      operationId: listaSesiuni
+      responses:
+        '200':
+          description: Sesiuni
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SesiuneLista' }
+              example:
+                elemente:
+                  - { id: 40, canal: text, status: activa, inceputLa: '2026-10-17T08:00:00Z', finalizatLa: null, curs: { id: 11, titlu: Ecuatii de gradul al doilea }, numarMesaje: 4 }
+                total: 1
+  /sesiuni/{sesiuneId}/mesaje:
+    get:
+      tags: [Sesiuni]
+      summary: Mesajele unei sesiuni
+      operationId: listaMesaje
+      parameters:
+        - { name: sesiuneId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Mesaje
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MesajLista' }
+              example:
+                elemente:
+                  - { id: 101, expeditor: utilizator, tip: text, continut: 'Poti sa-mi explici pasul al doilea?', creatLa: '2026-10-17T08:01:00Z' }
+                  - { id: 102, expeditor: asistent, tip: text, continut: 'Sigur. Mai intai izolam termenul...', creatLa: '2026-10-17T08:01:10Z' }
+                total: 2
+    post:
+      tags: [Sesiuni]
+      summary: Trimite mesaj in sesiune
+      operationId: trimiteMesaj
+      parameters:
+        - { name: sesiuneId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [continut]
+              properties:
+                continut: { type: string }
+      responses:
+        '201':
+          description: Mesaj trimis
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Mesaj' }
+              example: { id: 103, expeditor: utilizator, tip: text, continut: 'Multumesc!', creatLa: '2026-10-17T08:02:00Z' }
+  /progres:
+    get:
+      tags: [Progres si recompense]
+      summary: Progres agregat pentru utilizatorul curent
+      operationId: progresCurent
+      responses:
+        '200':
+          description: XP, nivel si puncte pe materii
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Progres' }
+              example:
+                xpTotal: 640
+                nivel: { nivel: 3, titlu: Explorator, xpNecesar: 500, xpUrmatorulNivel: 900 }
+                materii: [{ materieId: 1, denumire: Matematica, puncte: 280 }]
+  /realizari:
+    get:
+      tags: [Progres si recompense]
+      summary: Catalogul realizarilor si starea utilizatorului
+      operationId: listaRealizari
+      responses:
+        '200':
+          description: Realizari
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RealizareLista' }
+              example:
+                elemente:
+                  - { id: 1, cod: primul_curs, titlu: Primul pas, descriere: Ai parcurs primul curs., xpBonus: 50, deblocata: true, deblocataLa: '2026-10-03T12:00:00Z' }
+                  - { id: 2, cod: cinci_sesiuni, titlu: Ritm bun, descriere: Ai participat la cinci sesiuni., xpBonus: 100, deblocata: false, deblocataLa: null }
+                total: 2
+  /fundaluri:
+    get:
+      tags: [Preferinte si aspect]
+      summary: Fundaluri disponibile
+      operationId: listaFundaluri
+      responses:
+        '200':
+          description: Fundaluri
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FundalLista' }
+              example:
+                elemente:
+                  - { id: 1, cod: cer_senin, nume: Cer senin, assetUrl: /demo/fundaluri/cer-senin.jpg, activ: true, selectabilStatic: true }
+                  - { id: 2, cod: biblioteca, nume: Biblioteca, assetUrl: /demo/fundaluri/biblioteca.jpg, activ: true, selectabilStatic: true }
+                total: 2
+  /interfete:
+    get:
+      tags: [Preferinte si aspect]
+      summary: Teme de interfata disponibile
+      operationId: listaInterfete
+      responses:
+        '200':
+          description: Interfete
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InterfataLista' }
+              example:
+                elemente:
+                  - { id: 1, cod: luminoasa, nume: Luminoasa, descriere: Tema deschisa, previewUrl: /demo/teme/luminoasa.png, activa: true }
+                  - { id: 2, cod: intunecata, nume: Intunecata, descriere: Tema inchisa, previewUrl: /demo/teme/intunecata.png, activa: true }
+                total: 2
+  /utilizatori/me/preferinte:
+    get:
+      tags: [Preferinte si aspect]
+      summary: Preferintele utilizatorului curent
+      operationId: preferinteCurente
+      responses:
+        '200':
+          description: Preferinte
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Preferinte' }
+              example: { utilizatorId: 1, interfata: { id: 2, cod: intunecata, nume: Intunecata }, fundalStatic: { id: 1, cod: cer_senin, nume: Cer senin }, modFundal: static, timezone: Europe/Bucharest, actualizatLa: '2026-10-17T08:00:00Z' }
+    put:
+      tags: [Preferinte si aspect]
+      summary: Actualizeaza preferintele utilizatorului curent
+      operationId: actualizeazaPreferinte
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                interfataId: { type: integer }
+                fundalStaticId: { type: integer, nullable: true }
+                modFundal: { type: string, enum: [static, dinamic, automat] }
+                timezone: { type: string }
+      responses:
+        '200':
+          description: Preferinte actualizate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Preferinte' }
+              example: { utilizatorId: 1, interfata: { id: 1, cod: luminoasa, nume: Luminoasa }, fundalStatic: null, modFundal: automat, timezone: Europe/Bucharest, actualizatLa: '2026-10-17T09:00:00Z' }
+  /camere-trivia:
+    post:
+      tags: [Trivia]
+      summary: Creeaza o camera de trivia
+      operationId: creeazaCameraTrivia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                materieId: { type: integer, nullable: true }
+                capacitate: { type: integer, minimum: 2, maximum: 16, default: 8 }
+      responses:
+        '201':
+          description: Camera creata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraTrivia' }
+              example: { id: 70, cod: AB23CD, status: asteapta, capacitate: 8, participanti: [{ utilizatorId: 1, nume: Ana Popescu }], materie: { id: 1, denumire: Matematica } }
+  /camere-trivia/{cod}/participanti:
+    post:
+      tags: [Trivia]
+      summary: Intra intr-o camera de trivia
+      operationId: intraCameraTrivia
+      parameters:
+        - { name: cod, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Participant adaugat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraTrivia' }
+              example: { id: 70, cod: AB23CD, status: asteapta, capacitate: 8, participanti: [{ utilizatorId: 1, nume: Ana Popescu }, { utilizatorId: 2, nume: Mihai Ionescu }], materie: { id: 1, denumire: Matematica } }
+        '404': { $ref: '#/components/responses/Negasit' }
+  /camere-trivia/{cameraId}/clasament:
+    get:
+      tags: [Trivia]
+      summary: Clasamentul camerei
+      operationId: clasamentTrivia
+      parameters:
+        - { name: cameraId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Clasament
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/IntrareClasament' }
+              example:
+                - { utilizatorId: 1, nume: Ana Popescu, scor: 100 }
+                - { utilizatorId: 2, nume: Mihai Ionescu, scor: 0 }
+components:
+  parameters:
+    MaterieId:
+      name: materieId
+      in: path
+      required: true
+      schema: { type: integer }
+  responses:
+    Neautorizat:
+      description: Date de autentificare invalide
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Eroare' }
+          example: { cod: neautorizat, mesaj: Datele de autentificare nu sunt valide. }
+    Negasit:
+      description: Resursa nu a fost gasita
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Eroare' }
+          example: { cod: negasit, mesaj: Resursa solicitata nu exista. }
+    Conflict:
+      description: Actiunea nu este disponibila in starea curenta
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Eroare' }
+          example: { cod: conflict, mesaj: Nu mai sunt locuri disponibile. }
+  schemas:
+    Eroare:
+      type: object
+      required: [cod, mesaj]
+      properties:
+        cod: { type: string }
+        mesaj: { type: string }
+    AutentificareRaspuns:
+      type: object
+      properties:
+        token: { type: string }
+        utilizator: { $ref: '#/components/schemas/Utilizator' }
+    Utilizator:
+      type: object
+      properties:
+        id: { type: integer }
+        nume: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        telefon: { type: string, nullable: true }
+        creatLa: { type: string, format: date-time }
+    UtilizatorNou:
+      type: object
+      required: [nume, username, email]
+      properties:
+        nume: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+    UtilizatorLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Utilizator' } }
+        total: { type: integer }
+    Materie:
+      type: object
+      properties:
+        id: { type: integer }
+        denumire: { type: string }
+        descriere: { type: string, nullable: true }
+        numarCursuri: { type: integer }
+    MaterieLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Materie' } }
+        total: { type: integer }
+    CursScurt:
+      type: object
+      properties:
+        id: { type: integer }
+        titlu: { type: string }
+    Curs:
+      type: object
+      properties:
+        id: { type: integer }
+        materieId: { type: integer }
+        materieDenumire: { type: string }
+        titlu: { type: string }
+        descriere: { type: string, nullable: true }
+        continut: { type: string, nullable: true }
+    CursLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Curs' } }
+        total: { type: integer }
+    Graf:
+      type: object
+      properties:
+        id: { type: integer }
+        materieId: { type: integer }
+        titlu: { type: string }
+        descriere: { type: string, nullable: true }
+        creatLa: { type: string, format: date-time }
+        cursuri: { type: array, items: { $ref: '#/components/schemas/CursScurt' } }
+        legaturi: { type: array, items: { $ref: '#/components/schemas/LegaturaGraf' } }
+    LegaturaGraf:
+      type: object
+      properties:
+        cursSursaId: { type: integer }
+        cursDestinatieId: { type: integer }
+        tip: { type: string }
+    GrafLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Graf' } }
+        total: { type: integer }
+    CameraMeditatii:
+      type: object
+      properties:
+        id: { type: integer }
+        titlu: { type: string }
+        descriere: { type: string, nullable: true }
+        status: { type: string }
+        capacitate: { type: integer }
+        inceputLa: { type: string, format: date-time, nullable: true }
+        materie: { $ref: '#/components/schemas/Materie' }
+        curs: { $ref: '#/components/schemas/CursScurt' }
+        mentor:
+          type: object
+          properties:
+            utilizatorId: { type: integer }
+            nume: { type: string }
+            descriere: { type: string, nullable: true }
+        tarif:
+          type: object
+          properties:
+            suma: { type: number, format: double }
+            moneda: { type: string }
+            durataMinute: { type: integer }
+        locuriLibere: { type: integer }
+    CameraMeditatiiLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/CameraMeditatii' } }
+        total: { type: integer }
+    Suma:
+      type: object
+      properties:
+        suma: { type: number, format: double }
+        moneda: { type: string }
+    Rezervare:
+      type: object
+      properties:
+        id: { type: integer }
+        cameraId: { type: integer }
+        status: { type: string }
+        rezervataLa: { type: string, format: date-time }
+        tarifAchitat: { $ref: '#/components/schemas/Suma' }
+    RezervareLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Rezervare' } }
+        total: { type: integer }
+    Sesiune:
+      type: object
+      properties:
+        id: { type: integer }
+        canal: { type: string }
+        status: { type: string }
+        inceputLa: { type: string, format: date-time }
+        finalizatLa: { type: string, format: date-time, nullable: true }
+        curs: { $ref: '#/components/schemas/CursScurt' }
+        numarMesaje: { type: integer }
+    SesiuneLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Sesiune' } }
+        total: { type: integer }
+    Mesaj:
+      type: object
+      properties:
+        id: { type: integer }
+        expeditor: { type: string, enum: [utilizator, asistent] }
+        tip: { type: string }
+        continut: { type: string }
+        creatLa: { type: string, format: date-time }
+    MesajLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Mesaj' } }
+        total: { type: integer }
+    Progres:
+      type: object
+      properties:
+        xpTotal: { type: integer }
+        nivel:
+          type: object
+          properties:
+            nivel: { type: integer }
+            titlu: { type: string }
+            xpNecesar: { type: integer }
+            xpUrmatorulNivel: { type: integer }
+        materii:
+          type: array
+          items:
+            type: object
+            properties:
+              materieId: { type: integer }
+              denumire: { type: string }
+              puncte: { type: integer }
+    Realizare:
+      type: object
+      properties:
+        id: { type: integer }
+        cod: { type: string }
+        titlu: { type: string }
+        descriere: { type: string, nullable: true }
+        xpBonus: { type: integer }
+        deblocata: { type: boolean }
+        deblocataLa: { type: string, format: date-time, nullable: true }
+    RealizareLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Realizare' } }
+        total: { type: integer }
+    Fundal:
+      type: object
+      properties:
+        id: { type: integer }
+        cod: { type: string }
+        nume: { type: string }
+        assetUrl: { type: string }
+        activ: { type: boolean }
+        selectabilStatic: { type: boolean }
+    FundalLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Fundal' } }
+        total: { type: integer }
+    Interfata:
+      type: object
+      properties:
+        id: { type: integer }
+        cod: { type: string }
+        nume: { type: string }
+        descriere: { type: string, nullable: true }
+        previewUrl: { type: string, nullable: true }
+        activa: { type: boolean }
+    InterfataLista:
+      type: object
+      properties:
+        elemente: { type: array, items: { $ref: '#/components/schemas/Interfata' } }
+        total: { type: integer }
+    Preferinte:
+      type: object
+      properties:
+        utilizatorId: { type: integer }
+        interfata: { $ref: '#/components/schemas/Interfata' }
+        fundalStatic: { $ref: '#/components/schemas/Fundal' }
+        modFundal: { type: string }
+        timezone: { type: string }
+        actualizatLa: { type: string, format: date-time }
+    CameraTrivia:
+      type: object
+      properties:
+        id: { type: integer }
+        cod: { type: string }
+        status: { type: string }
+        capacitate: { type: integer }
+        participanti:
+          type: array
+          items:
+            type: object
+            properties:
+              utilizatorId: { type: integer }
+              nume: { type: string }
+        materie: { $ref: '#/components/schemas/Materie' }
+    IntrareClasament:
+      type: object
+      properties:
+        utilizatorId: { type: integer }
+        nume: { type: string }
+        scor: { type: integer, format: int64 }
