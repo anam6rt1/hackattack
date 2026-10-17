@@ -18,14 +18,14 @@ const PODURI_SVG = PODURI.map(([a, b]) => {
   return `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#5b3a1a" stroke-width="15" stroke-linecap="round" opacity=".85"/><line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#b9824a" stroke-width="11" stroke-dasharray="5 4"/>`
 }).join('')
 
-export default function Harta({ proprietari = {}, jucatori = [], cetati = [], tinte = [], onAlege, atacata }) {
+export default function Harta({ insule = INSULE, proprietari = {}, jucatori = [], cetati = [], tinte = [], onAlege, atacata }) {
   const juc = (id) => jucatori.find((j) => j.id === id)
 
   return (
     <div className="tv-harta">
       <svg viewBox="0 0 1000 640" role="img" aria-label="Harta jocului cu insule">
         <g dangerouslySetInnerHTML={{ __html: FUNDAL + PODURI_SVG }} />
-        {INSULE.map((ins) => {
+        {insule.map((ins) => {
           const p = juc(proprietari[ins.id])
           const mare = cetati.includes(ins.id)
           const poate = tinte.includes(ins.id)
@@ -46,7 +46,7 @@ export default function Harta({ proprietari = {}, jucatori = [], cetati = [], ti
       </svg>
 
       {/* Etichetele: numele operei și cine deține insula */}
-      {INSULE.map((ins) => {
+      {insule.map((ins) => {
         const p = juc(proprietari[ins.id])
         const mare = cetati.includes(ins.id)
         const stanga = ins.x / 10 + '%'

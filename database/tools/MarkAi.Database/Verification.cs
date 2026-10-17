@@ -1,4 +1,5 @@
 using MarkAi.Data.Entities;
+using MarkAi.Data.Servicii;
 using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -30,7 +31,7 @@ internal static class Verification
             await using var db = DatabaseTools.Open(connection);
             await db.Database.MigrateAsync();
             Check(!db.Database.HasPendingModelChanges(), "model matches migration snapshot");
-            Check((await db.Database.GetAppliedMigrationsAsync()).Count() == 2, "fresh database built from both C# migrations");
+            Check((await db.Database.GetAppliedMigrationsAsync()).Count() == db.Database.GetMigrations().Count(), "fresh database built from all C# migrations");
             var users = Enumerable.Range(1, 4).Select(i => new Utilizator
             { Nume = "Test " + i, Username = "test" + i, Email = $"test{i}@example.invalid" }).ToArray();
             var subject = new Materie { Denumire = "Test subject" };
@@ -44,6 +45,70 @@ internal static class Verification
             var wrong = new TriviaOption { QuestionId = question.Id, Text = "5" };
             db.AddRange(correct, wrong);
             await db.SaveChangesAsync();
+            var course = new Curs { MaterieId = subject.Id, Titlu = "Test course", Capitol = "Test",
+                Materiale = [new SectiuneMaterial { Titlu = "Intro", Text = "Text" }] };
+            var otherSubject = new Materie { Denumire = "Other subject" };
+            db.AddRange(course, otherSubject);
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+            Check((await db.Curs.SingleAsync(c => c.Id == course.Id)).Materiale.Single().Titlu == "Intro", "course note sections roundtrip as JSON");
+            db.Add(new TriviaQuestion { SubjectId = subject.Id, CourseId = course.Id, Text = "Course question?", Source = "ai" });
+            await db.SaveChangesAsync();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new TriviaQuestion { SubjectId = otherSubject.Id, CourseId = course.Id, Text = "Wrong subject?" });
+                await db.SaveChangesAsync();
+            }), "question course must belong to the question subject");
+            db.ChangeTracker.Clear();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new TriviaQuestion { SubjectId = subject.Id, Kind = "estimare", Text = "Year?" });
+                await db.SaveChangesAsync();
+            }), "estimate questions require a numeric answer");
+            db.ChangeTracker.Clear();
+
+            // Course completion: concurrent quiz passes award the course XP exactly once.
+            var xpAwards = await Task.WhenAll(Enumerable.Range(0, 3).Select(async _ =>
+            {
+                await using var ctx = DatabaseTools.Open(connection);
+                return (await new ProgresService(ctx).MarcheazaAsync(users[1].Id, course.Id, ActivitateCurs.Quiz)).XpCastigat;
+            }));
+            Check(xpAwards.Sum() == ProgresService.XpCurs, "concurrent course completions award XP once");
+            await new ProgresService(db).MarcheazaAsync(users[1].Id, course.Id, ActivitateCurs.Video);
+            var progress = await db.Set<ProgresCurs>().SingleAsync(p => p.UtilizatorId == users[1].Id && p.CursId == course.Id);
+            Check(progress.QuizPromovat && progress.VideoVazut && progress.CompletatLa is not null, "progress flags accumulate and keep completion time");
+
+            // Tutoring: a full slot rejects extra concurrent bookings; pro bono slots need no tariff.
+            var price = new TarifFix { Suma = 80, Moneda = "RON", DurataMinute = 60, Activ = true };
+            db.Add(price);
+            db.Add(new ProfilMentor { UtilizatorId = users[0].Id, StareVerificare = RezervareService.MentorAprobat, OnorariuNegociat = 50 });
+            await db.SaveChangesAsync();
+            var slot = new CameraTutoring { MentorId = users[0].Id, MaterieId = subject.Id, TarifId = price.Id, Titlu = "Slot", Capacitate = 1,
+                Status = RezervareService.SlotDeschis, InceputLa = DateTime.UtcNow.AddDays(1), FinalizatLa = DateTime.UtcNow.AddDays(1).AddHours(1) };
+            db.Add(slot);
+            await db.SaveChangesAsync();
+            var bookings = await Task.WhenAll(users.Skip(1).Take(3).Select(async u =>
+            {
+                await using var ctx = DatabaseTools.Open(connection);
+                return !await Rejected(async () => { await new RezervareService(ctx).RezervaAsync(u.Id, slot.Id); });
+            }));
+            Check(bookings.Count(x => x) == 1, "concurrent bookings cannot exceed slot capacity");
+            var payout = await db.ComisioaneMentor.SingleAsync(c => c.Rezervare.CameraId == slot.Id);
+            Check(payout.SumaComision == 50 && payout.TarifBaza == 80, "mentor payout is the negotiated fee");
+            Check(await Rejected(async () =>
+            {
+                db.Add(new CameraTutoring { MentorId = users[0].Id, MaterieId = subject.Id, Titlu = "Bad", Capacitate = 1, Status = "deschisa", ProBono = false });
+                await db.SaveChangesAsync();
+            }), "paid slots require a tariff");
+            db.ChangeTracker.Clear();
+            var proBono = new CameraTutoring { MentorId = users[0].Id, MaterieId = subject.Id, Titlu = "Pro bono", Capacitate = 2, ProBono = true,
+                Status = RezervareService.SlotDeschis, InceputLa = DateTime.UtcNow.AddDays(2) };
+            db.Add(proBono);
+            await db.SaveChangesAsync();
+            var free = await new RezervareService(db).RezervaAsync(users[1].Id, proBono.Id);
+            Check(free.TarifAchitat == 0 && free.ComisionMentor is null, "pro bono booking is free and has no payout");
+            db.ChangeTracker.Clear();
+
             var game = new TriviaService(DatabaseTools.Options(connection));
 
             var limited = await game.CreateRoomAsync(users[0].Id, subject.Id, 2);
@@ -108,10 +173,15 @@ internal static class Verification
             await game.FinishRoomAsync(room.Id, users[0].Id);
             Check(await Rejected(() => game.SubmitAnswerAsync(room.Id, round.Id, users[3].Id, yes)), "finished rooms reject answers");
 
+            // Pro bono slots (null tariff) block rolling back IntegrareFrontend by design; remove the test ones first.
+            await db.Database.ExecuteSqlRawAsync("""
+                DELETE FROM mark_ai.rezervare WHERE camera_id IN (SELECT id FROM mark_ai.camera_tutoring WHERE pro_bono);
+                DELETE FROM mark_ai.camera_tutoring WHERE pro_bono;
+                """);
             // Roundtrip only on the disposable database, never on the real application database.
             await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
             await db.Database.MigrateAsync();
-            Check(await db.Utilizatori.CountAsync() == 4, "trivia rollback/reapply preserves original application entities");
+            Check(await db.Utilizatori.CountAsync() == 4, "rollback/reapply preserves original application entities");
 
             // Exercise adoption with real application data and an absent EF history table.
             await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());

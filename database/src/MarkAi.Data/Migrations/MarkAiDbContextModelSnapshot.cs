@@ -115,12 +115,18 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("mentor_id");
 
+                    b.Property<bool>("ProBono")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("pro_bono");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("status");
 
-                    b.Property<int>("TarifId")
+                    b.Property<int?>("TarifId")
                         .HasColumnType("integer")
                         .HasColumnName("tarif_id");
 
@@ -148,6 +154,8 @@ namespace MarkAi.Data.Migrations
                             t.HasCheckConstraint("camera_tutoring_capacitate_check", "(capacitate > 0)");
 
                             t.HasCheckConstraint("camera_tutoring_check", "((finalizat_la IS NULL) OR ((inceput_la IS NOT NULL) AND (finalizat_la >= inceput_la)))");
+
+                            t.HasCheckConstraint("camera_tutoring_pro_bono_check", "pro_bono = (tarif_id IS NULL)");
                         });
                 });
 
@@ -234,9 +242,23 @@ namespace MarkAi.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Capitol")
+                        .HasColumnType("text")
+                        .HasColumnName("capitol");
+
                     b.Property<string>("Continut")
                         .HasColumnType("text")
                         .HasColumnName("continut");
+
+                    b.Property<int?>("CreatDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("creat_de_id");
+
+                    b.Property<DateTime>("CreatLa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creat_la")
+                        .HasDefaultValueSql("now()");
 
                     b.Property<string>("Descriere")
                         .HasColumnType("text")
@@ -246,18 +268,36 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("materie_id");
 
+                    b.Property<int>("Ordine")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ordine");
+
+                    b.Property<bool>("Publicat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("publicat");
+
                     b.Property<string>("Titlu")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("titlu");
 
+                    b.Property<string>("VideoUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("video_url");
+
                     b.HasKey("Id")
                         .HasName("curs_pkey");
+
+                    b.HasIndex("CreatDeId");
 
                     b.HasIndex(new[] { "Id", "MaterieId" }, "curs_id_materie_id_key")
                         .IsUnique();
 
                     b.HasIndex(new[] { "MaterieId" }, "idx_curs_materie_id_fkey");
+
+                    b.HasIndex(new[] { "MaterieId", "Ordine" }, "idx_curs_materie_id_ordine");
 
                     b.ToTable("curs", "mark_ai");
                 });
@@ -526,6 +566,10 @@ namespace MarkAi.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Cod")
+                        .HasColumnType("text")
+                        .HasColumnName("cod");
+
                     b.Property<string>("Denumire")
                         .IsRequired()
                         .HasColumnType("text")
@@ -535,10 +579,37 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("descriere");
 
+                    b.Property<int>("Ordine")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ordine");
+
                     b.HasKey("Id")
                         .HasName("materie_pkey");
 
+                    b.HasIndex(new[] { "Cod" }, "materie_cod_key")
+                        .IsUnique();
+
                     b.ToTable("materie", "mark_ai");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.MentorMaterie", b =>
+                {
+                    b.Property<int>("MentorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mentor_id");
+
+                    b.Property<int>("MaterieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("materie_id");
+
+                    b.HasKey("MentorId", "MaterieId")
+                        .HasName("mentor_materie_pkey");
+
+                    b.HasIndex(new[] { "MaterieId" }, "idx_mentor_materie_materie_id_fkey");
+
+                    b.ToTable("mentor_materie", "mark_ai");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Mesaj", b =>
@@ -744,6 +815,22 @@ namespace MarkAi.Data.Migrations
                         .HasColumnName("timezone")
                         .HasDefaultValueSql("'Europe/Bucharest'::text");
 
+                    b.Property<int>("TonTutor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ton_tutor");
+
+                    b.Property<int>("VitezaTutor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(100)
+                        .HasColumnName("viteza_tutor");
+
+                    b.Property<string>("VoceTutor")
+                        .HasColumnType("text")
+                        .HasColumnName("voce_tutor");
+
                     b.HasKey("UtilizatorId")
                         .HasName("preferinte_utilizator_pkey");
 
@@ -751,7 +838,12 @@ namespace MarkAi.Data.Migrations
 
                     b.HasIndex(new[] { "InterfataId" }, "idx_preferinte_utilizator_interfata_id_fkey");
 
-                    b.ToTable("preferinte_utilizator", "mark_ai");
+                    b.ToTable("preferinte_utilizator", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("preferinte_utilizator_ton_tutor_check", "ton_tutor BETWEEN -20 AND 20");
+
+                            t.HasCheckConstraint("preferinte_utilizator_viteza_tutor_check", "viteza_tutor BETWEEN 70 AND 130");
+                        });
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.ProfilMentor", b =>
@@ -768,6 +860,32 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("descriere");
 
+                    b.Property<string>("DovadaCalificareUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("dovada_calificare_url");
+
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("RON")
+                        .HasColumnName("moneda");
+
+                    b.Property<string>("MotivRespingere")
+                        .HasColumnType("text")
+                        .HasColumnName("motiv_respingere");
+
+                    b.Property<decimal>("OnorariuNegociat")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("onorariu_negociat");
+
+                    b.Property<string>("PozaUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("poza_url");
+
                     b.Property<decimal>("ProcentComision")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
@@ -778,13 +896,63 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("stare_verificare");
 
+                    b.Property<int?>("VerificatDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("verificat_de_id");
+
                     b.HasKey("UtilizatorId")
                         .HasName("profil_mentor_pkey");
 
+                    b.HasIndex("VerificatDeId");
+
                     b.ToTable("profil_mentor", "mark_ai", t =>
                         {
+                            t.HasCheckConstraint("profil_mentor_moneda_check", "moneda ~ '^[A-Z]{3}$'::text");
+
+                            t.HasCheckConstraint("profil_mentor_onorariu_negociat_check", "onorariu_negociat >= (0)::numeric");
+
                             t.HasCheckConstraint("profil_mentor_procent_comision_check", "((procent_comision >= (0)::numeric) AND (procent_comision <= (100)::numeric))");
                         });
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.ProgresCurs", b =>
+                {
+                    b.Property<int>("UtilizatorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("utilizator_id");
+
+                    b.Property<int>("CursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("curs_id");
+
+                    b.Property<DateTime?>("CompletatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completat_la");
+
+                    b.Property<bool>("MaterialeCitite")
+                        .HasColumnType("boolean")
+                        .HasColumnName("materiale_citite");
+
+                    b.Property<bool>("QuizPromovat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("quiz_promovat");
+
+                    b.Property<DateTime>("UltimaAccesare")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultima_accesare")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("VideoVazut")
+                        .HasColumnType("boolean")
+                        .HasColumnName("video_vazut");
+
+                    b.HasKey("UtilizatorId", "CursId")
+                        .HasName("progres_curs_pkey");
+
+                    b.HasIndex(new[] { "CursId" }, "idx_progres_curs_curs_id_fkey");
+
+                    b.ToTable("progres_curs", "mark_ai");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Realizare", b =>
@@ -1212,6 +1380,13 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("nume");
 
+                    b.Property<string>("ParolaHash")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("")
+                        .HasColumnName("parola_hash");
+
                     b.Property<string>("Telefon")
                         .HasColumnType("text")
                         .HasColumnName("telefon");
@@ -1424,6 +1599,38 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("activa");
 
+                    b.Property<int?>("CourseId")
+                        .HasColumnType("integer")
+                        .HasColumnName("curs_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creata_la")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Explanation")
+                        .HasColumnType("text")
+                        .HasColumnName("explicatie");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("grila")
+                        .HasColumnName("tip");
+
+                    b.Property<int?>("NumericAnswer")
+                        .HasColumnType("integer")
+                        .HasColumnName("raspuns_numeric");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("manual")
+                        .HasColumnName("sursa");
+
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer")
                         .HasColumnName("materie_id");
@@ -1437,9 +1644,17 @@ namespace MarkAi.Data.Migrations
 
                     b.HasIndex("SubjectId");
 
+                    b.HasIndex("CourseId", "SubjectId");
+
                     b.ToTable("trivia_intrebare", "mark_ai", t =>
                         {
+                            t.HasCheckConstraint("ck_trivia_intrebare_estimare", "(tip = 'estimare') = (raspuns_numeric IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_trivia_intrebare_sursa", "sursa IN ('ai','manual')");
+
                             t.HasCheckConstraint("ck_trivia_intrebare_text", "length(btrim(text)) > 0");
+
+                            t.HasCheckConstraint("ck_trivia_intrebare_tip", "tip IN ('grila','estimare')");
                         });
                 });
 
@@ -1609,7 +1824,6 @@ namespace MarkAi.Data.Migrations
                     b.HasOne("MarkAi.Data.Entities.TarifFix", "Tarif")
                         .WithMany("CamereTutoring")
                         .HasForeignKey("TarifId")
-                        .IsRequired()
                         .HasConstraintName("camera_tutoring_tarif_id_fkey");
 
                     b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
@@ -1656,11 +1870,46 @@ namespace MarkAi.Data.Migrations
 
             modelBuilder.Entity("MarkAi.Data.Entities.Curs", b =>
                 {
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "CreatDe")
+                        .WithMany()
+                        .HasForeignKey("CreatDeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("curs_creat_de_id_fkey");
+
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
                         .WithMany("Cursuri")
                         .HasForeignKey("MaterieId")
                         .IsRequired()
                         .HasConstraintName("curs_materie_id_fkey");
+
+                    b.OwnsMany("MarkAi.Data.Entities.SectiuneMaterial", "Materiale", b1 =>
+                        {
+                            b1.Property<int>("CursId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Text")
+                                .IsRequired();
+
+                            b1.Property<string>("Titlu")
+                                .IsRequired();
+
+                            b1.HasKey("CursId", "__synthesizedOrdinal");
+
+                            b1.ToTable("curs", "mark_ai");
+
+                            b1
+                                .ToJson("materiale")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CursId");
+                        });
+
+                    b.Navigation("CreatDe");
+
+                    b.Navigation("Materiale");
 
                     b.Navigation("Materie");
                 });
@@ -1743,6 +1992,26 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Graf");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.MentorMaterie", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
+                        .WithMany("Mentori")
+                        .HasForeignKey("MaterieId")
+                        .IsRequired()
+                        .HasConstraintName("mentor_materie_materie_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.ProfilMentor", "Mentor")
+                        .WithMany("Materii")
+                        .HasForeignKey("MentorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("mentor_materie_mentor_id_fkey");
+
+                    b.Navigation("Materie");
+
+                    b.Navigation("Mentor");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Mesaj", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Sesiune", "Sesiune")
@@ -1819,6 +2088,33 @@ namespace MarkAi.Data.Migrations
                         .HasForeignKey("MarkAi.Data.Entities.ProfilMentor", "UtilizatorId")
                         .IsRequired()
                         .HasConstraintName("profil_mentor_utilizator_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", null)
+                        .WithMany()
+                        .HasForeignKey("VerificatDeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("profil_mentor_verificat_de_id_fkey");
+
+                    b.Navigation("Utilizator");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.ProgresCurs", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
+                        .WithMany("Progrese")
+                        .HasForeignKey("CursId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("progres_curs_curs_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
+                        .WithMany("ProgresCursuri")
+                        .HasForeignKey("UtilizatorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("progres_curs_utilizator_id_fkey");
+
+                    b.Navigation("Curs");
 
                     b.Navigation("Utilizator");
                 });
@@ -2037,6 +2333,13 @@ namespace MarkAi.Data.Migrations
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("MarkAi.Data.Entities.Curs", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId", "SubjectId")
+                        .HasPrincipalKey("Id", "MaterieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("trivia_intrebare_curs_id_materie_id_fkey");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Trivia.TriviaRoom", b =>
@@ -2095,6 +2398,8 @@ namespace MarkAi.Data.Migrations
 
                     b.Navigation("GrafuriCurs");
 
+                    b.Navigation("Progrese");
+
                     b.Navigation("Sesiuni");
                 });
 
@@ -2130,6 +2435,8 @@ namespace MarkAi.Data.Migrations
 
                     b.Navigation("Grafuri");
 
+                    b.Navigation("Mentori");
+
                     b.Navigation("UtilizatoriMaterii");
                 });
 
@@ -2147,6 +2454,8 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Comisioane");
 
                     b.Navigation("Decontari");
+
+                    b.Navigation("Materii");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Realizare", b =>
@@ -2195,6 +2504,8 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("PreferinteUtilizator");
 
                     b.Navigation("ProfilMentor");
+
+                    b.Navigation("ProgresCursuri");
 
                     b.Navigation("Realizari");
 

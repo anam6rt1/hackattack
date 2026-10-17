@@ -17,6 +17,15 @@ public partial class PreferinteUtilizator
 
     public DateTime ActualizatLa { get; set; }
 
+    /// <summary>Phone tutor voice code (see the API's voice catalog); null = default voice.</summary>
+    public string? VoceTutor { get; set; }
+
+    /// <summary>Phone tutor speaking rate, percent of normal (70–130).</summary>
+    public int VitezaTutor { get; set; } = 100;
+
+    /// <summary>Phone tutor pitch shift, percent (−20…+20).</summary>
+    public int TonTutor { get; set; }
+
     public virtual Background? BackgroundStatic { get; set; }
 
     public virtual Interfata? Interfata { get; set; }

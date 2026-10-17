@@ -23,8 +23,16 @@ public sealed class TriviaQuestion
 {
     public int Id { get; set; }
     public int SubjectId { get; set; }
+    public int? CourseId { get; set; }
     public string Text { get; set; } = "";
     public bool Active { get; set; } = true;
+    // "grila" = multiple choice (options in TriviaOption); "estimare" = numeric tie-break answer.
+    public string Kind { get; set; } = "grila";
+    public int? NumericAnswer { get; set; }
+    public string? Explanation { get; set; }
+    // "ai" = generated from the course content; "manual" = written or imported by a person.
+    public string Source { get; set; } = "manual";
+    public DateTime CreatedAt { get; set; }
 }
 
 public sealed class TriviaOption

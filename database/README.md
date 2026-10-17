@@ -3,7 +3,8 @@
 Tot codul bazei de date este in acest subfolder:
 
 - `src/MarkAi.Data`: entitati C#, DbContext, configurari, migrari si regulile trivia.
-- `tools/MarkAi.Database`: adoptare schema existenta, migrari si verificari de integrare.
+- `src/MarkAi.Api`: API-ul pentru frontend (autentificare, continut, progres, profesori, Triviador, Linia AI) — vezi [docs/api.md](docs/api.md).
+- `tools/MarkAi.Database`: adoptare schema existenta, migrari, date initiale (`seed`) si verificari de integrare.
 - `tools/*.sql`: verificari de structura si integritate a datelor.
 - `docs/database.md`: configurare Windows/Linux/Bazzite si comenzi de lucru.
 - `docs/verification.md`: rezultatele verificarii initiale.

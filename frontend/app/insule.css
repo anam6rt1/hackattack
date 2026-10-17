@@ -5,6 +5,7 @@
   --ocean: #1b8ad3;
   --ocean-adanc: #0d5c9e;
   --ocean-noapte: #083d6e;
+  --ocean-lumina: #2aa2e6;
   --nisip: #f1d9a0;
   --maro: #6b3410;
   --navy: #15305a;
@@ -15,18 +16,22 @@
   --rau: #e2463b;
   --gri-text: #5a6684;
   --titlu: var(--font-titlu), 'Trebuchet MS', system-ui, sans-serif;
-  --text: var(--font-text), 'Segoe UI', system-ui, sans-serif;
+  --font-corp: var(--font-text), 'Segoe UI', system-ui, sans-serif;
 
   min-height: 100vh;
-  font-family: var(--text);
+  font-family: var(--font-corp);
   font-size: 15px;
   line-height: 1.5;
   color: var(--navy);
-  background: var(--ocean-adanc);
+  background-color: var(--ocean-adanc);
+  /* primul strat = decorul anotimpului (zăpadă, frunze...), vezi TEME mai jos */
   background-image:
-    radial-gradient(ellipse at 50% -20%, #2aa2e6 0, transparent 60%),
+    var(--decor, none),
+    radial-gradient(ellipse at 50% -20%, var(--ocean-lumina) 0, transparent 60%),
     radial-gradient(ellipse at 50% 120%, var(--ocean-noapte) 0, transparent 60%);
+  background-size: 260px 260px, auto, auto;
   background-attachment: fixed;
+  animation: tv-decor-cade var(--decor-viteza, 0s) linear infinite;
   padding: 20px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px));
 }
 .tv-pagina * { box-sizing: border-box; }
@@ -66,7 +71,7 @@
 .tv-chip { position: absolute; transform: translate(-50%, -50%); background: var(--chip); color: #fff; border-radius: 999px; padding: .2cqw 1.1cqw; font-weight: 800; font-size: clamp(7px, 1.15cqw, 12px); pointer-events: none; white-space: nowrap; }
 
 .tv-lateral { display: grid; gap: 14px; min-width: 0; }
-.tv-card { background: #fff; border-radius: 26px; padding: 18px; box-shadow: 0 6px 0 #0a4a80, 0 18px 30px -18px #021d3acc; min-width: 0; }
+.tv-card { color: var(--navy); background: #fff; border-radius: 26px; padding: 18px; box-shadow: 0 6px 0 #0a4a80, 0 18px 30px -18px #021d3acc; min-width: 0; }
 .tv-card h3 { font-size: 22px; color: var(--maro); }
 .tv-mic { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: #6b7a99; }
 .tv-cod { font-family: var(--titlu); font-weight: 700; font-size: 46px; letter-spacing: .12em; color: var(--maro); line-height: 1; font-variant-numeric: tabular-nums; }
@@ -143,9 +148,10 @@
 
 /* ============ PAGINI FORMALE (profesori, linia AI) ============ */
 .tv-continut { max-width: 1240px; margin: 0 auto; }
-.tv-erou { position: relative; overflow: hidden; border-radius: 30px; color: #fff; padding: 40px 28px 120px; background: radial-gradient(ellipse at 70% 0, #2fa6ea 0, #1b84cc 50%, #136fb3 100%); box-shadow: inset 0 0 0 6px #ffffff22; }
+.tv-erou { position: relative; overflow: hidden; border-radius: 30px; color: #fff; padding: 40px 28px 120px; background: radial-gradient(ellipse at 70% 0, var(--ocean-lumina) 0, var(--ocean) 50%, var(--ocean-adanc) 100%); box-shadow: inset 0 0 0 6px #ffffff22; }
 .tv-erou h1 { font-size: clamp(30px, 5vw, 52px); max-width: 17ch; }
-.tv-erou p { font-size: 18px; max-width: 54ch; margin: 12px 0 0; color: #e3f2ff; }
+/* doar textul eroului; paragrafele cu clasă (ex. din formularele de pe prima pagină) își păstrează stilul */
+.tv-erou p:not([class]) { font-size: 18px; max-width: 54ch; margin: 12px 0 0; color: #e3f2ff; }
 .tv-erou-pill { display: inline-block; background: #fff; color: var(--maro); font-family: var(--titlu); font-weight: 700; border-radius: 999px; padding: 5px 16px; margin-bottom: 14px; box-shadow: 0 4px 0 #00000022; }
 .tv-decor { position: absolute; right: 0; top: 24px; width: min(440px, 42%); height: auto; pointer-events: none; }
 @media (max-width: 900px) { .tv-decor { display: none; } }
@@ -162,7 +168,7 @@
 .tv-plan h3 { font-size: 23px; color: var(--navy); }
 .tv-cine { font-size: 13px; color: #6b7a99; font-weight: 800; }
 .tv-pret { font-family: var(--titlu); font-weight: 700; font-size: 46px; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
-.tv-pret small { font-family: var(--text); font-size: 14px; color: #6b7a99; font-weight: 700; }
+.tv-pret small { font-family: var(--font-corp); font-size: 14px; color: #6b7a99; font-weight: 700; }
 .tv-plan ul { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 7px; flex: 1; }
 .tv-plan li { display: flex; gap: 8px; }
 .tv-plan li::before { content: "✓"; width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; border-radius: 50%; background: var(--bine); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
@@ -221,3 +227,129 @@
 @media (prefers-reduced-motion: reduce) {
   .tv-pagina *, .tv-pagina *::before, .tv-pagina *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ============ TEME: anotimp × zi/noapte ============
+   Textul alb de pe fundaluri are contrast de cel puțin 4.5:1 pe --ocean și 3:1 pe --ocean-lumina.
+   Tema activă e pusă pe <html data-tema="..."> (lib/tema-sezon.js). Fiecare temă schimbă doar culorile
+   de bază și decorul; componentele folosesc variabilele, nu culori fixe. */
+@keyframes tv-decor-cade { to { background-position: 60px 520px, 0 0, 0 0; } }
+
+:root {
+  --decor-zapada: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='20' cy='30' r='3' opacity='.9'/%3E%3Ccircle cx='90' cy='120' r='2' opacity='.7'/%3E%3Ccircle cx='160' cy='40' r='2.5' opacity='.8'/%3E%3Ccircle cx='230' cy='170' r='3' opacity='.9'/%3E%3Ccircle cx='60' cy='210' r='2' opacity='.6'/%3E%3Ccircle cx='200' cy='240' r='1.5' opacity='.7'/%3E%3Ccircle cx='130' cy='190' r='3.5' opacity='.5'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-frunze: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg opacity='.75'%3E%3Cellipse cx='30' cy='40' rx='7' ry='3.5' fill='%23e8742c' transform='rotate(30 30 40)'/%3E%3Cellipse cx='150' cy='90' rx='6' ry='3' fill='%23c94a2a' transform='rotate(-40 150 90)'/%3E%3Cellipse cx='220' cy='200' rx='7' ry='3.5' fill='%23f2b134' transform='rotate(60 220 200)'/%3E%3Cellipse cx='80' cy='180' rx='5' ry='2.5' fill='%23d9622b' transform='rotate(-15 80 180)'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-petale: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23ffd1e3' opacity='.8'%3E%3Cellipse cx='40' cy='60' rx='5' ry='3' transform='rotate(20 40 60)'/%3E%3Cellipse cx='170' cy='30' rx='4' ry='2.5' transform='rotate(-30 170 30)'/%3E%3Cellipse cx='120' cy='160' rx='5' ry='3' transform='rotate(50 120 160)'/%3E%3Cellipse cx='230' cy='220' rx='4' ry='2.5'/%3E%3Cellipse cx='60' cy='230' rx='3.5' ry='2' transform='rotate(-60 60 230)'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-stele: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='25' cy='35' r='1.4' opacity='.9'/%3E%3Ccircle cx='110' cy='80' r='1' opacity='.6'/%3E%3Ccircle cx='190' cy='25' r='1.6' opacity='.8'/%3E%3Ccircle cx='240' cy='130' r='1' opacity='.7'/%3E%3Ccircle cx='70' cy='160' r='1.2' opacity='.5'/%3E%3Ccircle cx='160' cy='210' r='1.5' opacity='.8'/%3E%3Ccircle cx='20' cy='240' r='1' opacity='.6'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-licurici: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fff59a'%3E%3Ccircle cx='40' cy='50' r='2' opacity='.8'/%3E%3Ccircle cx='180' cy='100' r='1.6' opacity='.6'/%3E%3Ccircle cx='100' cy='200' r='2.2' opacity='.7'/%3E%3Ccircle cx='230' cy='230' r='1.4' opacity='.5'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='140' cy='30' r='1' opacity='.7'/%3E%3Ccircle cx='20' cy='150' r='1.2' opacity='.6'/%3E%3C/g%3E%3C/svg%3E");
+  --mn-sus: #1478bf;
+  --mn-jos: #0d5c9e;
+}
+
+html[data-tema="primavara-zi"] { --mn-sus: #22a3d6; --mn-jos: #1479b0; }
+html[data-tema="primavara-zi"] .tv-pagina { --ocean: #1a7ea6; --ocean-adanc: #1479b0; --ocean-noapte: #0b5079; --ocean-lumina: #16a2c4; --decor: var(--decor-petale); --decor-viteza: 40s; }
+html[data-tema="vara-zi"] .tv-pagina { --ocean: #187bbc; --ocean-lumina: #1c9ce4; --decor: none; }
+html[data-tema="toamna-zi"] { --mn-sus: #2b84a8; --mn-jos: #1d6385; }
+html[data-tema="toamna-zi"] .tv-pagina { --ocean: #297fa2; --ocean-adanc: #1d6385; --ocean-noapte: #133f57; --ocean-lumina: #d38024; --aur: #f5ad3c; --decor: var(--decor-frunze); --decor-viteza: 32s; }
+html[data-tema="iarna-zi"] { --mn-sus: #4f9fd0; --mn-jos: #2f78a8; }
+html[data-tema="iarna-zi"] .tv-pagina { --ocean: #2e7cac; --ocean-adanc: #2f78a8; --ocean-noapte: #1c4f75; --ocean-lumina: #6a9abc; --decor: var(--decor-zapada); --decor-viteza: 28s; }
+
+html[data-tema="primavara-noapte"] { --mn-sus: #1d4f86; --mn-jos: #123766; }
+html[data-tema="primavara-noapte"] .tv-pagina { --ocean: #1d4f86; --ocean-adanc: #123766; --ocean-noapte: #081d3d; --ocean-lumina: #3f74b6; --decor: var(--decor-stele); }
+html[data-tema="vara-noapte"] { --mn-sus: #19437a; --mn-jos: #0f2d5a; }
+html[data-tema="vara-noapte"] .tv-pagina { --ocean: #19437a; --ocean-adanc: #0f2d5a; --ocean-noapte: #071733; --ocean-lumina: #3a62a8; --decor: var(--decor-licurici); }
+html[data-tema="toamna-noapte"] { --mn-sus: #233f6a; --mn-jos: #172b4d; }
+html[data-tema="toamna-noapte"] .tv-pagina { --ocean: #233f6a; --ocean-adanc: #172b4d; --ocean-noapte: #0b1630; --ocean-lumina: #6b4f86; --aur: #f5ad3c; --decor: var(--decor-frunze); --decor-viteza: 40s; }
+html[data-tema="iarna-noapte"] { --mn-sus: #1e3a66; --mn-jos: #132748; }
+html[data-tema="iarna-noapte"] .tv-pagina { --ocean: #1e3a66; --ocean-adanc: #132748; --ocean-noapte: #08132a; --ocean-lumina: #5d7fae; --decor: var(--decor-zapada); --decor-viteza: 36s; }
+
+/* Noaptea, hărțile se întunecă puțin, ca să se potrivească cu cerul */
+html[data-tema$="-noapte"] .tv-harta, html[data-tema$="-noapte"] .harta-insule { filter: brightness(.82) saturate(.92); }
+html[data-tema^="iarna"] .tv-harta, html[data-tema^="iarna"] .harta-insule { filter: saturate(.8) brightness(1.02); }
+html[data-tema="iarna-noapte"] .tv-harta, html[data-tema="iarna-noapte"] .harta-insule { filter: brightness(.8) saturate(.75); }
+@media (prefers-reduced-motion: reduce) { .tv-pagina { animation: none; } }
+
+/* ============ FORMULARE ȘI PANOURI (cont, acasă, administrare) ============ */
+.tv-erou-aterizare { padding-bottom: 110px; }
+.tv-aterizare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 28px; align-items: start; position: relative; }
+@media (max-width: 900px) { .tv-aterizare { grid-template-columns: minmax(0, 1fr); } }
+.tv-decor-aterizare { width: 100%; max-width: 460px; height: auto; margin-top: 18px; }
+.tv-coala-aterizare { margin-top: -70px; }
+.tv-taburi { display: flex; gap: 4px; background: #eef3fb; border-radius: 16px; padding: 4px; margin-bottom: 16px; }
+.tv-taburi button { flex: 1; border: 0; border-radius: 12px; padding: 9px 6px; background: transparent; font-family: var(--titlu); font-weight: 600; font-size: 15px; color: var(--gri-text); }
+.tv-taburi .tv-tab-activ { background: #fff; color: var(--maro); box-shadow: 0 2px 0 #d2dcec; }
+.tv-form { display: grid; gap: 12px; color: var(--navy); }
+.tv-eticheta-camp { display: grid; gap: 4px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.tv-eticheta-camp > span { font-size: 13px; font-weight: 800; color: var(--gri-text); }
+.tv-camp-text { width: 100%; min-width: 0; border: 2px solid #e4ebf6; border-radius: 14px; padding: 10px 12px; font: inherit; color: var(--navy); background: #fff; }
+.tv-camp-text:focus { border-color: var(--ocean); outline: none; }
+textarea.tv-camp-text { resize: vertical; }
+.tv-fisier { font: inherit; font-size: 13px; max-width: 100%; }
+.tv-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .tv-grid-2 { grid-template-columns: 1fr; } }
+.tv-optiuni { display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-optiune { display: inline-flex; align-items: center; gap: 6px; border: 2px solid #e4ebf6; border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.tv-optiune:has(input:checked) { border-color: var(--aur); background: #fff8dc; }
+.tv-eroare { margin: 0; color: #b3261e; background: #fde8e6; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: 14px; }
+.tv-succes { margin: 0; color: #0f4a2e; background: #e3f7ec; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: 14px; }
+
+.tv-panou { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .tv-panou { grid-template-columns: minmax(0, 1fr); } }
+.tv-panou-lat { grid-column: span 2; }
+@media (max-width: 900px) { .tv-panou-lat { grid-column: auto; } }
+.tv-cutie { background: #fff; border: 2px solid #ece3cd; border-radius: 24px; padding: 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tv-cutie h3 { font-size: 21px; color: var(--navy); }
+.tv-cutie p { margin: 0; color: var(--gri-text); }
+.tv-nivel { display: flex; gap: 16px; align-items: center; }
+.tv-nivel-insigna { width: 76px; height: 76px; flex-shrink: 0; border-radius: 50%; background: var(--aur); color: var(--maro); display: grid; place-items: center; font-family: var(--titlu); font-weight: 700; font-size: 34px; box-shadow: 0 0 0 6px #fff, 0 0 0 10px #ffe58a; }
+.tv-bara { height: 14px; border-radius: 99px; background: #eef3fb; overflow: hidden; }
+.tv-bara > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--aur), #ffdc5e); transition: width .6s; }
+.tv-bara.tv-bara-verde > i { background: linear-gradient(90deg, var(--bine), #48c98b); }
+.tv-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tv-rand { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: #f5f8fd; text-decoration: none; color: var(--navy); min-width: 0; }
+.tv-rand b { display: block; overflow: hidden; text-overflow: ellipsis; }
+.tv-rand small { display: block; color: var(--gri-text); font-weight: 700; font-size: 12px; }
+.tv-rand > div { flex: 1; min-width: 0; }
+a.tv-rand:hover { background: #eaf2fd; }
+.tv-pastila { flex-shrink: 0; border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 800; background: #eef3fb; color: var(--navy); }
+.tv-pastila-aur { background: #fff3c4; color: var(--maro); }
+.tv-pastila-verde { background: #e3f7ec; color: #0f7446; }
+.tv-pastila-rosu { background: #fde8e6; color: #b3261e; }
+.tv-butoane { display: flex; flex-wrap: wrap; gap: 10px; }
+.tv-butoane .tv-btn { width: auto; font-size: 16px; padding: 10px 16px; text-decoration: none; display: inline-block; text-align: center; }
+.tv-gol { text-align: center; color: var(--gri-text); font-weight: 700; padding: 18px; border: 2px dashed #e4ebf6; border-radius: 18px; margin: 0; }
+
+.tv-materie { text-decoration: none; color: var(--navy); transition: transform .15s; }
+.tv-materie:hover { transform: translateY(-3px); }
+.tv-materie svg { width: 100%; height: auto; max-height: 140px; }
+.tv-harta-pagina { display: grid; gap: 14px; }
+.tv-harta-antet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #fff; }
+.tv-harta-antet h1 { font-size: clamp(24px, 4vw, 36px); flex: 1; min-width: 0; }
+.tv-harta-antet .tv-erou-pill { margin: 0; text-decoration: none; }
+.tv-poza { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 0 0 2px #ece3cd; flex-shrink: 0; }
+
+.tv-materie { text-decoration: none; color: var(--navy); transition: transform .15s; }
+.tv-materie:hover { transform: translateY(-3px); }
+.tv-materie svg { width: 100%; height: auto; max-height: 140px; }
+.tv-harta-pagina { display: grid; gap: 14px; }
+.tv-harta-antet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #fff; }
+.tv-harta-antet h1 { font-size: clamp(24px, 4vw, 36px); flex: 1; min-width: 0; }
+.tv-harta-antet .tv-erou-pill { margin: 0; text-decoration: none; }
+.tv-poza { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 0 0 2px #ece3cd; flex-shrink: 0; }
+.tv-filtre { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.tv-filtre .tv-eticheta-camp { min-width: 200px; }
+.tv-profesori { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .tv-profesori { grid-template-columns: minmax(0, 1fr); } }
+button.tv-pastila { border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 800; }
+button.tv-pastila:disabled { opacity: .5; cursor: not-allowed; }
+a.tv-pastila { text-decoration: none; }
+.tv-rand-buton { width: 100%; border: 2px solid transparent; text-align: left; font: inherit; cursor: pointer; }
+.tv-rand-activ { border-color: var(--aur); background: #fff8dc; }
+.tv-editor { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .tv-editor { grid-template-columns: minmax(0, 1fr); } }
+.tv-sectiune-editor { display: grid; gap: 6px; padding: 10px; border: 2px dashed #e4ebf6; border-radius: 16px; }
+.tv-sectiune-editor .tv-pastila { justify-self: start; }
+.tv-linie { border: 0; border-top: 2px solid #f1ead8; margin: 8px 0; width: 100%; }
+.tv-intrebare-editor { padding: 14px; }
+.tv-inactiva { opacity: .55; }
+.tv-variante-lista { margin: 0; padding-left: 18px; color: var(--gri-text); display: grid; gap: 2px; }
+.tv-variante-lista .tv-corecta { color: #0f7446; font-weight: 800; }
+.tv-varianta-editor { display: flex; gap: 8px; align-items: center; }

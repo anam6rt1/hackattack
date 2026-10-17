@@ -1,5 +1,7 @@
 # Mock API pentru frontend
 
+> API-ul real există acum în `database/src/MarkAi.Api` (vezi `database/docs/api.md`); contractul generat din cod este la `/openapi/v1.json`. Acest mock rămâne doar ca referință istorică.
+
 Contractul `openapi.yaml` descrie API-ul demonstrativ pentru utilizatori, materii si materiale, grafuri de invatare, tutoring, rezervari, sesiuni, progres, aspect si trivia. Rutele si campurile JSON sunt in romana fara diacritice.
 
 ## Pornire rapida

@@ -1,7 +1,14 @@
-// app/nivel/[id]/page.js — pagina unui nivel, ex. /nivel/harap-1
-import IntrebareNivel from "@/components/IntrebareNivel";
+'use client'
+// /nivel/12 : întrebarea de la finalul lecției 12
 
-export default async function PaginaNivel({ params }) {
-  const { id } = await params;
-  return <IntrebareNivel nivelId={id} />;
+import { useParams } from 'next/navigation'
+import { usePagina } from '@/lib/sesiune'
+import IntrebareNivel from '@/components/IntrebareNivel'
+import Incarcare from '@/components/Incarcare'
+
+export default function PaginaNivel() {
+  const { id } = useParams()
+  const elev = usePagina('elev')
+  if (!elev) return <Incarcare />
+  return <IntrebareNivel cursId={Number(id)} />
 }

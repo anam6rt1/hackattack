@@ -13,13 +13,15 @@ public partial class CameraTutoring
 
     public int? CursId { get; set; }
 
-    public int TarifId { get; set; }
+    public int? TarifId { get; set; }
 
     public string Titlu { get; set; } = null!;
 
     public string? Descriere { get; set; }
 
     public int Capacitate { get; set; }
+
+    public bool ProBono { get; set; }
 
     public string Status { get; set; } = null!;
 
@@ -35,6 +37,6 @@ public partial class CameraTutoring
 
     public virtual ICollection<Rezervare> Rezervari { get; set; } = new List<Rezervare>();
 
-    public virtual TarifFix Tarif { get; set; } = null!;
+    public virtual TarifFix? Tarif { get; set; }
 }
 

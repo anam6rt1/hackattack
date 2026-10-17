@@ -15,6 +15,25 @@ public partial class Curs
 
     public string? Continut { get; set; }
 
+    public int Ordine { get; set; }
+
+    /// <summary>Gruparea vizuala (insula) din care face parte cursul, de ex. "Harap-Alb".</summary>
+    public string? Capitol { get; set; }
+
+    public string? VideoUrl { get; set; }
+
+    public List<SectiuneMaterial> Materiale { get; set; } = new();
+
+    public bool Publicat { get; set; } = true;
+
+    public int? CreatDeId { get; set; }
+
+    public DateTime CreatLa { get; set; }
+
+    public virtual Utilizator? CreatDe { get; set; }
+
+    public virtual ICollection<ProgresCurs> Progrese { get; set; } = new List<ProgresCurs>();
+
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
     public virtual ICollection<GrafCurs> GrafuriCurs { get; set; } = new List<GrafCurs>();

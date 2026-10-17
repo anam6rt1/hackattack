@@ -15,6 +15,21 @@ public partial class ProfilMentor
 
     public DateTime? ActivatLa { get; set; }
 
+    /// <summary>Suma platita mentorului pentru o sedinta, negociata cu administratorul.</summary>
+    public decimal OnorariuNegociat { get; set; }
+
+    public string Moneda { get; set; } = "RON";
+
+    public string? PozaUrl { get; set; }
+
+    public string? DovadaCalificareUrl { get; set; }
+
+    public string? MotivRespingere { get; set; }
+
+    public int? VerificatDeId { get; set; }
+
+    public virtual ICollection<MentorMaterie> Materii { get; set; } = new List<MentorMaterie>();
+
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
     public virtual ICollection<ComisionMentor> Comisioane { get; set; } = new List<ComisionMentor>();
