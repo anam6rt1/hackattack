@@ -141,4 +141,3 @@ sealed class FakeClock : TimeProvider
     public override DateTimeOffset GetUtcNow()=>now;
     public void Advance(TimeSpan delta)=>now+=delta;
 }
-

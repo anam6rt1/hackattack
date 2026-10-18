@@ -213,5 +213,3 @@ export default function SetariCont() {
     {challenge && <CodDialog key={challenge.id} challenge={challenge} onClose={() => { setChallenge(null); setOtpError('') }} onConfirm={confirm} busy={busy} error={otpError} />}
   </main>
 }
-
-
