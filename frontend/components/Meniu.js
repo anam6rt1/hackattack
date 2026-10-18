@@ -11,6 +11,7 @@ import { profesorAprobat, useSesiune } from '@/lib/sesiune'
 import { useTema } from '@/components/Tema'
 import { TEME } from '@/lib/tema-sezon'
 import './meniu.css'
+import '@/app/setari/setari.css'
 
 // Iconițe simple, desenate din cod
 const ICON = {
@@ -89,6 +90,10 @@ function Cont({ utilizator, onIese }) {
       </button>
       {deschis && (
         <div className="mn-popover" role="menu">
+          <Link href="/setari" className="sc-menu-link" onClick={() => setDeschis(false)}>
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z" /><path d="m8 12 3 3 5-6" /></svg>
+            Setările contului
+          </Link>
           <div className="mn-pop-titlu">Tema site-ului</div>
           <div className="mn-teme">
             <button className={`mn-tema ${preferinta === 'auto' ? 'mn-tema-activa' : ''}`} onClick={() => alege('auto')}>

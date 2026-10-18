@@ -4,6 +4,7 @@ using MarkAi.Api.Infrastructura;
 using MarkAi.Api.Servicii;
 using MarkAi.Data;
 using MarkAi.Data.Servicii;
+using MarkAi.Api.Setari;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +26,7 @@ builder.Services.AddSingleton<CoadaIntrebari>();
 builder.Services.AddHostedService<GeneratorIntrebari>();
 builder.Services.AddSingleton<Prezenta>();
 builder.Services.AddSignalR();
+builder.Services.AdaugaSetariCont();
 
 ConfigurareAutentificare.Adauga(builder.Services, ConfigurareAutentificare.Optiuni(cfg, builder.Environment));
 
@@ -46,6 +48,7 @@ if (app.Environment.IsDevelopment())
 }
 
 AutentificareEndpoints.Mapeaza(app);
+app.MapeazaSetariCont();
 ContinutEndpoints.Mapeaza(app);
 ElevEndpoints.Mapeaza(app);
 ProfesoriEndpoints.Mapeaza(app);
