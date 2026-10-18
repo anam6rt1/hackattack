@@ -42,20 +42,18 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, I
             throw new InvalidOperationException("Te sunăm deja. Așteaptă câteva secunde.");
         UltimaCerere[utilizatorId] = acum;
 
+        var parametri = new Dictionary<string, string>
+        {
+            ["To"] = telefon,
+            ["Url"] = UrlPublic + "/twilio/voce",
+            ["StatusCallback"] = UrlPublic + "/twilio/voce/stare",
+        };
+        // A "Try out Voice" trial rejects any other parameter (400 "trial accounts have limited parameter access")
+        // and always calls from its own trial number. POST and the "completed" status event are Twilio's defaults.
+        if (!cfg.GetValue("Twilio:Trial", true)) parametri["From"] = NumarTwilio!;
         using var cerere = new HttpRequestMessage(HttpMethod.Post,
             $"{(cfg["Twilio:ApiUrl"] ?? "https://api.twilio.com").TrimEnd('/')}/2010-04-01/Accounts/{Sid}/Calls.json")
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["To"] = telefon,
-                ["From"] = NumarTwilio!,
-                ["Url"] = UrlPublic + "/twilio/voce",
-                ["Method"] = "POST",
-                ["StatusCallback"] = UrlPublic + "/twilio/voce/stare",
-                ["StatusCallbackMethod"] = "POST",
-                ["StatusCallbackEvent"] = "completed",
-            }),
-        };
+        { Content = new FormUrlEncodedContent(parametri) };
         cerere.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{Sid}:{Token}")));
         using var r = await http.CreateClient("twilio").SendAsync(cerere, ct);
         if (r.IsSuccessStatusCode) return;
@@ -72,6 +70,9 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, I
             21219 or 21608 => "Numărul tău nu este verificat în contul Twilio de probă. Verifică-l în consola Twilio și încearcă din nou.",
             21215 or 13227 => "Apelurile către acest număr nu sunt permise din contul Twilio (verifică permisiunile geografice).",
             21211 => "Numărul de telefon salvat nu este valid.",
+            // No code: the trial refused a parameter, e.g. a Url that is not one of Twilio's voice templates.
+            0 or null when eroare?["message"]?.GetValue<string>()?.Contains("trial", StringComparison.OrdinalIgnoreCase) == true
+                => "Contul Twilio de probă nu permite acest tip de apel. Este nevoie de un cont Twilio activat (upgrade).",
             _ => $"Twilio nu a putut iniția apelul ({cod?.ToString() ?? ((int)r.StatusCode).ToString()}).",
         });
     }
