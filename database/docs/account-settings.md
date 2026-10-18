@@ -1,6 +1,7 @@
 # Setarile contului — branch feature/account-settings
 
 Pagina noua: `/setari`, accesibila din meniul contului prin **Setarile contului**.
+Pentru predarea codului C#, export SQL offline si aplicarea ulterioara de catre administrator, vezi [instructiunile de migrare](account-settings-migrations.md).
 Schimbarile nu sunt aplicate pe `main` si nu necesita migrare de schema. Se folosesc utilizatorii, profilurile si stocarea existente.
 
 ## Campuri dupa rol
