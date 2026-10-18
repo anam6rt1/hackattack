@@ -75,13 +75,12 @@ public static class LiniaAiEndpoints
         var urlPublic = (app.Configuration["Twilio:UrlPublic"] ?? "").TrimEnd('/');
         if (urlPublic.StartsWith("https://")) UrlRaspuns = urlPublic + "/twilio/voce/raspuns";
 
-        twilio.MapPost("", async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, CancellationToken ct) =>
+        // GET as well as POST: a trial account fetches TwiML through Twilio's proxy, which may replay the request differently.
+        twilio.MapMethods("", ["GET", "POST"], async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, CancellationToken ct) =>
         {
-            if (!req.HasFormContentType) return Results.StatusCode(403);
-            var form = await req.ReadFormAsync(ct);
-            if (!SemnaturaValida(req, form, cfg)) return Results.StatusCode(403);
-            // Incoming call: the student is the caller. "Sună-mă" (outbound-api): the student is the one being called.
-            var numar = form["Direction"].ToString().StartsWith("outbound") ? form["To"].ToString() : form["From"].ToString();
+            var form = await ParametriAsync(req, ct);
+            var numar = NumarElev(form);
+            if (!CerereValida(req, form, numar, cfg)) return Results.StatusCode(403);
             var callSid = form["CallSid"].ToString();
             var elev = await db.Utilizatori.SingleOrDefaultAsync(u => u.Telefon == numar, ct);
             if (elev is null)
@@ -99,15 +98,15 @@ public static class LiniaAiEndpoints
             var salut = await tutor.SalutAsync(elev, ct);
             var voce = await VociTutor.CitesteAsync(db, elev.Id, ct);
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, salut, ct);
-            return Twiml(cfg, Asculta(salut, voce, await tutor.IndiciiVorbire(ct)),
+            return Twiml(cfg, Asculta(salut, voce, await tutor.IndiciiVorbire(ct), numar),
                 Spune("Nu te-am auzit. Sună din nou oricând!", voce), new XElement("Hangup"));
         });
 
-        twilio.MapPost("/raspuns", async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, ILogger<TutorTelefon> log, CancellationToken ct) =>
+        twilio.MapMethods("/raspuns", ["GET", "POST"], async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, ILogger<TutorTelefon> log, CancellationToken ct) =>
         {
-            if (!req.HasFormContentType) return Results.StatusCode(403);
-            var form = await req.ReadFormAsync(ct);
-            if (!SemnaturaValida(req, form, cfg)) return Results.StatusCode(403);
+            var form = await ParametriAsync(req, ct);
+            var numar = NumarElev(form);
+            if (!CerereValida(req, form, numar, cfg)) return Results.StatusCode(403);
             var sesiune = await db.Sesiuni.SingleOrDefaultAsync(s => s.TwilioCallSid == form["CallSid"].ToString(), ct);
             if (sesiune is null) return Twiml(cfg, new XElement("Hangup"));
             var indicii = await tutor.IndiciiVorbire(ct);
@@ -132,7 +131,7 @@ public static class LiniaAiEndpoints
                 if (ultimulPas) return await Inchide(TutorTelefon.Incheiere, voce);
                 const string repeta = "Nu te-am auzit bine. Poți să repeți?";
                 await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, repeta, ct);
-                return Twiml(cfg, Asculta(repeta, voce, indicii), Spune("Pe curând!", voce), new XElement("Hangup"));
+                return Twiml(cfg, Asculta(repeta, voce, indicii, numar), Spune("Pe curând!", voce), new XElement("Hangup"));
             }
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorElev, vorbit, ct);
 
@@ -147,13 +146,13 @@ public static class LiniaAiEndpoints
                 if (ultimulPas) return await Inchide(TutorTelefon.Incheiere, voce);
                 const string scuze = "Îmi pare rău, am avut o problemă de conexiune. Poți să repeți ultima întrebare?";
                 await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, scuze, ct);
-                return Twiml(cfg, Asculta(scuze, voce, indicii));
+                return Twiml(cfg, Asculta(scuze, voce, indicii, numar));
             }
 
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, raspuns.Text, ct);
             // A voice change requested by the student is heard right away and remembered for the next calls.
             if (raspuns.Voce != voce) await VociTutor.SalveazaAsync(db, sesiune.UtilizatorId, raspuns.Voce, ct);
-            if (!raspuns.Final) return Twiml(cfg, Asculta(raspuns.Text, raspuns.Voce, indicii), Spune("Pe curând!", raspuns.Voce), new XElement("Hangup"));
+            if (!raspuns.Final) return Twiml(cfg, Asculta(raspuns.Text, raspuns.Voce, indicii, numar), Spune("Pe curând!", raspuns.Voce), new XElement("Hangup"));
             await Incheie(db, sesiune.Id, ct);
             return Twiml(cfg, Spune(raspuns.Text, raspuns.Voce), new XElement("Hangup"));
         });
@@ -192,9 +191,9 @@ public static class LiniaAiEndpoints
         return new("Say", new XAttribute("language", "ro-RO"), new XAttribute("voice", VociTutor.Gaseste(voce.Voce).Twilio), continut);
     }
 
-    private static XElement Asculta(string text, SetariVoce voce, string indicii) =>
+    private static XElement Asculta(string text, SetariVoce voce, string indicii, string numar) =>
         new("Gather", new XAttribute("input", "speech"), new XAttribute("language", "ro-RO"), new XAttribute("speechTimeout", "auto"),
-            new XAttribute("action", UrlRaspuns), new XAttribute("method", "POST"), new XAttribute("hints", indicii),
+            new XAttribute("action", $"{UrlRaspuns}?k={Uri.EscapeDataString(CheieApel(numar) ?? "")}"), new XAttribute("method", "POST"), new XAttribute("hints", indicii),
             Spune(text, voce));
 
     // Absolute when the API sits behind a prefix (e.g. https://site/api via the website's proxy), else root-relative.
@@ -203,14 +202,47 @@ public static class LiniaAiEndpoints
     private static IResult Twiml(IConfiguration cfg, params XElement[] verbe) =>
         Results.Content(new XDocument(new XElement("Response", verbe)).ToString(), "application/xml");
 
-    /// <summary>Twilio's X-Twilio-Signature: base64(HMAC-SHA1(auth token, public URL + sorted form key/values)).</summary>
+    /// <summary>Call parameters: the form body of a POST, or the query string of a GET.</summary>
+    private static async Task<IFormCollection> ParametriAsync(HttpRequest req, CancellationToken ct) =>
+        req.HasFormContentType ? await req.ReadFormAsync(ct) : new FormCollection(req.Query.ToDictionary(q => q.Key, q => q.Value));
+
+    // Incoming call: the student is the caller. "Sună-mă" (outbound-api): the student is the one being called.
+    private static string NumarElev(IFormCollection form) =>
+        form["Direction"].ToString().StartsWith("outbound") ? form["To"].ToString() : form["From"].ToString();
+
+    /// <summary>
+    /// A secret for one student's calls, put in the TwiML URLs (?k=...). It authenticates requests that reach us through the
+    /// trial account's proxy, whose X-Twilio-Signature cannot match our URL; it is tied to the number, so it cannot start a call as someone else.
+    /// </summary>
+    public static string? CheieApel(string numar)
+    {
+        var token = Environment.GetEnvironmentVariable("TWILIO_AUTH_TOKEN");
+        if (string.IsNullOrEmpty(token)) return null;
+        return Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes("markai-voce:" + numar)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    private static bool CerereValida(HttpRequest req, IFormCollection form, string numar, IConfiguration cfg)
+    {
+        if (SemnaturaValida(req, form, cfg)) return true;
+        var cheie = CheieApel(numar);
+        var primita = req.Query["k"].ToString();
+        return cheie is not null && numar.Length > 0 && primita.Length > 0
+            && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(cheie), Encoding.UTF8.GetBytes(primita));
+    }
+
+    /// <summary>
+    /// Twilio's X-Twilio-Signature: base64(HMAC-SHA1(auth token, public URL + sorted POST key/values)).
+    /// A GET carries its parameters in the URL, so nothing is appended.
+    /// </summary>
     private static bool SemnaturaValida(HttpRequest req, IFormCollection form, IConfiguration cfg)
     {
         var token = Environment.GetEnvironmentVariable("TWILIO_AUTH_TOKEN");
         if (string.IsNullOrEmpty(token)) return false;
         var url = (cfg["Twilio:UrlPublic"] ?? "").TrimEnd('/') + req.Path + req.QueryString;
         var sb = new StringBuilder(url);
-        foreach (var kv in form.OrderBy(k => k.Key, StringComparer.Ordinal)) sb.Append(kv.Key).Append(kv.Value.ToString());
+        if (req.HasFormContentType)
+            foreach (var kv in form.OrderBy(k => k.Key, StringComparer.Ordinal)) sb.Append(kv.Key).Append(kv.Value.ToString());
         var asteptat = Convert.ToBase64String(HMACSHA1.HashData(Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes(sb.ToString())));
         var primit = req.Headers["X-Twilio-Signature"].ToString();
         return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(asteptat), Encoding.UTF8.GetBytes(primit));

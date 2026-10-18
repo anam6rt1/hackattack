@@ -162,11 +162,51 @@ function VoceaTutorelui({ linie, onSalvat }) {
   )
 }
 
+// Conversația completă a unui apel, într-o fereastră peste pagină
+function JurnalApel({ apel, mesaje, onInchide }) {
+  useEffect(() => {
+    const tasta = (e) => e.key === 'Escape' && onInchide()
+    window.addEventListener('keydown', tasta)
+    return () => window.removeEventListener('keydown', tasta)
+  }, [onInchide])
+
+  const durata = apel.finalizatLa ? Math.round((new Date(apel.finalizatLa) - new Date(apel.inceputLa)) / 1000) : null
+  const detalii = [`${mesaje.length} mesaje`, durata !== null && `${Math.floor(durata / 60)} min ${durata % 60} s`, apel.status === 'in_curs' && 'în curs']
+    .filter(Boolean).join(' · ')
+
+  return (
+    <div className="tv-fundal" onClick={onInchide}>
+      <div className="tv-fereastra" role="dialog" aria-modal="true" aria-labelledby="jurnal-titlu" onClick={(e) => e.stopPropagation()}>
+        <div className="tv-eticheta-sus">
+          <b id="jurnal-titlu">Apel din {dataOra(apel.inceputLa)}</b>
+          <small>{apel.curs ? `${apel.curs} · ` : ''}{detalii}</small>
+        </div>
+        {mesaje.length ? (
+          <div className="tv-jurnal-apel">
+            {mesaje.map((m) => (
+              <div key={m.id} className={`tv-bula tv-bula-${tipBula(m)}`}>
+                <small>{tipBula(m) === 'sms' ? 'SMS' : m.expeditor === 'elev' ? 'Tu' : 'Tutorele'} · {ora(m.creatLa)}</small>
+                {m.continut}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="tv-gol">Apelul nu are mesaje înregistrate.</p>
+        )}
+        <button className="tv-btn tv-gri" style={{ width: '100%', marginTop: 16 }} onClick={onInchide} autoFocus>Închide</button>
+      </div>
+    </div>
+  )
+}
+
+const ora = (d) => new Date(d).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
 export default function PaginaLiniaAI() {
   const utilizator = usePagina('elev', 'profesor')
   const [linie, setLinie] = useState(null)
   const [apeluri, setApeluri] = useState([])
-  const [ales, setAles] = useState(null) // { apel, mesaje }
+  const [ales, setAles] = useState(null) // { apel, mesaje } afișat în fereastra cu jurnalul
+  const [eroareJurnal, setEroareJurnal] = useState(null)
   const [vizibile, setVizibile] = useState(APEL.length) // la încărcare se vede tot apelul
   const [secunde, setSecunde] = useState(102)
   const timere = useRef([])
@@ -182,17 +222,19 @@ export default function PaginaLiniaAI() {
   }, [utilizator])
 
   async function deschide(apel) {
-    const r = await api(`/sesiuni/${apel.id}/mesaje`)
-    timere.current.forEach(clearTimeout)
-    setAles({ apel, mesaje: r.elemente })
+    setEroareJurnal(null)
+    try {
+      const r = await api(`/sesiuni/${apel.id}/mesaje`)
+      setAles({ apel, mesaje: r.elemente })
+    } catch (e) {
+      setEroareJurnal(e.message)
+    }
   }
 
   if (!utilizator || !linie) return <Incarcare />
-  const bule = ales ? ales.mesaje.map((m) => [tipBula(m), m.continut]) : APEL.slice(0, vizibile)
-  const durata = ales?.apel.finalizatLa ? Math.round((new Date(ales.apel.finalizatLa) - new Date(ales.apel.inceputLa)) / 1000) : null
+  const bule = APEL.slice(0, vizibile)
 
   function reda() {
-    setAles(null)
     timere.current.forEach(clearTimeout)
     timere.current = []
     setVizibile(0)
@@ -203,8 +245,7 @@ export default function PaginaLiniaAI() {
     }
   }
 
-  const sec = ales ? durata ?? 0 : secunde
-  const ceas = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
+  const ceas = `${String(Math.floor(secunde / 60)).padStart(2, '0')}:${String(secunde % 60).padStart(2, '0')}`
 
   return (
     <main className="tv-pagina">
@@ -220,6 +261,7 @@ export default function PaginaLiniaAI() {
         </section>
 
         <div className="tv-coala">
+          {ales && <JurnalApel apel={ales.apel} mesaje={ales.mesaje} onInchide={() => setAles(null)} />}
           <Telefonul utilizator={utilizator} linie={linie} onSalvat={incarca} />
 
           {linie.voce && utilizator.rol === 'elev' && <VoceaTutorelui key={JSON.stringify(linie.voce)} linie={linie} onSalvat={incarca} />}
@@ -243,6 +285,7 @@ export default function PaginaLiniaAI() {
             ) : (
               <p className="tv-gol">Nu ai sunat încă. Conversațiile tale cu tutorele vor apărea aici.</p>
             )}
+            {eroareJurnal && <p className="tv-eroare" role="alert">{eroareJurnal}</p>}
           </section>
 
           <div className="tv-apel-grid">
@@ -271,7 +314,7 @@ export default function PaginaLiniaAI() {
                       </svg>
                     </span>
                     <b>Tutorele de Bac</b>
-                    <small>{ales ? `Apel din ${dataOra(ales.apel.inceputLa)}` : 'Apel în curs'} · {ceas}</small>
+                    <small>Apel de exemplu · {ceas}</small>
                   </div>
                   <span className="tv-badge0">Apel GSM · 0 MB date</span>
                   <div className="tv-unda" aria-hidden="true">

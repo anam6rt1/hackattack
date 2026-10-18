@@ -37,6 +37,16 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 app.UseMiddleware<TratareErori>();
+// Twilio webhooks fail silently on the caller's side ("could not reach your TwiML server"), so log every one with its outcome.
+app.Use(async (ctx, next) =>
+{
+    if (!ctx.Request.Path.StartsWithSegments("/twilio")) { await next(); return; }
+    var ceas = System.Diagnostics.Stopwatch.StartNew();
+    await next();
+    app.Logger.LogInformation("Webhook Twilio {Metoda} {Cale}{Query} ({Tip}, semnătură: {Semnat}, {Agent}) -> {Status} în {Ms} ms",
+        ctx.Request.Method, ctx.Request.Path, ctx.Request.QueryString, ctx.Request.ContentType,
+        ctx.Request.Headers.ContainsKey("X-Twilio-Signature"), ctx.Request.Headers.UserAgent.ToString(), ctx.Response.StatusCode, ceas.ElapsedMilliseconds);
+});
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
