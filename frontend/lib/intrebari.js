@@ -1,7 +1,7 @@
 // lib/intrebari.js — alegerea întrebării pentru un nivel
 // Citește întrebările din Supabase (tabela „intrebari”).
 // Dacă Supabase nu e configurat sau nu răspunde, folosește întrebările din data/intrebari.json.
-import { supabase } from "@/lib/supabase22";
+import { supabase } from "@/lib/supabase";
 import INTREBARI_LOCALE from "@/data/intrebari.json";
 
 async function intrebariDinBaza(nivelId) {
