@@ -20,7 +20,7 @@ public sealed record LimiteApel(int Pasi, TimeSpan Durata, TimeSpan RaspunsMaxim
 /// Outbound "Sună-mă" calls: Twilio calls the student's phone and, once answered, fetches the same
 /// voice webhook as an incoming call. This works on a Twilio trial (calls to verified numbers only).
 /// </summary>
-public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http)
+public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, ILogger<TwilioApeluri> log)
 {
     private static readonly ConcurrentDictionary<int, DateTime> UltimaCerere = new();
     private static readonly TimeSpan Pauza = TimeSpan.FromSeconds(30);
@@ -63,9 +63,12 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http)
         UltimaCerere.TryRemove(utilizatorId, out _);
         var eroare = await r.Content.ReadFromJsonAsync<JsonNode>(ct);
         var cod = eroare?["code"]?.GetValue<int>();
+        log.LogWarning("Twilio a refuzat apelul: {Status} {Cod} {Mesaj}", (int)r.StatusCode, cod, eroare?["message"]?.GetValue<string>());
         throw new CerereInvalida(cod switch
         {
             // Twilio error codes: unverified number on a trial account, and calls to a blocked country.
+            // 21210: the "From" number is not a Twilio number (or verified caller ID) of this account.
+            21210 => "Numărul Twilio al serverului nu aparține contului Twilio. Configurează un număr Twilio valid.",
             21219 or 21608 => "Numărul tău nu este verificat în contul Twilio de probă. Verifică-l în consola Twilio și încearcă din nou.",
             21215 or 13227 => "Apelurile către acest număr nu sunt permise din contul Twilio (verifică permisiunile geografice).",
             21211 => "Numărul de telefon salvat nu este valid.",
