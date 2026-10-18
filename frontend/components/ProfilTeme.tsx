@@ -23,6 +23,7 @@
         - avatarul ales: const { avatar } = useAvatar();  →  <Avatar id={avatar} size={48} />
    ================================================================== */
 
+
 import { createContext, useCallback, useContext, useEffect, useId, useState } from "react";
 
 export type TemaId = "acvatic" | "realist" | "pixel";
@@ -50,6 +51,7 @@ function citesteTemaSalvata(): TemaId {
 
 function useTemaLocala(activ: boolean): ValoareTema {
   const [tema, setTemaState] = useState<TemaId>("acvatic");
+
 
   useEffect(() => {
     if (!activ) return;
