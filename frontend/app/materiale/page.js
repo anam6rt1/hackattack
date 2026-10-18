@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { api } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { decorSVG, insulaSVG } from '@/app/joc/arta'
+import HartaMateriale from '@/components/HartaMateriale'
+import { opere } from '@/lib/materiale'
 import Incarcare from '@/components/Incarcare'
 
 const DECOR = decorSVG(5)
@@ -33,6 +35,7 @@ export default function PaginaMateriale() {
         </section>
         <div className="tv-coala">
           {eroare && <p className="tv-eroare">{eroare}</p>}
+          <Link className="tv-pastila" href="/profil">Teme și avatar</Link>
           <div className="tv-planuri">
             {materii?.map((m, i) => (
               <Link key={m.id} href={`/materiale/${m.id}`} className="tv-plan tv-materie">
@@ -45,6 +48,7 @@ export default function PaginaMateriale() {
             ))}
             {materii?.length === 0 && <p className="tv-gol">Încă nu există materii.</p>}
           </div>
+          <HartaMateriale opere={opere} />
         </div>
       </div>
     </main>

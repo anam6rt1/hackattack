@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import "./insule.css";
 import Meniu from "@/components/Meniu";
+import { TemaSite } from "@/components/ProfilTeme";
 import Furnizori from "@/components/Furnizori";
 import Incarcare from "@/components/Incarcare";
 import { claseFonturi } from "@/lib/fonturi";
@@ -21,13 +22,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
       <body className={claseFonturi}>
-        <Furnizori>
+        <Furnizori><TemaSite>
           {/* Meniul și paginile citesc adresa (usePathname/useParams), deci se randează în browser */}
           <Suspense fallback={<header className="mn-bara" />}>
             <Meniu />
           </Suspense>
           <Suspense fallback={<Incarcare />}>{children}</Suspense>
-        </Furnizori>
+        </TemaSite></Furnizori>
       </body>
     </html>
   );

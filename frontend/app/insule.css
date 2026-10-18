@@ -357,3 +357,233 @@ a.tv-pastila { text-decoration: none; }
 .tv-link-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
 .tv-link-editor .tv-camp-text { flex: 1 1 220px; padding: 6px 10px; }
 .tv-link-sedinta { display: inline-block; margin-top: 4px; font-weight: 800; color: var(--ocean-adanc); }
+
+/* =====================================================================
+   TEMELE  —  se aplică singure după data-theme de pe <html>
+   (Acvatic = stilul de mai sus; aici doar ce se schimbă pentru Realist și Pixel)
+   ===================================================================== */
+
+/* ---------------------------- REALIST ---------------------------- */
+[data-theme="realist"] .tv-pagina {
+  --ocean: #3f8f72;
+  --maro: #f1e6cf;
+  --navy: #e8eef5;
+  --aur: #d9b46a;
+  --hartie: #16222f;
+  --chip: rgba(8, 16, 26, .82);
+  --bine: #3f8f72;
+  --rau: #c4574a;
+  --gri-text: #a9b7c6;
+  --titlu: var(--font-serif), Georgia, serif;
+  color: var(--navy);
+  background: #0e1d2b;
+  background-image:
+    radial-gradient(ellipse 70% 30% at 70% 34%, #c98a5a55 0, transparent 70%),
+    linear-gradient(180deg, #24324a 0, #3b4a63 24%, #7b6a66 33%, #1b2d40 36%, #0e1d2b 70%, #0a1622 100%);
+}
+[data-theme="realist"] .tv-card,
+[data-theme="realist"] .tv-fereastra,
+[data-theme="realist"] .tv-coala {
+  background: rgba(20, 31, 44, .94);
+  color: var(--navy);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 24px 50px -24px #000c;
+}
+[data-theme="realist"] .tv-card h3,
+[data-theme="realist"] .tv-eticheta-sus b,
+[data-theme="realist"] .tv-cod,
+[data-theme="realist"] .tv-numar { color: #f1e6cf; }
+[data-theme="realist"] .tv-mic,
+[data-theme="realist"] .tv-nume small,
+[data-theme="realist"] .tv-cine,
+[data-theme="realist"] .tv-pret small,
+[data-theme="realist"] .tv-loc small { color: #93a4b8; }
+[data-theme="realist"] .tv-jucator,
+[data-theme="realist"] .tv-jurnal li { background: rgba(255, 255, 255, .05); }
+[data-theme="realist"] .tv-randul { background: rgba(217, 180, 106, .12); border-color: #d9b46a; }
+[data-theme="realist"] .tv-reguli i { color: #1b2533; }
+[data-theme="realist"] .tv-runda { box-shadow: 0 0 0 4px #16222f, 0 0 0 7px #d9b46a66; text-shadow: none; color: #1b2533; }
+[data-theme="realist"] .tv-qr { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-camp,
+[data-theme="realist"] .tv-estimare input { background: #0f1a26; border-color: #2c3b4d; color: #f1e6cf; }
+[data-theme="realist"] .tv-estimare button { background: #22313f; color: #e8eef5; box-shadow: none; }
+
+[data-theme="realist"] .tv-btn { border-radius: 14px; box-shadow: 0 8px 18px -10px #000; }
+[data-theme="realist"] .tv-btn:active:not(:disabled) { transform: translateY(1px); }
+[data-theme="realist"] .tv-aur { color: #1b2533; }
+[data-theme="realist"] .tv-gri { background: #22313f; color: #e8eef5; }
+
+[data-theme="realist"] .tv-varianta { background: #192634; border-color: #2c3b4d; box-shadow: none; color: #e8eef5; }
+[data-theme="realist"] .tv-varianta:hover:not(:disabled) { border-color: #5fa88a; }
+[data-theme="realist"] .tv-aleasa { border-color: #d9b46a; background: #2a2a24; }
+[data-theme="realist"] .tv-corect { background: #183428 !important; border-color: #3f8f72 !important; box-shadow: none; }
+[data-theme="realist"] .tv-gresit { background: #3a1f1d; border-color: #c4574a; box-shadow: none; }
+[data-theme="realist"] .tv-estimari li { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-cronometru circle:first-child { fill: #0f1a26; stroke: #2c3b4d; }
+[data-theme="realist"] .tv-cronometru span { color: #f1e6cf; }
+
+[data-theme="realist"] .tv-eticheta,
+[data-theme="realist"] .tv-eticheta-sus { background: rgba(14, 24, 36, .9); box-shadow: 0 6px 16px -8px #000; border: 1px solid rgba(255,255,255,.08); }
+[data-theme="realist"] .tv-eticheta b { color: #f1e6cf; font-weight: 700; }
+[data-theme="realist"] .tv-eticheta small,
+[data-theme="realist"] .tv-eticheta-sus small { color: #a9b7c6; }
+
+/* Harta: apă întunecată la apus, insule mai stinse */
+[data-theme="realist"] .tv-harta {
+  background:
+    radial-gradient(ellipse 60% 22% at 70% 0, #d0956455 0, transparent 70%),
+    linear-gradient(180deg, #2b3d55 0, #17293b 30%, #0e1d2b 100%);
+  box-shadow: inset 0 0 0 1px #ffffff14, inset 0 0 80px #000a, 0 24px 50px -20px #000c;
+}
+[data-theme="realist"] .tv-harta svg { filter: saturate(.62) brightness(.78) contrast(1.08); }
+[data-theme="realist"] .tv-harta::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 170, 110, .10) 0, transparent 40%, rgba(5, 12, 20, .35) 100%);
+}
+
+/* Paginile formale */
+[data-theme="realist"] .tv-erou {
+  background:
+    radial-gradient(ellipse 60% 40% at 75% 55%, #d0956466 0, transparent 70%),
+    linear-gradient(180deg, #2b3d55 0, #4a5672 45%, #1a2c3f 60%, #0e1d2b 100%);
+  box-shadow: inset 0 0 0 1px #ffffff14;
+}
+[data-theme="realist"] .tv-erou p { color: #cfd9e4; }
+[data-theme="realist"] .tv-erou-pill { background: rgba(14, 24, 36, .85); color: #f1e6cf; box-shadow: none; border: 1px solid #ffffff1f; }
+[data-theme="realist"] .tv-decor { filter: saturate(.6) brightness(.75); }
+[data-theme="realist"] .tv-plan,
+[data-theme="realist"] .tv-pas,
+[data-theme="realist"] .tv-intrebari details,
+[data-theme="realist"] .tv-functii > div,
+[data-theme="realist"] .tv-flux-wrap,
+[data-theme="realist"] .tv-tabel { background: #1b2836; border: 1px solid #2c3b4d; }
+[data-theme="realist"] .tv-plan.tv-recomandat { border-color: #5fa88a; box-shadow: 0 0 0 3px #5fa88a40; }
+[data-theme="realist"] .tv-eticheta-plan { background: #5fa88a; color: #0e1d2b; }
+[data-theme="realist"] .tv-tabel th { background: #22313f; color: #f1e6cf; }
+[data-theme="realist"] .tv-tabel th, [data-theme="realist"] .tv-tabel td { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-nod { background: #22313f; border-color: #33465a; }
+[data-theme="realist"] .tv-nod-ai { background: #2e2a1f; border-color: #d9b46a; }
+[data-theme="realist"] .tv-status { background: #2a2618; border-color: #d9b46a; }
+[data-theme="realist"] .tv-status b { color: #f1d9a0; }
+[data-theme="realist"] .tv-telefon-in { background: linear-gradient(180deg, #1b2a3b, #0d1822); }
+
+/* ----------------------------- PIXEL ----------------------------- */
+[data-theme="pixel"] .tv-pagina {
+  --ocean: #2b5ce6;
+  --maro: #1b1b3a;
+  --navy: #1b1b3a;
+  --aur: #ffcc29;
+  --hartie: #fbf3dc;
+  --chip: #1b1b3a;
+  --bine: #2fa84f;
+  --rau: #e03c31;
+  --gri-text: #4a4a6a;
+  --titlu: var(--font-pixel), 'Courier New', monospace;
+  --text: var(--font-pixel), 'Courier New', monospace;
+  background: #2b4fd8;
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0 22px, rgba(255, 255, 255, .06) 22px 26px),
+    linear-gradient(180deg, #3a62f0 0, #2b4fd8 55%, #2445c4 100%);
+  background-attachment: fixed;
+  letter-spacing: .01em;
+}
+[data-theme="pixel"] .tv-pagina *,
+[data-theme="pixel"] .tv-pagina *::before { border-radius: 0 !important; }
+[data-theme="pixel"] .tv-pagina .tv-avatar,
+[data-theme="pixel"] .tv-pagina .tv-punct,
+[data-theme="pixel"] .tv-pagina .tv-unda i { border-radius: 0 !important; }
+
+[data-theme="pixel"] .tv-card,
+[data-theme="pixel"] .tv-fereastra,
+[data-theme="pixel"] .tv-coala {
+  background: #fbf3dc;
+  border: 4px solid #1b1b3a;
+  box-shadow: 8px 8px 0 rgba(27, 27, 58, .55);
+}
+[data-theme="pixel"] .tv-card h3,
+[data-theme="pixel"] .tv-cod,
+[data-theme="pixel"] .tv-numar,
+[data-theme="pixel"] .tv-eticheta-sus b { color: #1b1b3a; text-shadow: 2px 2px 0 #ffcc29; }
+[data-theme="pixel"] .tv-jucator,
+[data-theme="pixel"] .tv-jurnal li { background: #fff; border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-randul { background: #fff3c4; border: 2px solid #e03c31; }
+[data-theme="pixel"] .tv-reguli i,
+[data-theme="pixel"] .tv-pas > span,
+[data-theme="pixel"] .tv-runda { border: 2px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; text-shadow: none; }
+[data-theme="pixel"] .tv-runda { color: #1b1b3a; }
+[data-theme="pixel"] .tv-qr { border: 3px solid #1b1b3a; }
+[data-theme="pixel"] .tv-camp,
+[data-theme="pixel"] .tv-estimare input { border: 3px solid #1b1b3a; background: #fff; }
+[data-theme="pixel"] .tv-estimare button { border: 3px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; background: #fff; }
+
+[data-theme="pixel"] .tv-btn {
+  border: 3px solid #1b1b3a;
+  box-shadow: 5px 5px 0 #1b1b3a;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+[data-theme="pixel"] .tv-btn:active:not(:disabled) { transform: translate(5px, 5px); box-shadow: none; }
+[data-theme="pixel"] .tv-gri { background: #fff; }
+
+[data-theme="pixel"] .tv-varianta { border: 3px solid #1b1b3a; box-shadow: 4px 4px 0 #1b1b3a; background: #fff; }
+[data-theme="pixel"] .tv-varianta:hover:not(:disabled) { background: #eef3ff; border-color: #1b1b3a; }
+[data-theme="pixel"] .tv-varianta:active:not(:disabled) { transform: translate(4px, 4px); box-shadow: none; }
+[data-theme="pixel"] .tv-litera { border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-aleasa { background: #fff3c4; box-shadow: 4px 4px 0 #ffcc29; }
+[data-theme="pixel"] .tv-corect { background: #d8f5df !important; border-color: #1b1b3a !important; box-shadow: 4px 4px 0 #2fa84f; }
+[data-theme="pixel"] .tv-gresit { background: #ffdcd8; border-color: #1b1b3a; box-shadow: 4px 4px 0 #e03c31; }
+[data-theme="pixel"] .tv-verdict,
+[data-theme="pixel"] .tv-bloc { border: 3px solid #1b1b3a; box-shadow: 4px 4px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-estimari li { border: 3px solid #1b1b3a; background: #fff; }
+[data-theme="pixel"] .tv-cronometru circle { stroke-linecap: butt; }
+
+[data-theme="pixel"] .tv-eticheta,
+[data-theme="pixel"] .tv-eticheta-sus { background: #fbf3dc; border: 3px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-eticheta b { color: #1b1b3a; }
+[data-theme="pixel"] .tv-eticheta small,
+[data-theme="pixel"] .tv-eticheta-sus small { color: #4a4a6a; }
+[data-theme="pixel"] .tv-chip { background: #1b1b3a; }
+
+/* Harta: albastru plat cu dungi, contururi drepte */
+[data-theme="pixel"] .tv-harta {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 18px, rgba(255, 255, 255, .08) 18px 21px),
+    #2f5fe8;
+  border: 4px solid #1b1b3a;
+  box-shadow: 8px 8px 0 rgba(27, 27, 58, .55);
+}
+[data-theme="pixel"] .tv-harta svg { shape-rendering: crispEdges; filter: saturate(1.25) contrast(1.08); }
+
+/* Paginile formale */
+[data-theme="pixel"] .tv-erou {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 20px, rgba(255, 255, 255, .07) 20px 24px),
+    linear-gradient(180deg, #4a74ff 0, #2b4fd8 100%);
+  border: 4px solid #1b1b3a;
+  box-shadow: 8px 8px 0 rgba(27, 27, 58, .55);
+}
+[data-theme="pixel"] .tv-erou h1 { text-shadow: 3px 3px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-erou p { color: #fff; }
+[data-theme="pixel"] .tv-erou-pill { border: 3px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; color: #1b1b3a; }
+[data-theme="pixel"] .tv-decor { shape-rendering: crispEdges; }
+[data-theme="pixel"] .tv-plan,
+[data-theme="pixel"] .tv-pas,
+[data-theme="pixel"] .tv-intrebari details,
+[data-theme="pixel"] .tv-functii > div,
+[data-theme="pixel"] .tv-flux-wrap,
+[data-theme="pixel"] .tv-tabel { background: #fff; border: 3px solid #1b1b3a; box-shadow: 5px 5px 0 rgba(27, 27, 58, .4); }
+[data-theme="pixel"] .tv-plan.tv-recomandat { border: 4px solid #e03c31; box-shadow: 6px 6px 0 #e03c31; }
+[data-theme="pixel"] .tv-eticheta-plan { background: #e03c31; color: #fff; border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-plan li::before { border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-tabel th { background: #ffcc29; color: #1b1b3a; }
+[data-theme="pixel"] .tv-tabel th, [data-theme="pixel"] .tv-tabel td { border-bottom: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-nod { border: 3px solid #1b1b3a; background: #eef3ff; }
+[data-theme="pixel"] .tv-nod-ai { background: #fff3c4; }
+[data-theme="pixel"] .tv-status { border: 3px solid #1b1b3a; box-shadow: 4px 4px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-telefon { border: 4px solid #1b1b3a; box-shadow: 8px 8px 0 rgba(27,27,58,.55); }
+[data-theme="pixel"] .tv-telefon-in { background: #1b1b3a; }
+[data-theme="pixel"] .tv-bula { border: 2px solid #0b0b20; }
+[data-theme="pixel"] .tv-nota { color: #fff; }
+
+/* Pe site, fundalul animat al temei (TemaSite) stă în spatele paginilor. */
+.bq-site .tv-pagina { background: transparent !important; }
