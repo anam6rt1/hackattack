@@ -45,7 +45,7 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, I
         var parametri = new Dictionary<string, string>
         {
             ["To"] = telefon,
-            ["Url"] = UrlPublic + "/twilio/voce",
+            ["Url"] = $"{UrlPublic}/twilio/voce?k={Uri.EscapeDataString(Endpoints.LiniaAiEndpoints.CheieApel(telefon) ?? "")}",
             ["StatusCallback"] = UrlPublic + "/twilio/voce/stare",
         };
         // A "Try out Voice" trial rejects any other parameter (400 "trial accounts have limited parameter access")
