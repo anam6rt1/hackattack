@@ -801,6 +801,10 @@ namespace MarkAi.Data.Migrations
                         .HasColumnName("actualizat_la")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<string>("Avatar")
+                        .HasColumnType("text")
+                        .HasColumnName("avatar");
+
                     b.Property<int?>("BackgroundStaticId")
                         .HasColumnType("integer")
                         .HasColumnName("background_static_id");

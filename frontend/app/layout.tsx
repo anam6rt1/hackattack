@@ -15,12 +15,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ro" data-tema="vara-zi" suppressHydrationWarning>
+    // Fonturile stau pe <html>, ca variabilele lor să poată fi folosite și de stilurile puse pe <html data-theme>.
+    <html lang="ro" data-tema="vara-zi" data-theme="acvatic" className={claseFonturi} suppressHydrationWarning>
       <head>
-        {/* Alege tema (anotimp + zi/noapte) înainte de prima afișare, ca să nu clipească. */}
+        {/* Alege tema (anotimp + zi/noapte) și stilul înainte de prima afișare, ca să nu clipească. */}
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
-      <body className={claseFonturi}>
+      <body>
         <Furnizori>
           {/* Meniul și paginile citesc adresa (usePathname/useParams), deci se randează în browser */}
           <Suspense fallback={<header className="mn-bara" />}>

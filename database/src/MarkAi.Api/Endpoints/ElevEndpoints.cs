@@ -1,4 +1,4 @@
-using MarkAi.Api.Infrastructura;
+﻿using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
@@ -18,7 +18,9 @@ public record EstimareTriviador(int Id, int? CursId, string Text, int Raspuns);
 public record PachetTriviador(IReadOnlyList<GrilaTriviador> Grila, IReadOnlyList<EstimareTriviador> Estimari);
 
 public record TemaDto(string Cod, string Nume, string? Anotimp, string? PerioadaZilei);
-public record Preferinte(string Mod, string? Tema);
+// Mod/Tema = fundalul (anotimp × zi/noapte), Interfata = stilul desenelor (insule/realist/pixel), Avatar = personajul din profil.
+// La PUT, câmpurile lipsă (null) rămân cum erau, deci clienții vechi care trimit doar { mod, tema } merg la fel.
+public record Preferinte(string? Mod, string? Tema, string? Interfata = null, string? Avatar = null);
 
 public static class ElevEndpoints
 {
@@ -80,28 +82,42 @@ public static class ElevEndpoints
         });
 
         var pref = app.MapGroup("/utilizatori/me/preferinte").WithTags("Aspect").RequireAuthorization();
-        pref.MapGet("", async (HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
-        {
-            var uid = h.User.Id();
-            var p = await db.PreferinteUtilizatori.AsNoTracking().Where(x => x.UtilizatorId == uid)
-                .Select(x => new Preferinte(x.ModBackground, x.BackgroundStatic == null ? null : x.BackgroundStatic.Cod)).SingleOrDefaultAsync(ct);
-            return p ?? new Preferinte("auto", null);
-        });
+        pref.MapGet("", (HttpContext h, MarkAiDbContext db, CancellationToken ct) => CitestePreferinte(db, h.User.Id(), ct));
         pref.MapPut("", async (Preferinte c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var uid = h.User.Id();
-            int? fundal = null;
-            if (c.Mod == "static")
-                fundal = await db.Backgrounds.Where(b => b.Cod == c.Tema && b.Activ && b.SelectabilStatic).Select(b => (int?)b.Id).SingleOrDefaultAsync(ct)
-                    ?? throw new CerereInvalida("Tema aleasă nu există.");
-            else if (c.Mod != "auto") throw new CerereInvalida("Modul trebuie să fie „auto” sau „static”.");
             var p = await db.PreferinteUtilizatori.SingleOrDefaultAsync(x => x.UtilizatorId == uid, ct);
-            if (p is null) db.PreferinteUtilizatori.Add(p = new PreferinteUtilizator { UtilizatorId = uid, Timezone = "Europe/Bucharest" });
-            p.ModBackground = c.Mod;
-            p.BackgroundStaticId = fundal;
+            if (p is null) db.PreferinteUtilizatori.Add(p = new PreferinteUtilizator { UtilizatorId = uid, ModBackground = "auto", Timezone = "Europe/Bucharest" });
+            if (c.Mod is not null)
+            {
+                int? fundal = null;
+                if (c.Mod == "static")
+                    fundal = await db.Backgrounds.Where(b => b.Cod == c.Tema && b.Activ && b.SelectabilStatic).Select(b => (int?)b.Id).SingleOrDefaultAsync(ct)
+                        ?? throw new CerereInvalida("Tema aleasă nu există.");
+                else if (c.Mod != "auto") throw new CerereInvalida("Modul trebuie să fie „auto” sau „static”.");
+                p.ModBackground = c.Mod;
+                p.BackgroundStaticId = fundal;
+            }
+            if (c.Interfata is not null)
+                p.InterfataId = await db.Interfata.Where(i => i.Cod == c.Interfata && i.Activa).Select(i => (int?)i.Id).SingleOrDefaultAsync(ct)
+                    ?? throw new CerereInvalida("Stilul ales nu există.");
+            if (c.Avatar is not null)
+            {
+                // Desenele avatarelor sunt în frontend; aici păstrăm doar un cod scurt.
+                if (c.Avatar.Length > 40 || !c.Avatar.All(ch => ch is >= 'a' and <= 'z' or '-'))
+                    throw new CerereInvalida("Avatarul ales nu există.");
+                p.Avatar = c.Avatar.Length == 0 ? null : c.Avatar;
+            }
             p.ActualizatLa = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
-            return new Preferinte(c.Mod, c.Mod == "static" ? c.Tema : null);
+            return await CitestePreferinte(db, uid, ct);
         });
     }
+
+    static async Task<Preferinte> CitestePreferinte(MarkAiDbContext db, int uid, CancellationToken ct) =>
+        await db.PreferinteUtilizatori.AsNoTracking().Where(x => x.UtilizatorId == uid)
+            .Select(x => new Preferinte(x.ModBackground, x.ModBackground == "static" && x.BackgroundStatic != null ? x.BackgroundStatic.Cod : null,
+                x.Interfata == null ? null : x.Interfata.Cod, x.Avatar))
+            .SingleOrDefaultAsync(ct)
+        ?? new Preferinte("auto", null);
 }

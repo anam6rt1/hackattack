@@ -26,6 +26,9 @@ public partial class PreferinteUtilizator
     /// <summary>Phone tutor pitch shift, percent (−20…+20).</summary>
     public int TonTutor { get; set; }
 
+    /// <summary>Profile avatar code (a character from the bac works, drawn by the frontend); null = default avatar.</summary>
+    public string? Avatar { get; set; }
+
     public virtual Background? BackgroundStatic { get; set; }
 
     public virtual Interfata? Interfata { get; set; }

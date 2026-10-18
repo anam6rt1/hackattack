@@ -104,6 +104,7 @@ internal static class IntegrareConfiguration
             e.Property(x => x.VoceTutor).HasColumnName("voce_tutor");
             e.Property(x => x.VitezaTutor).HasColumnName("viteza_tutor").HasDefaultValue(100);
             e.Property(x => x.TonTutor).HasColumnName("ton_tutor").HasDefaultValue(0);
+            e.Property(x => x.Avatar).HasColumnName("avatar");
         });
 
         model.Entity<CameraTutoring>(e =>

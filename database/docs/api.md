@@ -39,6 +39,17 @@ Setări din `appsettings.json`: `Frontend:Origini` (CORS), `Autentificare:Cookie
 
 Plata elevului este simulată (`plata.status = 'simulata'`); profesorul primește onorariul negociat, păstrat în `comision_mentor.suma_comision`.
 
+## Aspect: temă, stil și avatar
+
+`GET/PUT /utilizatori/me/preferinte` ține trei alegeri independente, în `preferinte_utilizator`:
+
+- **tema** (anotimp × zi/noapte): `{ "mod": "auto" }` sau `{ "mod": "static", "tema": "iarna-noapte" }` → `mod_background`, `background_static_id`;
+- **stilul desenelor**: `{ "interfata": "insule" | "realist" | "pixel" }` → `interfata_id` (frontendul numește „insule” *Acvatic*);
+- **avatarul** din profil: `{ "avatar": "harap-alb" }` → `avatar` (codul unui personaj desenat în frontend).
+
+La `PUT` se trimit doar câmpurile schimbate; cele lipsă rămân cum erau. Răspunsul are mereu toate patru: `mod`, `tema`, `interfata`, `avatar`.
+Migrarea `AvatarSiStiluri` adaugă coloana `avatar` și interfețele `realist` și `pixel`.
+
 ## Întrebări generate cu AI
 
 Ambele funcții AI (întrebările și tutorele) trec prin `Servicii/ModelAi.cs`: Claude dacă există `ANTHROPIC_API_KEY`,
