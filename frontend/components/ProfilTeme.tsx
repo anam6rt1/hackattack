@@ -90,12 +90,7 @@ export function TemaSite({ children }: { children: React.ReactNode }) {
   return (
     <TemaContext.Provider value={valoare}>
       <style>{CSS}</style>
-      {/* aplică tema salvată înainte să se deseneze pagina (fără „clipire”) */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `try{var t=localStorage.getItem("${CHEIE}");if(t==="copilaresc")t="acvatic";if(["acvatic","realist","pixel"].indexOf(t)<0)t="acvatic";document.documentElement.dataset.theme=t}catch(e){}`,
-        }}
-      />
+      
       <TemaFundal />
       <ButonSunet tema={valoare.tema} />
       <div className="bq-site">{children}</div>
