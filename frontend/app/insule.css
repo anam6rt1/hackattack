@@ -353,3 +353,7 @@ a.tv-pastila { text-decoration: none; }
 .tv-variante-lista { margin: 0; padding-left: 18px; color: var(--gri-text); display: grid; gap: 2px; }
 .tv-variante-lista .tv-corecta { color: #0f7446; font-weight: 800; }
 .tv-varianta-editor { display: flex; gap: 8px; align-items: center; }
+.tv-rand-sedinta { flex-wrap: wrap; }
+.tv-link-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
+.tv-link-editor .tv-camp-text { flex: 1 1 220px; padding: 6px 10px; }
+.tv-link-sedinta { display: inline-block; margin-top: 4px; font-weight: 800; color: var(--ocean-adanc); }

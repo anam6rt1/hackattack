@@ -29,7 +29,7 @@ function SlotNou({ panou, onCreat }) {
         metoda: 'POST',
         corp: {
           materieId: Number(f.materieId), titlu: f.titlu, descriere: f.descriere || null,
-          inceputLa: inceput.toISOString(), capacitate: Number(f.capacitate), proBono: f.proBono === 'da',
+          inceputLa: inceput.toISOString(), capacitate: Number(f.capacitate), proBono: f.proBono === 'da', linkIntalnire: f.linkIntalnire || null,
         },
       })
       e.target.reset()
@@ -82,6 +82,11 @@ function SlotNou({ panou, onCreat }) {
         <span>Descriere (opțional)</span>
         <textarea className="tv-camp-text" name="descriere" rows={2} maxLength={1000} />
       </label>
+      <label className="tv-eticheta-camp">
+        <span>Link ședință (opțional, îl poți adăuga și mai târziu)</span>
+        <input className="tv-camp-text" name="linkIntalnire" type="url" maxLength={500} placeholder="https://meet.google.com/..." />
+      </label>
+      <p className="tv-indiciu">Linkul îl văd doar elevii care și-au rezervat un loc.</p>
       {pret && (
         <p className="tv-indiciu">
           Elevul plătește tariful fix al platformei ({pret.suma} {pret.moneda} / {pret.durataMinute} min). Tu primești onorariul negociat:{' '}
@@ -90,6 +95,40 @@ function SlotNou({ panou, onCreat }) {
       )}
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
       <button className="tv-btn" disabled={trimite}>{trimite ? 'Se programează...' : 'Programează ședința'}</button>
+    </form>
+  )
+}
+
+// Adaugă sau schimbă linkul ședinței (Meet, Zoom, Teams...) direct din listă
+function LinkSedinta({ slot, onActualizat }) {
+  const [editare, setEditare] = useState(false)
+  const [link, setLink] = useState(slot.linkIntalnire ?? '')
+  const [eroare, setEroare] = useState('')
+
+  async function salveaza(e) {
+    e.preventDefault()
+    setEroare('')
+    try {
+      onActualizat(await api(`/profesori/me/sloturi/${slot.id}/link`, { metoda: 'PUT', corp: { linkIntalnire: link.trim() || null } }))
+      setEditare(false)
+    } catch (err) {
+      setEroare(err.message)
+    }
+  }
+
+  if (!editare)
+    return (
+      <span className="tv-butoane">
+        {slot.linkIntalnire && <a className="tv-pastila tv-pastila-verde" href={slot.linkIntalnire} target="_blank" rel="noreferrer">Deschide linkul</a>}
+        <button className="tv-pastila" onClick={() => setEditare(true)}>{slot.linkIntalnire ? 'Schimbă linkul' : 'Adaugă link'}</button>
+      </span>
+    )
+  return (
+    <form className="tv-link-editor" onSubmit={salveaza}>
+      <input className="tv-camp-text" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." aria-label="Linkul ședinței" autoFocus />
+      <button className="tv-pastila tv-pastila-aur">Salvează</button>
+      <button type="button" className="tv-pastila" onClick={() => { setEditare(false); setLink(slot.linkIntalnire ?? ''); setEroare('') }}>Renunț</button>
+      {eroare && <span className="tv-pastila tv-pastila-rosu" role="alert">{eroare}</span>}
     </form>
   )
 }
@@ -106,8 +145,9 @@ export default function SloturileMele({ panou, onActualizat }) {
     onActualizat(await api('/profesori/me'))
   }
 
-  const Rand = ({ s, poateAnula }) => (
-    <li className="tv-rand">
+  // funcție simplă (nu componentă), ca editorul de link să nu se remonteze la fiecare randare
+  const rand = (s, poateAnula) => (
+    <li key={s.slot.id} className="tv-rand tv-rand-sedinta">
       <div>
         <b>{s.slot.titlu}</b>
         <small>
@@ -117,6 +157,7 @@ export default function SloturileMele({ panou, onActualizat }) {
       </div>
       {s.slot.proBono && <span className="tv-pastila tv-pastila-verde">Pro bono</span>}
       {s.slot.status === 'anulata' && <span className="tv-pastila tv-pastila-rosu">Anulată</span>}
+      {poateAnula && <LinkSedinta key={`${s.slot.id}-${s.slot.linkIntalnire ?? ''}`} slot={s.slot} onActualizat={onActualizat} />}
       {poateAnula &&
         (anulare === s.slot.id ? (
           <span className="tv-butoane">
@@ -137,11 +178,11 @@ export default function SloturileMele({ panou, onActualizat }) {
       </div>
       <div className="tv-cutie tv-panou-lat">
         <h3>Ședințe viitoare</h3>
-        {viitoare.length ? <ul className="tv-lista">{viitoare.map((s) => <Rand key={s.slot.id} s={s} poateAnula />)}</ul> : <p className="tv-gol">Nicio ședință programată.</p>}
+        {viitoare.length ? <ul className="tv-lista">{viitoare.map((s) => rand(s, true))}</ul> : <p className="tv-gol">Nicio ședință programată.</p>}
         {trecute.length > 0 && (
           <>
             <h3 style={{ marginTop: 10 }}>Istoric</h3>
-            <ul className="tv-lista">{trecute.slice(0, 10).map((s) => <Rand key={s.slot.id} s={s} />)}</ul>
+            <ul className="tv-lista">{trecute.slice(0, 10).map((s) => rand(s, false))}</ul>
           </>
         )}
       </div>

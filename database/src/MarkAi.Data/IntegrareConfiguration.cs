@@ -109,8 +109,12 @@ internal static class IntegrareConfiguration
         model.Entity<CameraTutoring>(e =>
         {
             e.ToTable("camera_tutoring", "mark_ai", t =>
-                t.HasCheckConstraint("camera_tutoring_pro_bono_check", "pro_bono = (tarif_id IS NULL)"));
+            {
+                t.HasCheckConstraint("camera_tutoring_pro_bono_check", "pro_bono = (tarif_id IS NULL)");
+                t.HasCheckConstraint("camera_tutoring_link_intalnire_check", "link_intalnire IS NULL OR link_intalnire ~ '^https://'");
+            });
             e.Property(x => x.ProBono).HasColumnName("pro_bono").HasDefaultValue(false);
+            e.Property(x => x.LinkIntalnire).HasColumnName("link_intalnire");
         });
     }
 }

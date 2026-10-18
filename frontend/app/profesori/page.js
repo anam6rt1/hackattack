@@ -10,6 +10,7 @@ import { usePagina } from '@/lib/sesiune'
 import { decorSVG } from '../joc/arta'
 import Incarcare from '@/components/Incarcare'
 import SloturileMele from '@/components/profesori/SloturileMele'
+import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
 
 const DECOR = decorSVG(41)
 
@@ -72,6 +73,7 @@ function Director() {
   const [pret, setPret] = useState(null)
   const [filtru, setFiltru] = useState({ materieId: '', gratuit: false, saptamana: false })
   const [ales, setAles] = useState(null) // { slot, profesor }
+  const [rezervarileMele, setRezervarileMele] = useState({}) // slotId → id-ul rezervării mele confirmate
   const [eroare, setEroare] = useState('')
 
   const incarca = useCallback(() => {
@@ -80,6 +82,9 @@ function Director() {
     if (filtru.gratuit) q.set('gratuit', 'true')
     if (filtru.saptamana) q.set('zile', '7')
     api('/profesori?' + q).then((r) => setProfesori(r.elemente)).catch((e) => setEroare(e.message))
+    api('/rezervari')
+      .then((r) => setRezervarileMele(Object.fromEntries(r.elemente.filter((x) => x.status === 'confirmata').map((x) => [x.slot.id, x.id]))))
+      .catch(() => {})
   }, [filtru])
 
   useEffect(() => {
@@ -144,7 +149,11 @@ function Director() {
                         </small>
                       </div>
                       {s.rezervatDeMine ? (
-                        <span className="tv-pastila tv-pastila-verde">Rezervat</span>
+                        <span className="tv-butoane">
+                          <span className="tv-pastila tv-pastila-verde">Rezervat</span>
+                          {s.linkIntalnire && <a className="tv-pastila tv-pastila-aur" href={s.linkIntalnire} target="_blank" rel="noreferrer">Intră în ședință</a>}
+                          {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={incarca} />}
+                        </span>
                       ) : (
                         <button className="tv-pastila tv-pastila-aur" disabled={s.locuriLibere === 0} onClick={() => setAles({ slot: s, profesor: p })}>
                           {s.locuriLibere === 0 ? 'Complet' : 'Rezervă'}

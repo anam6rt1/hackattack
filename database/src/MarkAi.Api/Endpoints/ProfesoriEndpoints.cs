@@ -9,12 +9,14 @@ namespace MarkAi.Api.Endpoints;
 
 public record PretDto(decimal Suma, string Moneda, int DurataMinute);
 public record MaterieScurta(int Id, string Denumire);
+/// <param name="LinkIntalnire">Only filled in for the session's professor and students with a confirmed booking.</param>
 public record SlotDto(int Id, string Titlu, string? Descriere, int MaterieId, string Materie, DateTime? InceputLa, DateTime? FinalizatLa,
-    int Capacitate, int LocuriLibere, bool ProBono, string Status, bool RezervatDeMine);
+    int Capacitate, int LocuriLibere, bool ProBono, string Status, bool RezervatDeMine, string? LinkIntalnire);
 public record ProfesorDto(int Id, string Nume, string? Descriere, string? PozaUrl, IReadOnlyList<MaterieScurta> Materii, bool OferaProBono,
     IReadOnlyList<SlotDto> Sloturi);
 public record RezervareDto(int Id, string Status, decimal TarifAchitat, string Moneda, DateTime RezervataLa, SlotDto Slot, int ProfesorId, string Profesor);
-public record SlotNou(int MaterieId, string Titlu, string? Descriere, DateTime InceputLa, int Capacitate, bool ProBono);
+public record SlotNou(int MaterieId, string Titlu, string? Descriere, DateTime InceputLa, int Capacitate, bool ProBono, string? LinkIntalnire);
+public record LinkSlot(string? LinkIntalnire);
 public record ElevRezervare(int RezervareId, string Nume, string Status);
 public record SlotProfesor(SlotDto Slot, IReadOnlyList<ElevRezervare> Elevi);
 public record CastiguriDto(decimal Total, decimal InAsteptare, string Moneda);
@@ -84,11 +86,20 @@ public static class ProfesoriEndpoints
             {
                 MentorId = uid, MaterieId = c.MaterieId, Titlu = Validare.Obligatoriu(c.Titlu, "Titlu", 200), Descriere = Validare.Optional(c.Descriere, 1000),
                 Capacitate = c.Capacitate, ProBono = c.ProBono, TarifId = c.ProBono ? null : pret!.Id, Status = RezervareService.SlotDeschis,
-                InceputLa = inceput, FinalizatLa = inceput.AddMinutes(pret?.DurataMinute ?? 60),
+                InceputLa = inceput, FinalizatLa = inceput.AddMinutes(pret?.DurataMinute ?? 60), LinkIntalnire = LinkValid(c.LinkIntalnire),
             };
             db.CamereTutoring.Add(slot);
             await db.SaveChangesAsync(ct);
             return Results.Created("/profesori/me", await Panou(db, uid, ct));
+        });
+        // The link can be added or changed later, e.g. once the professor creates the meeting.
+        prof.MapPut("/sloturi/{id:int}/link", async (int id, LinkSlot c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
+        {
+            var uid = h.User.Id();
+            var slot = await db.CamereTutoring.SingleOrDefaultAsync(s => s.Id == id && s.MentorId == uid, ct) ?? throw new KeyNotFoundException("Ședința nu există.");
+            slot.LinkIntalnire = LinkValid(c.LinkIntalnire);
+            await db.SaveChangesAsync(ct);
+            return await Panou(db, uid, ct);
         });
         prof.MapDelete("/sloturi/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
@@ -150,6 +161,14 @@ public static class ProfesoriEndpoints
 
     public record RezervareNoua(int SlotId);
 
+    private static string? LinkValid(string? link)
+    {
+        var l = Validare.Optional(link, 500);
+        if (l is not null && !(Uri.TryCreate(l, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps))
+            throw new CerereInvalida("Linkul ședinței trebuie să fie o adresă https (de ex. Google Meet, Zoom sau Teams).");
+        return l;
+    }
+
     private static int? Utilizator(HttpContext h) => h.User.Identity?.IsAuthenticated == true ? h.User.Id() : null;
 
     private static async Task<ProfilMentor> Profil(MarkAiDbContext db, int id, CancellationToken ct) =>
@@ -172,7 +191,9 @@ public static class ProfesoriEndpoints
     private static IQueryable<SlotCuMentor> Sloturi(IQueryable<CameraTutoring> q, int? uid) => q.Select(s => new SlotCuMentor(s.MentorId, new SlotDto(
         s.Id, s.Titlu, s.Descriere, s.MaterieId, s.Materie.Denumire, s.InceputLa, s.FinalizatLa, s.Capacitate,
         s.Capacitate - s.Rezervari.Count(r => r.Status == RezervareService.RezervareConfirmata), s.ProBono, s.Status,
-        uid != null && s.Rezervari.Any(r => r.ElevId == uid && r.Status == RezervareService.RezervareConfirmata))));
+        uid != null && s.Rezervari.Any(r => r.ElevId == uid && r.Status == RezervareService.RezervareConfirmata),
+        uid != null && (s.MentorId == uid || s.Rezervari.Any(r => r.ElevId == uid && r.Status == RezervareService.RezervareConfirmata))
+            ? s.LinkIntalnire : null)));
 
     private static async Task<List<ProfesorDto>> Profesori(MarkAiDbContext db, IQueryable<ProfilMentor> q, int? uid, CancellationToken ct)
     {

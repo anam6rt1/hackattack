@@ -800,7 +800,9 @@ export default function HartaInsule({ cursuri, onActualizare }) {
   // „play” e parcurs când lecția e terminată (răspuns corect la întrebare)
   const activitatiNivel = (n) => ({ video: !!n.curs.progres?.videoVazut, materiale: !!n.curs.progres?.materialeCitite, play: terminat(n) });
 
-  const insulaDeblocata = (i) => i === 0 || insule[i - 1].toate.every(terminat);
+  // O insulă e deschisă când cea dinainte e terminată sau când elevul a terminat deja ceva pe ea
+  // (lecțiile adăugate ulterior într-o insulă terminată nu blochează la loc ce urmează).
+  const insulaDeblocata = (i) => i === 0 || insule[i - 1].toate.every(terminat) || insule[i].toate.some(terminat);
   const stareNivel = (insula, j) => {
     const n = insula.toate[j];
     if (terminat(n)) return "terminat";

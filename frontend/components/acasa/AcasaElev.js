@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { api, dataOra } from '@/lib/api'
 import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
+import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
 
 const DECOR = decorSVG(29)
 
@@ -13,6 +14,9 @@ export default function AcasaElev({ utilizator }) {
   const [progres, setProgres] = useState(null)
   const [rezervari, setRezervari] = useState([])
   const [eroare, setEroare] = useState('')
+
+  const incarcaRezervari = () =>
+    api('/rezervari').then((r) => setRezervari(r.elemente.filter((x) => x.status === 'confirmata' && new Date(x.slot.inceputLa) > new Date()))).catch(() => {})
 
   useEffect(() => {
     api('/progres').then(setProgres).catch((e) => setEroare(e.message))
@@ -107,7 +111,13 @@ export default function AcasaElev({ utilizator }) {
                       <div>
                         <b>{r.slot.titlu}</b>
                         <small>{dataOra(r.slot.inceputLa)} · {r.profesor}</small>
+                        {r.slot.linkIntalnire ? (
+                          <a className="tv-link-sedinta" href={r.slot.linkIntalnire} target="_blank" rel="noreferrer">Intră în ședință →</a>
+                        ) : (
+                          <small>Profesorul va adăuga linkul ședinței.</small>
+                        )}
                       </div>
+                      <AnuleazaRezervare rezervareId={r.id} onAnulat={incarcaRezervari} />
                     </li>
                   ))}
                 </ul>

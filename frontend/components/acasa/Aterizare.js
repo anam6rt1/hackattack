@@ -13,7 +13,7 @@ const FUNCTII = [
   { titlu: 'Materiale pe insule', text: 'Fiecare operă de bac e o insulă cu lecții scurte: video, notițe și o întrebare la final.' },
   { titlu: 'Triviador cu prietenii', text: 'Cucerește insulele colegilor răspunzând la întrebări din lecțiile parcurse.' },
   { titlu: 'Profesori, și gratuit', text: 'Rezervă o ședință cu un profesor verificat. Unii oferă și ședințe pro bono.' },
-  { titlu: 'Linia AI, fără internet', text: 'Suni de pe telefon și recapitulezi cu tutorele AI, chiar și fără date mobile.' },
+  { titlu: 'Linia AI, fără internet', text: 'Tutorele AI te sună și recapitulați împreună, chiar și fără date mobile. Apelarea unui număr de telefon va fi disponibilă în curând.' },
 ]
 
 function Camp({ eticheta, ...props }) {

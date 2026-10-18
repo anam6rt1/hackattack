@@ -72,6 +72,8 @@ public static class LiniaAiEndpoints
         // student's answer; Twilio posts the transcribed speech to /raspuns, which replies with the next turn.
         // Every request must carry a valid Twilio signature.
         var twilio = app.MapGroup("/twilio/voce").WithTags("Linia AI").DisableAntiforgery();
+        var urlPublic = (app.Configuration["Twilio:UrlPublic"] ?? "").TrimEnd('/');
+        if (urlPublic.StartsWith("https://")) UrlRaspuns = urlPublic + "/twilio/voce/raspuns";
 
         twilio.MapPost("", async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, CancellationToken ct) =>
         {
@@ -192,8 +194,11 @@ public static class LiniaAiEndpoints
 
     private static XElement Asculta(string text, SetariVoce voce, string indicii) =>
         new("Gather", new XAttribute("input", "speech"), new XAttribute("language", "ro-RO"), new XAttribute("speechTimeout", "auto"),
-            new XAttribute("action", "/twilio/voce/raspuns"), new XAttribute("method", "POST"), new XAttribute("hints", indicii),
+            new XAttribute("action", UrlRaspuns), new XAttribute("method", "POST"), new XAttribute("hints", indicii),
             Spune(text, voce));
+
+    // Absolute when the API sits behind a prefix (e.g. https://site/api via the website's proxy), else root-relative.
+    private static string UrlRaspuns = "/twilio/voce/raspuns";
 
     private static IResult Twiml(IConfiguration cfg, params XElement[] verbe) =>
         Results.Content(new XDocument(new XElement("Response", verbe)).ToString(), "application/xml");

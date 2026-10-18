@@ -54,6 +54,7 @@ internal static class Seed
         await db.SaveChangesAsync();
 
         await ImportaRomana(db, dataDir);
+        if (File.Exists(Path.Combine(dataDir, "continut-suplimentar.json"))) await ImportaSuplimentar(db, dataDir);
         await CreeazaAdmin(db);
         await tx.CommitAsync();
         Console.WriteLine("Seed applied.");
@@ -106,6 +107,60 @@ internal static class Seed
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Additional subjects, lessons and questions. Existing subjects are matched by code or name and existing
+    /// lessons by title; content already in the database (possibly edited by a teacher) is never overwritten,
+    /// only missing note sections are appended.
+    /// </summary>
+    private static async Task ImportaSuplimentar(MarkAiDbContext db, string dataDir)
+    {
+        var continut = Citeste<SuplimentarJson>(dataDir, "continut-suplimentar.json");
+        foreach (var mj in continut.Materii)
+        {
+            var denumire = mj.Denumire.ToLower();
+            var materie = await db.Materii.FirstOrDefaultAsync(m => m.Cod == mj.Cod || m.Denumire.ToLower() == denumire);
+            if (materie is null)
+            {
+                db.Materii.Add(materie = new Materie { Cod = mj.Cod, Denumire = mj.Denumire, Ordine = await db.Materii.CountAsync() + 1 });
+                await db.SaveChangesAsync();
+            }
+
+            foreach (var cj in mj.Cursuri)
+            {
+                var curs = await db.Curs.SingleOrDefaultAsync(c => c.MaterieId == materie.Id && c.Titlu == cj.Titlu);
+                if (curs is null)
+                {
+                    // "dupa" keeps a new lesson next to its island's existing lessons in the unlock order.
+                    var vecin = cj.Dupa is null ? null : await db.Curs.FirstOrDefaultAsync(c => c.MaterieId == materie.Id && c.Titlu == cj.Dupa);
+                    var ordine = vecin?.Ordine ?? (await db.Curs.Where(c => c.MaterieId == materie.Id).MaxAsync(c => (int?)c.Ordine) ?? 0) + 1;
+                    db.Curs.Add(curs = new Curs
+                    {
+                        MaterieId = materie.Id, Titlu = cj.Titlu, Descriere = cj.Descriere, Capitol = cj.Capitol, Ordine = ordine,
+                        Materiale = cj.Materiale.Select(m => new SectiuneMaterial { Titlu = m.Titlu, Text = m.Text }).ToList(),
+                    });
+                    await db.SaveChangesAsync();
+                }
+                foreach (var q in cj.Intrebari) await AdaugaGrila(db, materie.Id, curs.Id, q.Text, q.Variante, q.Corect, q.Explicatie);
+            }
+
+            foreach (var completare in mj.Completari ?? [])
+            {
+                var curs = await db.Curs.SingleOrDefaultAsync(c => c.MaterieId == materie.Id && c.Titlu == completare.Titlu);
+                if (curs is null) continue;
+                var lipsa = completare.Materiale.Where(m => curs.Materiale.All(x => x.Titlu != m.Titlu)).ToList();
+                if (lipsa.Count == 0) continue;
+                // Reassign the list so EF sees the JSON column as changed.
+                curs.Materiale = [.. curs.Materiale, .. lipsa.Select(m => new SectiuneMaterial { Titlu = m.Titlu, Text = m.Text })];
+                await db.SaveChangesAsync();
+            }
+
+            foreach (var e in mj.Estimari ?? [])
+                if (!await db.Set<TriviaQuestion>().AnyAsync(x => x.SubjectId == materie.Id && x.Text == e.Text))
+                    db.Add(new TriviaQuestion { SubjectId = materie.Id, Text = e.Text, Kind = "estimare", NumericAnswer = e.Raspuns });
+            await db.SaveChangesAsync();
+        }
+    }
+
     private static async Task AdaugaGrila(MarkAiDbContext db, int materieId, int? cursId, string text, List<string> variante, int corect, string? explicatie)
     {
         if (await db.Set<TriviaQuestion>().AnyAsync(x => x.SubjectId == materieId && x.CourseId == cursId && x.Text == text)) return;
@@ -145,4 +200,8 @@ internal static class Seed
     private sealed record TriviadorJson(List<GrilaJson> Grila, List<EstimareJson> Estimari);
     private sealed record GrilaJson(string Text, List<string> Variante, int Corect);
     private sealed record EstimareJson(string Text, int Raspuns);
+    private sealed record SuplimentarJson(List<MaterieJson> Materii);
+    private sealed record MaterieJson(string Cod, string Denumire, List<CursJson> Cursuri, List<CompletareJson>? Completari, List<EstimareJson>? Estimari);
+    private sealed record CursJson(string Titlu, string? Capitol, string? Descriere, string? Dupa, List<MaterialJson> Materiale, List<IntrebareJson> Intrebari);
+    private sealed record CompletareJson(string Titlu, List<MaterialJson> Materiale);
 }

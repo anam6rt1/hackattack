@@ -83,7 +83,7 @@ function Telefonul({ utilizator, linie, onSalvat }) {
           <h3>Numărul tău de telefon</h3>
           <p>
             {linie.telefonulMeu
-              ? `Tutorele te recunoaște când suni de pe ${linie.telefonulMeu}.`
+              ? `Tutorele te sună pe ${linie.telefonulMeu} când apeși „Sună-mă”. Apelarea liniei de pe acest număr va fi disponibilă în curând.`
               : 'Adaugă numărul de pe care suni, ca tutorele să te recunoască și să continue de unde ai rămas.'}
           </p>
           <div className="tv-grid-2">
@@ -249,7 +249,7 @@ export default function PaginaLiniaAI() {
             <div style={{ display: 'grid', gap: 28, minWidth: 0 }}>
               <section className="tv-sectiune">
                 <h2>Cum funcționează</h2>
-                <p>Același profil de elev, pe trei canale: site, apel și SMS.</p>
+                <p>Același profil de elev, pe site și la telefon. Rezumatul prin SMS este încă în dezvoltare.</p>
               </section>
               <div className="tv-pasi tv-o-coloana">
                 <div className="tv-pas"><span>1</span><h4>Apeși „Sună-mă”</h4><p>Tutorele te sună pe numărul salvat în profil. La telefon nu ai nevoie de cont sau parolă.</p></div>
@@ -280,7 +280,7 @@ export default function PaginaLiniaAI() {
                   <div className="tv-bule">
                     {bule.map(([cine, text], i) => (
                       <div key={i} className={`tv-bula tv-bula-${cine}`}>
-                        {cine === 'sms' && <b>SMS · Tutorele de Bac</b>}
+                        {cine === 'sms' && <b>SMS · funcție în dezvoltare</b>}
                         {text}
                       </div>
                     ))}
@@ -297,7 +297,7 @@ export default function PaginaLiniaAI() {
           <div className="tv-functii">
             <div><h4>Recapitulezi o operă</h4><p>Tema, personajele, momentele subiectului, pe rând, cu întrebări scurte.</p></div>
             <div><h4>Exersezi caracterizarea</h4><p>Spui trăsăturile unui personaj, iar tutorele îți cere exemple din text.</p></div>
-            <div><h4>Faci un test oral rapid</h4><p>Cinci întrebări de tip grilă, citite la telefon, cu scorul trimis prin SMS.</p></div>
+            <div><h4>Faci un test oral rapid <span className="tv-pastila tv-pastila-aur">în dezvoltare</span></h4><p>Cinci întrebări de tip grilă, citite la telefon, cu scorul trimis prin SMS. Această funcție nu este încă disponibilă.</p></div>
             <div><h4>Continui de unde ai rămas</h4><p>Ce faci la telefon apare în profil, iar pe site continui de la același pas.</p></div>
           </div>
 
@@ -307,7 +307,7 @@ export default function PaginaLiniaAI() {
           </section>
           <div className="tv-flux-wrap">
             <div className="tv-flux">
-              <div className="tv-nod"><b>Telefonul elevului</b><small>apel sau SMS, fără date</small></div>
+              <div className="tv-nod"><b>Telefonul elevului</b><small>apel, fără date (SMS în dezvoltare)</small></div>
               <span className="tv-sageata">→</span>
               <div className="tv-nod"><b>Twilio</b><small>numărul liniei și sunetul apelului</small></div>
               <span className="tv-sageata">→</span>

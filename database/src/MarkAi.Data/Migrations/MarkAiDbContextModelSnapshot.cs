@@ -107,6 +107,10 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("inceput_la");
 
+                    b.Property<string>("LinkIntalnire")
+                        .HasColumnType("text")
+                        .HasColumnName("link_intalnire");
+
                     b.Property<int>("MaterieId")
                         .HasColumnType("integer")
                         .HasColumnName("materie_id");
@@ -154,6 +158,8 @@ namespace MarkAi.Data.Migrations
                             t.HasCheckConstraint("camera_tutoring_capacitate_check", "(capacitate > 0)");
 
                             t.HasCheckConstraint("camera_tutoring_check", "((finalizat_la IS NULL) OR ((inceput_la IS NOT NULL) AND (finalizat_la >= inceput_la)))");
+
+                            t.HasCheckConstraint("camera_tutoring_link_intalnire_check", "link_intalnire IS NULL OR link_intalnire ~ '^https://'");
 
                             t.HasCheckConstraint("camera_tutoring_pro_bono_check", "pro_bono = (tarif_id IS NULL)");
                         });

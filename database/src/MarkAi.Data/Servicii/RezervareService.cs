@@ -57,11 +57,16 @@ public sealed class RezervareService(MarkAiDbContext db)
 
     public async Task AnuleazaAsync(int elevId, int rezervareId, CancellationToken ct = default)
     {
-        var r = await db.Rezervari.Include(x => x.ComisionMentor)
+        var r = await db.Rezervari.Include(x => x.ComisionMentor).Include(x => x.Camera).Include(x => x.Plati)
             .SingleOrDefaultAsync(x => x.Id == rezervareId && x.ElevId == elevId, ct) ?? throw new KeyNotFoundException("Rezervarea nu există.");
         if (r.Status != RezervareConfirmata) return;
+        // Cancelling frees the seat for someone else, which only makes sense before the session starts.
+        if (r.Camera.InceputLa is not null && r.Camera.InceputLa <= DateTime.UtcNow)
+            throw new InvalidOperationException("Ședința a început deja și nu mai poate fi anulată.");
         r.Status = RezervareAnulata;
         if (r.ComisionMentor is not null) r.ComisionMentor.Status = "anulat";
+        // Payments are simulated for now, so the refund is too.
+        foreach (var p in r.Plati.Where(p => p.Status == "simulata")) p.Status = "rambursata";
         await db.SaveChangesAsync(ct);
     }
 }

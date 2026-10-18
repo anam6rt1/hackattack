@@ -23,6 +23,9 @@ public partial class CameraTutoring
 
     public bool ProBono { get; set; }
 
+    /// <summary>Online meeting address (Meet, Zoom, ...), shown only to the professor and booked students.</summary>
+    public string? LinkIntalnire { get; set; }
+
     public string Status { get; set; } = null!;
 
     public DateTime? InceputLa { get; set; }
