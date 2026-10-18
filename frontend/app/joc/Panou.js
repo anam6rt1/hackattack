@@ -3,7 +3,7 @@
 
 import { QRCodeSVG } from 'qrcode.react'
 import Avatar from './Avatar'
-import { insula, CETATI, CULORI } from './date-harta'
+import { INSULE, insula, CETATI, CULORI } from './date-harta'
 
 function IconInsula({ culoare }) {
   return (
@@ -16,12 +16,12 @@ function IconInsula({ culoare }) {
   )
 }
 
-export function PanouCamera({ cod, link, online, euId, esteGazda, onStart }) {
+export function PanouCamera({ cod, link, online, euId, esteGazda, onStart, insule = INSULE, materie, gata = true }) {
   return (
     <div className="tv-card">
       <div className="tv-camera-sus">
         <div>
-          <div className="tv-mic">Camera</div>
+          <div className="tv-mic">Camera{materie ? ` · ${materie}` : ''}</div>
           <div className="tv-cod">{cod}</div>
         </div>
         {link && (
@@ -38,7 +38,7 @@ export function PanouCamera({ cod, link, online, euId, esteGazda, onStart }) {
             <span className="tv-nume">
               {j.nume}
               {j.id === euId && ' (tu)'}
-              <small>Cetatea: {insula(CETATI[i]).nume}</small>
+              <small>Cetatea: {insula(CETATI[i], insule).nume}</small>
             </span>
           </div>
         ))}
@@ -48,12 +48,12 @@ export function PanouCamera({ cod, link, online, euId, esteGazda, onStart }) {
       <ul className="tv-reguli">
         <li><i>1</i><span>La rândul tău, alegi o insulă legată printr-un pod de insulele tale.</span></li>
         <li><i>2</i><span>Insulă liberă: răspunzi corect la întrebare și e a ta.</span></li>
-        <li><i>3</i><span>Insula altcuiva: duel. La egalitate, câștigă cine ghicește mai aproape anul.</span></li>
+        <li><i>3</i><span>Insula altcuiva: duel. La egalitate, câștigă cine ghicește mai aproape răspunsul numeric.</span></li>
       </ul>
 
       {esteGazda ? (
-        <button className="tv-btn" onClick={onStart} disabled={online.length < 2}>
-          {online.length < 2 ? 'Se așteaptă jucătorii...' : 'Pornește bătălia'}
+        <button className="tv-btn" onClick={onStart} disabled={online.length < 2 || !gata}>
+          {!gata ? 'Se pregătesc întrebările...' : online.length < 2 ? 'Se așteaptă jucătorii...' : 'Pornește bătălia'}
         </button>
       ) : (
         <p className="tv-asteapta">Așteaptă ca gazda să pornească bătălia...</p>

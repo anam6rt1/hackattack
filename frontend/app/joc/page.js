@@ -1,8 +1,11 @@
 'use client'
-// Pagina /joc : creezi o cameră Triviador sau intri într-una cu un cod.
+// Pagina /joc : creezi o cameră Triviador pentru o materie sau intri într-una cu un cod.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
+import { usePagina } from '@/lib/sesiune'
+import Incarcare from '@/components/Incarcare'
 import Harta from './Harta'
 
 // Fără I și O, ca să nu fie confundate cu 1 și 0
@@ -15,12 +18,26 @@ function codNou() {
 }
 
 export default function PaginaJoc() {
+  const elev = usePagina('elev')
   const router = useRouter()
   const [cod, setCod] = useState('')
+  const [materii, setMaterii] = useState([])
+  const [materieId, setMaterieId] = useState('')
+
+  useEffect(() => {
+    if (!elev) return
+    api('/materii').then((r) => {
+      setMaterii(r.elemente)
+      if (r.elemente.length) setMaterieId(String(r.elemente[0].id))
+    })
+  }, [elev])
+
+  if (!elev) return <Incarcare />
 
   function creeazaCamera() {
     const c = codNou()
-    sessionStorage.setItem('gazda-' + c, 'da') // acest tab e gazda camerei
+    // acest tab e gazda camerei și ține minte materia aleasă
+    sessionStorage.setItem('gazda-' + c, JSON.stringify({ materieId: Number(materieId) }))
     router.push('/joc/' + c)
   }
 
@@ -36,11 +53,17 @@ export default function PaginaJoc() {
         <Harta />
         <aside className="tv-lateral">
           <div className="tv-card tv-formular">
-            <h3>Triviador literar</h3>
+            <h3>Triviador</h3>
             <p className="tv-indiciu">
-              Cucerește insulele operelor de bac. Până la 3 jucători, fiecare de pe telefonul lui.
+              Cucerește insulele răspunzând la întrebări din lecții. Până la 3 jucători, fiecare de pe telefonul lui.
             </p>
-            <button className="tv-btn" onClick={creeazaCamera}>Creează o cameră</button>
+            <label className="tv-eticheta-camp">
+              <span>Materia jocului</span>
+              <select className="tv-camp-text" value={materieId} onChange={(e) => setMaterieId(e.target.value)}>
+                {materii.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
+              </select>
+            </label>
+            <button className="tv-btn" onClick={creeazaCamera} disabled={!materieId}>Creează o cameră</button>
             <div className="tv-mic" style={{ textAlign: 'center' }}>sau intră cu un cod</div>
             <form onSubmit={intraInCamera} className="tv-formular">
               <input

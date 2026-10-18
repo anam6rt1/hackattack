@@ -11,6 +11,12 @@ public partial class Materie
 
     public string? Descriere { get; set; }
 
+    public string? Cod { get; set; }
+
+    public int Ordine { get; set; }
+
+    public virtual ICollection<MentorMaterie> Mentori { get; set; } = new List<MentorMaterie>();
+
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
     public virtual ICollection<Curs> Cursuri { get; set; } = new List<Curs>();

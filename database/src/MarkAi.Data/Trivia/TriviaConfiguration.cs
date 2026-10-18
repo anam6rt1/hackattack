@@ -41,13 +41,30 @@ internal static class TriviaConfiguration
         });
         model.Entity<TriviaQuestion>(e =>
         {
-            e.ToTable("trivia_intrebare", "mark_ai", t => t.HasCheckConstraint("ck_trivia_intrebare_text", "length(btrim(text)) > 0"));
+            e.ToTable("trivia_intrebare", "mark_ai", t =>
+            {
+                t.HasCheckConstraint("ck_trivia_intrebare_text", "length(btrim(text)) > 0");
+                t.HasCheckConstraint("ck_trivia_intrebare_tip", "tip IN ('grila','estimare')");
+                t.HasCheckConstraint("ck_trivia_intrebare_sursa", "sursa IN ('ai','manual')");
+                t.HasCheckConstraint("ck_trivia_intrebare_estimare", "(tip = 'estimare') = (raspuns_numeric IS NOT NULL)");
+            });
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();
             e.Property(x => x.SubjectId).HasColumnName("materie_id");
+            e.Property(x => x.CourseId).HasColumnName("curs_id");
             e.Property(x => x.Text).HasColumnName("text");
             e.Property(x => x.Active).HasColumnName("activa");
+            e.Property(x => x.Kind).HasColumnName("tip").HasDefaultValue("grila");
+            e.Property(x => x.NumericAnswer).HasColumnName("raspuns_numeric");
+            e.Property(x => x.Explanation).HasColumnName("explicatie");
+            e.Property(x => x.Source).HasColumnName("sursa").HasDefaultValue("manual");
+            e.Property(x => x.CreatedAt).HasColumnName("creata_la").HasDefaultValueSql("now()");
             e.HasOne<Materie>().WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+            // The composite key keeps a question's course inside the question's subject.
+            e.HasOne<Curs>().WithMany().HasForeignKey(x => new { x.CourseId, x.SubjectId })
+                .HasPrincipalKey(c => new { c.Id, c.MaterieId }).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("trivia_intrebare_curs_id_materie_id_fkey");
+            e.HasIndex(x => new { x.CourseId, x.SubjectId });
         });
         model.Entity<TriviaOption>(e =>
         {

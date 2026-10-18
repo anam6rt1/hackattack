@@ -17,9 +17,13 @@ public partial class Utilizator
 
     public DateTime CreatLa { get; set; }
 
+    public string ParolaHash { get; set; } = "";
+
     public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
     public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();
+
+    public virtual ICollection<ProgresCurs> ProgresCursuri { get; set; } = new List<ProgresCurs>();
 
     public virtual PreferinteUtilizator? PreferinteUtilizator { get; set; }
 

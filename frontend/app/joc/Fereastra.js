@@ -50,7 +50,7 @@ export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstima
 
   const juc = (id) => stare.jucatori.find((j) => j.id === id)
   const atac = stare.atac
-  const ins = atac ? insula(atac.insula) : null
+  const ins = atac ? insula(atac.insula, stare.insule) : null
   const participanti = atac ? [atac.atacator, atac.aparator].filter(Boolean) : []
   const particip = participanti.includes(euId)
   const eDuel = atac && atac.aparator

@@ -53,6 +53,7 @@ Nu folosi contul postgres sau accesul direct la DB in clientul web/joc; backendu
 
 - `InitialSchema`: recreeaza cele 28 de tabele initiale din configurarea C#, inclusiv constrangerile si indexurile case-insensitive.
 - `AddTrivia`: adauga 7 tabele pentru joc si functii/trigger-e PostgreSQL pentru validarea timpului, scorului si a concurentei.
+- `IntegrareFrontend`: parola utilizatorului, continutul lectiilor (capitol, ordine, video, notite JSON), `progres_curs`, cererile profesorilor (`mentor_materie`, poza, dovada, onorariu negociat), sedinte pro bono si intrebari pe lectie (explicatie, tip grila/estimare, sursa ai/manual). Revenirea la migrarea anterioara esueaza intentionat cat timp exista sedinte pro bono.
 - Istoricul se afla in `mark_ai.__EFMigrationsHistory`.
 
 Pe o baza noua, goala:

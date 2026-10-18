@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/MarkAi.Api/MarkAi.Api.csproj" />
     <Project Path="src/MarkAi.Data/MarkAi.Data.csproj" />
   </Folder>
   <Folder Name="/tools/">

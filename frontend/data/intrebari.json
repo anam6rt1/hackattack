@@ -1,0 +1,154 @@
+{
+  "harap-1": [
+    {
+      "id": "harap-1-a",
+      "text": "În ce an și în ce revistă a fost publicată „Povestea lui Harap-Alb”?",
+      "variante": [
+        "1881, în volumul „Novele din popor”",
+        "1877, în revista „Convorbiri literare”",
+        "1883, în „Almanahul România Jună”",
+        "1890, în revista „Familia”"
+      ],
+      "corect": 1,
+      "explicatie": "Basmul lui Creangă a apărut la 1 august 1877, în „Convorbiri literare”, revista Junimii."
+    },
+    {
+      "id": "harap-1-b",
+      "text": "Cărei specii literare îi aparține „Povestea lui Harap-Alb”?",
+      "variante": [
+        "Basm popular",
+        "Nuvelă",
+        "Basm cult",
+        "Legendă"
+      ],
+      "corect": 2,
+      "explicatie": "Este un basm cult: păstrează tiparul basmului, dar are un autor cunoscut, Ion Creangă."
+    },
+    {
+      "id": "harap-1-c",
+      "text": "De ce „Povestea lui Harap-Alb” este un basm cult, nu unul popular?",
+      "variante": [
+        "Pentru că are personaje fabuloase",
+        "Pentru că binele învinge răul",
+        "Pentru că s-a transmis oral, din generație în generație",
+        "Pentru că are un autor cunoscut și o formă fixată în scris"
+      ],
+      "corect": 3,
+      "explicatie": "Basmul popular e anonim și oral. Cel cult are autor și formă scrisă; personajele fabuloase și victoria binelui apar în ambele."
+    }
+  ],
+  "harap-2": [
+    {
+      "id": "harap-2-a",
+      "text": "Unde îl păcălește Spânul pe fiul craiului?",
+      "variante": [
+        "La pod",
+        "La o fântână",
+        "În Grădina Ursului",
+        "La curtea Împăratului Roș"
+      ],
+      "corect": 1,
+      "explicatie": "Spânul îl convinge să coboare în fântână, apoi îl închide acolo până acceptă să-i devină slugă."
+    },
+    {
+      "id": "harap-2-b",
+      "text": "Ce nume primește fiul craiului după ce devine sluga Spânului?",
+      "variante": [
+        "Harap-Alb",
+        "Făt-Frumos",
+        "Ochilă",
+        "Setilă"
+      ],
+      "corect": 0,
+      "explicatie": "Spânul îi dă numele de Harap-Alb, adică „rob alb”, și îi ia locul de nepot al Împăratului Verde."
+    },
+    {
+      "id": "harap-2-c",
+      "text": "Care este prima probă dată de Spân lui Harap-Alb?",
+      "variante": [
+        "Să aducă pielea cerbului",
+        "Să o aducă pe fata Împăratului Roș",
+        "Să aducă salăți din Grădina Ursului",
+        "Să treacă prin casa de aramă"
+      ],
+      "corect": 2,
+      "explicatie": "Prima încercare este aducerea salăților din Grădina Ursului, apoi pielea cerbului și, la final, fata Împăratului Roș."
+    }
+  ],
+  "moara-1": [
+    {
+      "id": "moara-1-a",
+      "text": "Când și în ce volum a apărut nuvela „Moara cu noroc”?",
+      "variante": [
+        "1877, în „Convorbiri literare”",
+        "1881, în volumul „Novele din popor”",
+        "1883, în „Almanahul România Jună”",
+        "1887, în revista „Familia”"
+      ],
+      "corect": 1,
+      "explicatie": "Nuvela lui Slavici a fost publicată în 1881, în volumul „Novele din popor”."
+    },
+    {
+      "id": "moara-1-b",
+      "text": "Ce fel de nuvelă este „Moara cu noroc”?",
+      "variante": [
+        "Nuvelă istorică",
+        "Nuvelă fantastică",
+        "Nuvelă psihologică",
+        "Nuvelă romantică"
+      ],
+      "corect": 2,
+      "explicatie": "Este o nuvelă psihologică: urmărește transformările interioare ale lui Ghiță, măcinat de patima banului."
+    },
+    {
+      "id": "moara-1-c",
+      "text": "Cărui curent literar îi aparține „Moara cu noroc”?",
+      "variante": [
+        "Romantism",
+        "Realism",
+        "Simbolism",
+        "Modernism"
+      ],
+      "corect": 1,
+      "explicatie": "Opera e realistă: lume verosimilă, personaje tipice, narator obiectiv și omniscient, stil sobru."
+    }
+  ],
+  "luceafarul-1": [
+    {
+      "id": "luceafarul-1-a",
+      "text": "Unde a fost publicat pentru prima dată poemul „Luceafărul”?",
+      "variante": [
+        "În revista „Convorbiri literare”, în 1877",
+        "În volumul „Novele din popor”, în 1881",
+        "În „Almanahul Societății România Jună” din Viena, în 1883",
+        "În revista „Familia”, în 1866"
+      ],
+      "corect": 2,
+      "explicatie": "Poemul a apărut în aprilie 1883, în almanahul societății „România Jună” din Viena, apoi în „Convorbiri literare”."
+    },
+    {
+      "id": "luceafarul-1-b",
+      "text": "Cărui curent literar îi aparține „Luceafărul”?",
+      "variante": [
+        "Realism",
+        "Clasicism",
+        "Simbolism",
+        "Romantism"
+      ],
+      "corect": 3,
+      "explicatie": "E un poem romantic: antiteza dintre lumi, planul cosmic și cel terestru, motive ca noaptea, visul și fereastra."
+    },
+    {
+      "id": "luceafarul-1-c",
+      "text": "Care este tema principală a poemului „Luceafărul”?",
+      "variante": [
+        "Patima banului",
+        "Condiția omului de geniu",
+        "Lupta pentru pământ",
+        "Iubirea pentru natura satului"
+      ],
+      "corect": 1,
+      "explicatie": "Poemul e o alegorie despre condiția geniului, care nu poate fi fericit în lumea oamenilor."
+    }
+  ]
+}

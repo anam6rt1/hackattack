@@ -53,3 +53,6 @@ Desktop.ini
 *~
 
 # Keep packages.lock.json and dotnet-tools.json: they make restores reproducible.
+
+# Uploaded professor photos and qualification documents (API local storage)
+/database/src/MarkAi.Api/uploads/

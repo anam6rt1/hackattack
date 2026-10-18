@@ -2,4 +2,6 @@
 
 body {
   margin: 0;
+  /* și paginile făcute doar cu Tailwind (lecția, întrebările) folosesc fontul site-ului */
+  font-family: var(--font-text), 'Segoe UI', system-ui, sans-serif;
 }
