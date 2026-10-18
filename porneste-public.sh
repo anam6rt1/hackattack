@@ -12,6 +12,7 @@ opreste() {
   for port in 3000 5080; do
     for pid in $(ss -ltnp 2>/dev/null | grep ":$port " | grep -oP 'pid=\K[0-9]+'); do kill "$pid" 2>/dev/null || true; done
   done
+  distrobox stop pgSQL 2>/dev/null || true
 }
 if [[ "${1:-}" == "stop" ]]; then opreste; echo "Oprit."; exit 0; fi
 opreste; sleep 2
@@ -38,5 +39,13 @@ if [[ $GATA -eq 0 ]]; then
   echo "Verifică jurnalele din $LOG (api.log, build.log, site.log)."
 fi
 echo "Site: $URL"
+# Generează un cod QR pentru adresa publică a site-ului.
+if command -v qrencode >/dev/null 2>&1; then
+  qrencode -t ANSIUTF8 "$URL"
+  qrencode -o "$LOG/site-qr.png" -s 8 -m 2 "$URL"
+  echo "Cod QR salvat în: $LOG/site-qr.png"
+else
+  echo "Instalează qrencode cu: brew install qrencode"
+fi
 echo "Webhook Twilio (dacă folosiți număr de intrare): $URL/api/twilio/voce   ·   stare: $URL/api/twilio/voce/stare"
 echo "Jurnale: $LOG"
