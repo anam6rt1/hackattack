@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pornește site-ul accesibil de pe orice dispozitiv: tunel Cloudflare → site (Next.js, :3000) → /api → API (.NET, 127.0.0.1:5080).
-# Secretele NU sunt în repo; se citesc din ~/.config/markai/*.env (db.env, jwt.env, ai.env, twilio.env — oricare lipsește e opțional,
-# în afară de db.env). Adresa tunelului se schimbă la fiecare pornire și e afișată la final.
+# Secretele NU sunt în repo; se citesc din ~/.config/markai/markai.env (vezi markai.env.example și incarca-setari.sh).
+# Adresa tunelului se schimbă la fiecare pornire și e afișată la final.
 # Oprire: ./porneste-public.sh stop
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -17,8 +17,7 @@ opreste() {
 if [[ "${1:-}" == "stop" ]]; then opreste; echo "Oprit."; exit 0; fi
 opreste; sleep 2
 
-[[ -f ~/.config/markai/db.env ]] || { echo "Lipsește ~/.config/markai/db.env (MARKAI_CONNECTION_STRING=...)"; exit 1; }
-set -a; for f in ~/.config/markai/*.env; do . "$f"; done; set +a
+. ./incarca-setari.sh
 
 distrobox enter pgSQL -- true >/dev/null 2>&1 || true   # pornește containerul cu PostgreSQL, dacă e oprit
 

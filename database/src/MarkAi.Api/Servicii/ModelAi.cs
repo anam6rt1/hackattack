@@ -34,12 +34,17 @@ public interface IModelAi
 /// Picks the AI provider from the keys set on the server: Claude when ANTHROPIC_API_KEY is set,
 /// otherwise Google Gemini (free tier, for demos) when GEMINI_API_KEY is set, otherwise none.
 /// </summary>
-public sealed class ModelAi(IConfiguration cfg, IHttpClientFactory http)
+public sealed class ModelAi
 {
-    public IModelAi? Activ { get; } =
+    public ModelAi(IConfiguration cfg, IHttpClientFactory http) => Activ =
         !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")) ? new ClaudeAi(cfg)
         : !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GEMINI_API_KEY")) ? new GeminiAi(cfg, http.CreateClient("gemini"))
         : null;
+
+    /// <summary>A fixed provider; the integration checks register one with a fake model.</summary>
+    public ModelAi(IModelAi? activ) => Activ = activ;
+
+    public IModelAi? Activ { get; }
 
     public bool Configurat => Activ is not null;
 }

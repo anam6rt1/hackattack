@@ -3,6 +3,9 @@
     <Project Path="src/MarkAi.Api/MarkAi.Api.csproj" />
     <Project Path="src/MarkAi.Data/MarkAi.Data.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MarkAi.AccountSettings.Checks/MarkAi.AccountSettings.Checks.csproj" />
+  </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/MarkAi.Database/MarkAi.Database.csproj" />
   </Folder>
