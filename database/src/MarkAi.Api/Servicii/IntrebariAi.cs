@@ -26,6 +26,8 @@ public sealed class CoadaIntrebari
     internal void Actualizeaza(int cursId, StareGenerare stare) => _stari[cursId] = stare;
 
     internal IAsyncEnumerable<int> Citeste(CancellationToken ct) => _coada.Reader.ReadAllAsync(ct);
+
+    internal bool IncearcaCiteste(out int cursId) => _coada.Reader.TryRead(out cursId);
 }
 
 /// <summary>
@@ -47,19 +49,27 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        await foreach (var cursId in coada.Citeste(ct))
+        await foreach (var cursId in coada.Citeste(ct)) await ProceseazaAsync(cursId, ct);
+    }
+
+    /// <summary>Processes the courses queued so far, then returns. The integration checks call this instead of running the service.</summary>
+    public async Task RuleazaOdataAsync(CancellationToken ct)
+    {
+        while (coada.IncearcaCiteste(out var cursId)) await ProceseazaAsync(cursId, ct);
+    }
+
+    private async Task ProceseazaAsync(int cursId, CancellationToken ct)
+    {
+        coada.Actualizeaza(cursId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
+        try
         {
-            coada.Actualizeaza(cursId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
-            try
-            {
-                var n = await GenereazaAsync(cursId, ct);
-                coada.Actualizeaza(cursId, new StareGenerare("gata", null, n, DateTime.UtcNow));
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                log.LogError(ex, "AI question generation failed for course {CursId}", cursId);
-                coada.Actualizeaza(cursId, new StareGenerare("eroare", ex is ConfigurareLipsa ? ex.Message : "Generarea a eșuat. Încearcă din nou.", 0, DateTime.UtcNow));
-            }
+            var n = await GenereazaAsync(cursId, ct);
+            coada.Actualizeaza(cursId, new StareGenerare("gata", null, n, DateTime.UtcNow));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogError(ex, "AI question generation failed for course {CursId}", cursId);
+            coada.Actualizeaza(cursId, new StareGenerare("eroare", ex is ConfigurareLipsa ? ex.Message : "Generarea a eșuat. Încearcă din nou.", 0, DateTime.UtcNow));
         }
     }
 

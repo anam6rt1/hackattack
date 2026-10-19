@@ -11,6 +11,11 @@ Original concept reference: https://share.gemini.google/5D0Yw2QbMrMr
 `./porneste-public.sh` pornește API-ul (producție, doar pe `127.0.0.1:5080`), site-ul (build de producție pe `:3000`,
 care redirecționează `/api/...` spre API) și un tunel Cloudflare temporar, apoi afișează adresa publică
 (se schimbă la fiecare pornire). `./porneste-public.sh stop` oprește tot.
-Necesită `cloudflared` (`brew install cloudflared`) și fișierele de configurare din `~/.config/markai/`:
-`db.env` (`MARKAI_CONNECTION_STRING`, obligatoriu), `jwt.env` (`MARKAI_JWT_KEY`), `ai.env` (`ANTHROPIC_API_KEY` sau
-`GEMINI_API_KEY`) și `twilio.env` (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`). Secretele nu se pun în repo.
+Necesită `cloudflared` (`brew install cloudflared`).
+
+`./porneste-local.sh` pornește aceleași servicii fără tunel, doar pe `http://localhost:3000` (Linia AI la telefon
+rămâne oprită, fiindcă Twilio are nevoie de o adresă publică). `./porneste-local.sh stop` oprește tot.
+
+Toate secretele și setările locale stau într-un singur fișier, `~/.config/markai/markai.env` (chmod 600), niciodată în repo.
+Pornește de la [markai.env.example](markai.env.example): obligatorii sunt `MARKAI_CONNECTION_STRING` și `MARKAI_JWT_KEY`;
+scripturile se opresc și spun ce lipsește.

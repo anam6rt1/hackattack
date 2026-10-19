@@ -19,6 +19,9 @@ materia „Limba și literatura română” cu lecțiile și întrebările din `
 
 ## Variabile de mediu
 
+Pe calculatorul de demo toate stau în `~/.config/markai/markai.env`, încărcat de scripturile de pornire din rădăcina repo-ului;
+lista completă, cu valori de exemplu, e în [markai.env.example](../../markai.env.example). API-ul nu pornește dacă lipsesc cele obligatorii.
+
 | Variabilă | Rol |
 |---|---|
 | `MARKAI_CONNECTION_STRING` | Conexiunea PostgreSQL (obligatorie) |

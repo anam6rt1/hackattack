@@ -13,6 +13,8 @@
 .env.*
 !.env.example
 !.env.sample
+*.env
+!*.env.example
 appsettings.Local.json
 appsettings.*.Local.json
 secrets.json
