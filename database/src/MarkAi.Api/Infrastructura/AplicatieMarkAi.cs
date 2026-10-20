@@ -1,6 +1,7 @@
 using MarkAi.Api.Endpoints;
 using MarkAi.Api.Hubs;
 using MarkAi.Api.Servicii;
+using MarkAi.Api.Servicii.Mesagerie;
 using MarkAi.Api.Setari;
 using MarkAi.Data;
 using MarkAi.Data.Servicii;
@@ -38,6 +39,12 @@ public static class AplicatieMarkAi
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GeneratorIntrebari>());
         builder.Services.AddSingleton<Servicii.Triviador.MotorTriviador>();
         // Faster than the defaults (15 s / 30 s), so a player whose phone drops off is seen as gone within ~15 s.
+        AdaugaMesagerie(builder);
+        builder.Services.AddScoped<CoduriVerificare>();
+        builder.Services.AddScoped<StergereCont>();
+        builder.Services.AddScoped<ServiciuOrganizatii>();
+        builder.Services.AddSingleton<CuratareConturi>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<CuratareConturi>());
         builder.Services.AddSignalR(o => { o.KeepAliveInterval = TimeSpan.FromSeconds(5); o.ClientTimeoutInterval = TimeSpan.FromSeconds(15); });
         builder.Services.AdaugaSetariCont();
 
@@ -48,9 +55,40 @@ public static class AplicatieMarkAi
         builder.Services.AddOpenApi();
     }
 
+    /// <summary>
+    /// Email and SMS providers, chosen in configuration so a provider can be replaced without touching the rest of the app:
+    /// <c>Email:Furnizor</c> = smtp | jurnal (default: smtp when SetariEmail:Host is set), <c>Sms:Furnizor</c> = twilio | jurnal (default: jurnal).
+    /// </summary>
+    private static void AdaugaMesagerie(WebApplicationBuilder builder)
+    {
+        var cfg = builder.Configuration;
+        builder.Services.AddSingleton<ExpeditorJurnal>();
+        var email = cfg["Email:Furnizor"] ?? (string.IsNullOrWhiteSpace(cfg["SetariEmail:Host"]) ? "jurnal" : "smtp");
+        switch (email)
+        {
+            case "smtp": builder.Services.AddSingleton<IExpeditorEmail, ExpeditorEmailSmtp>(); break;
+            case "jurnal": builder.Services.AddSingleton<IExpeditorEmail>(sp => sp.GetRequiredService<ExpeditorJurnal>()); break;
+            default: throw new InvalidOperationException($"Unknown Email:Furnizor '{email}' (use smtp or jurnal).");
+        }
+        var sms = cfg["Sms:Furnizor"] ?? "jurnal";
+        switch (sms)
+        {
+            case "twilio": builder.Services.AddSingleton<IExpeditorSms, ExpeditorSmsTwilio>(); break;
+            case "jurnal": builder.Services.AddSingleton<IExpeditorSms>(sp => sp.GetRequiredService<ExpeditorJurnal>()); break;
+            default: throw new InvalidOperationException($"Unknown Sms:Furnizor '{sms}' (use twilio or jurnal).");
+        }
+        builder.Services.AddScoped<Posta>();
+        builder.Services.AddSingleton<ProcesorMesaje>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcesorMesaje>());
+    }
+
     public static void Configureaza(WebApplication app)
     {
         foreach (var avertisment in ConfigurareObligatorie.Avertismente(app.Configuration)) app.Logger.LogWarning("{Avertisment}", avertisment);
+        if (app.Services.GetRequiredService<IExpeditorEmail>().Nume == "jurnal")
+            app.Logger.LogWarning("Emails are not sent (Email:Furnizor = jurnal): codes appear on the admin page \"Mesaje trimise\".");
+        if (app.Services.GetRequiredService<IExpeditorSms>().Nume == "jurnal")
+            app.Logger.LogWarning("SMS are not sent (Sms:Furnizor = jurnal): codes appear on the admin page \"Mesaje trimise\".");
         if (!app.Services.GetRequiredService<ModelAi>().Configurat)
             app.Logger.LogWarning("No AI key (GEMINI_API_KEY or ANTHROPIC_API_KEY): question generation and the phone tutor are off.");
 
@@ -82,6 +120,8 @@ public static class AplicatieMarkAi
         app.MapeazaSetariCont();
         ContinutEndpoints.Mapeaza(app);
         QuizEndpoints.Mapeaza(app);
+        AdminEndpoints.Mapeaza(app);
+        OrganizatiiEndpoints.Mapeaza(app);
         ElevEndpoints.Mapeaza(app);
         ProfesoriEndpoints.Mapeaza(app);
         LiniaAiEndpoints.Mapeaza(app);

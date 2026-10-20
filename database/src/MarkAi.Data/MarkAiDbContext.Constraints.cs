@@ -9,6 +9,8 @@ public partial class MarkAiDbContext
         MarkAi.Data.Trivia.TriviaConfiguration.Configure(modelBuilder);
         IntegrareConfiguration.Configure(modelBuilder);
         SecuritateConfiguration.Configure(modelBuilder);
+        ConturiConfiguration.Configure(modelBuilder);
+        OrganizatiiConfiguration.Configure(modelBuilder);
         modelBuilder.Entity<EvenimentRecompensa>().Property(x => x.XpAcordat).HasDefaultValue(0);
         modelBuilder.Entity<EvenimentRecompensa>().Property(x => x.PuncteMaterie).HasDefaultValue(0);
         modelBuilder.Entity<Realizare>().Property(x => x.XpBonus).HasDefaultValue(0);

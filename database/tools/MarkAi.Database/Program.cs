@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 
-if (args.Length < 1 || args[0] is not ("adopt-existing" or "migrate" or "verify" or "seed" or "seteaza-parola")
-    || (args[0] == "seteaza-parola" ? args.Length != 3 : args.Length > (args[0] == "seed" ? 2 : 1)))
+if (args.Length < 1 || args[0] is not ("adopt-existing" or "migrate" or "verify" or "seed" or "seteaza-parola" or "seed-localitati" or "organizatie-demo")
+    || (args[0] switch { "seteaza-parola" => args.Length != 3, "organizatie-demo" => args.Length is < 2 or > 5, "seed" or "seed-localitati" => args.Length > 2, _ => args.Length > 1 }))
 {
     Console.WriteLine("Usage: dotnet run --project tools/MarkAi.Database -- adopt-existing|migrate|verify|seed [frontend-data-dir]");
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- seteaza-parola <email-or-username> <new-password>");
+    Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- seed-localitati [siruta.csv]   (counties and localities, SIRUTA)");
+    Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- organizatie-demo <admin-username> [name] [county-id] [locality-siruta]");
     Console.WriteLine("Set MARKAI_CONNECTION_STRING in your environment. Never put passwords in Git.");
     return 1;
 }
@@ -16,6 +18,17 @@ try
     else if (args[0] == "adopt-existing") await DatabaseTools.Adopt(connection);
     else if (args[0] == "seteaza-parola") await SeteazaParola(connection, args[1], args[2]);
     else if (args[0] == "seed") await Seed.Run(connection, args.Length == 2 ? args[1] : Path.Combine("..", "frontend", "data"));
+    else if (args[0] == "seed-localitati")
+    {
+        await using var db = DatabaseTools.Open(connection);
+        var (judete, localitati) = await MarkAi.Data.Servicii.ImportSiruta.ImportaAsync(db,
+            args.Length == 2 ? args[1] : Path.Combine("tools", "MarkAi.Database", "date", "siruta_s1_2026.csv"));
+        Console.WriteLine($"SIRUTA: {judete} counties, {localitati} localities.");
+    }
+    // Defaults: "Organizație Demo" in Bucharest (county 40), Sector 1 (SIRUTA 179141).
+    else if (args[0] == "organizatie-demo")
+        await OrganizatieDemo.Run(connection, args[1], args.Length > 2 ? args[2] : "Organizație Demo",
+            args.Length > 3 ? int.Parse(args[3]) : 40, args.Length > 4 ? int.Parse(args[4]) : 179141);
     else
     {
         await using var db = DatabaseTools.Open(connection);

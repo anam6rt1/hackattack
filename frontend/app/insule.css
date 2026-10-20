@@ -289,6 +289,14 @@ html[data-tema="iarna-noapte"] .tv-harta, html[data-tema="iarna-noapte"] .harta-
 .tv-bifa input { width: 18px; height: 18px; accent-color: var(--ocean); }
 .tv-boti { display: flex; flex-wrap: wrap; gap: 6px; }
 .tv-boti .tv-btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 13px; }
+.tv-lista-simpla { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; }
+.tv-lista-simpla small { color: var(--gri-text); }
+.tv-cautare-loc { position: relative; }
+.tv-rezultate-loc { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 240px; overflow-y: auto; margin: 4px 0 0; padding: 4px; list-style: none;
+  background: #fff; border: 2px solid #e4ebf6; border-radius: 14px; box-shadow: 0 10px 24px -12px #0b2a5566; }
+.tv-rezultate-loc button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 10px; font: inherit; color: var(--navy); cursor: pointer; }
+.tv-rezultate-loc button:hover, .tv-rezultate-loc button:focus { background: #eef5fc; }
+.tv-rezultate-loc small { color: var(--gri-text); }
 .tv-scoate { margin-left: auto; border: 0; background: none; color: var(--gri-text); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
 .tv-camp-text { width: 100%; min-width: 0; border: 2px solid #e4ebf6; border-radius: 14px; padding: 10px 12px; font: inherit; color: var(--navy); background: #fff; }
 .tv-camp-text:focus { border-color: var(--ocean); outline: none; }

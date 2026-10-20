@@ -22,8 +22,7 @@ static class VerificariTriviador
         await PregatesteIntrebari(h);
         await VerificaHarti(h);
         using var anonim = h.Anonim();
-        foreach (var (u, t) in new[] { ("maria", "0733111222"), ("ion", "0744111222") })
-            (await anonim.PostAsJsonAsync("/autentificare/inregistrare", new { nume = u + " Test", username = u, email = u + "@example.invalid", parola = Harness.ParolaTest, telefon = t })).EnsureSuccessStatusCode();
+        foreach (var u in new[] { "maria", "ion" }) (await h.InregistreazaElev(u)).Dispose();
 
         await using var george = await Jucator.Conecteaza(h, "george");
         await using var maria = await Jucator.Conecteaza(h, "maria");
@@ -188,9 +187,16 @@ static class VerificariTriviador
         await ion.Hub.InvokeAsync("AdaugaBot", "mediu");
         await ion.Asteapta(x => x.Str("cod") == codSolo && x.GetProperty("jucatori").GetArrayLength() == 2, "host and bot in the room");
         await ion.Hub.StopAsync();
-        h.Ceas.Advance(MotorTriviador.GratiePlecare + TimeSpan.FromMilliseconds(100));
-        await Task.Delay(300);
-        h.Check(await Esueaza(() => georgeDinNou.Hub.InvokeAsync<JsonElement>("Intra", codSolo)), "a room with no person left is wiped");
+        // The server handles the disconnect a moment after StopAsync returns, and only then starts the grace timer
+        // on the fake clock; so the clock is moved until the room is gone (or the check gives up).
+        var stearsa = false;
+        for (var i = 0; i < 20 && !stearsa; i++)
+        {
+            h.Ceas.Advance(MotorTriviador.GratiePlecare + TimeSpan.FromMilliseconds(100));
+            await Task.Delay(150);
+            stearsa = !h.Serviciu<MotorTriviador>().Exista(codSolo);
+        }
+        h.Check(stearsa && await Esueaza(() => georgeDinNou.Hub.InvokeAsync<JsonElement>("Intra", codSolo)), "a room with no person left is wiped");
 
         // Room limit per host (whatever rooms are still open from above).
         HttpStatusCode refuz = HttpStatusCode.OK;

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using MarkAi.Api.Infrastructura;
 using MarkAi.Api.Servicii;
+using MarkAi.Api.Servicii.Mesagerie;
 using MarkAi.Api.Setari;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
@@ -37,6 +38,9 @@ public sealed class Harness : IAsyncDisposable
     public FakeTimeProvider Ceas { get; }
     public FakeAi Ai { get; }
     public FakeTwilio Twilio { get; }
+    /// <summary>Every email the app sent through its mail provider (codes, warnings, notifications).</summary>
+    public FakeEmail Emailuri { get; }
+    public FakeSms Sms { get; }
     /// <summary>Every log line the app wrote (Information and above), to check what is never logged.</summary>
     public JurnalCapturat Jurnal { get; }
     public int Numar { get; private set; }
@@ -44,9 +48,9 @@ public sealed class Harness : IAsyncDisposable
     private readonly string adminConexiune, numeBaza, dirStocare;
 
     private Harness(WebApplication app, FakeMail mail, FakeTimeProvider ceas, FakeAi ai, FakeTwilio twilio, JurnalCapturat jurnal,
-        string adminConexiune, string numeBaza, string dirStocare)
-        => (App, Mail, Ceas, Ai, Twilio, Jurnal, this.adminConexiune, this.numeBaza, this.dirStocare)
-            = (app, mail, ceas, ai, twilio, jurnal, adminConexiune, numeBaza, dirStocare);
+        FakeEmail emailuri, FakeSms sms, string adminConexiune, string numeBaza, string dirStocare)
+        => (App, Mail, Ceas, Ai, Twilio, Jurnal, Emailuri, Sms, this.adminConexiune, this.numeBaza, this.dirStocare)
+            = (app, mail, ceas, ai, twilio, jurnal, emailuri, sms, adminConexiune, numeBaza, dirStocare);
 
     public T Serviciu<T>() where T : notnull => App.Services.GetRequiredService<T>();
 
@@ -115,6 +119,13 @@ public sealed class Harness : IAsyncDisposable
             builder.Services.AddSingleton<IEmailConfirmare>(mail);
             builder.Services.AddSingleton<TimeProvider>(ceasReal ? TimeProvider.System : ceas);
             builder.Services.AddSingleton(new ModelAi(ai));
+            var emailuri = new FakeEmail(); var sms = new FakeSms();
+            // The manual preview keeps the app's own development provider, so codes show on the admin "Mesaje" page.
+            if (!ceasReal)
+            {
+                builder.Services.AddSingleton<IExpeditorEmail>(emailuri);
+                builder.Services.AddSingleton<IExpeditorSms>(sms);
+            }
             builder.Services.RemoveAll<IHostedService>();
             // The fake Twilio API is served by this same app, behind its CSRF check, which the real Twilio API does not have.
             builder.Services.AddHttpClient("twilio").AddHttpMessageHandler(() => new AntetCsrf());
@@ -123,7 +134,7 @@ public sealed class Harness : IAsyncDisposable
             twilio.Mapeaza(app);
             app.MapGet(RutaEroareInterna, () => { throw new InvalidOperationException(MesajIntern); });
             await app.StartAsync();
-            return new Harness(app, mail, ceas, ai, twilio, jurnal, adminConexiune, numeBaza, dirStocare);
+            return new Harness(app, mail, ceas, ai, twilio, jurnal, emailuri, sms, adminConexiune, numeBaza, dirStocare);
         }
         catch
         {
@@ -145,14 +156,44 @@ public sealed class Harness : IAsyncDisposable
         db.AddRange(roles); db.AddRange(subjects); await db.SaveChangesAsync();
         foreach (var (username, fullName, role) in new[] { ("george", "George Pavel", 0), ("irina", "Irina Marin", 1), ("admin", "Administrator", 2) })
         {
-            var u = new Utilizator { Nume = fullName, Username = username, Email = username + "@example.invalid", Telefon = role == 1 ? "+40722123456" : null };
+            var u = new Utilizator { Nume = fullName, Username = username, Email = username + "@example.invalid", Telefon = role == 1 ? "+40722123456" : null,
+                EmailConfirmatLa = DateTime.UtcNow };
             u.ParolaHash = Parole.Hash(u, ParolaTest);
             u.Roluri.Add(new UtilizatorRol { RolId = roles[role].Id });
-            if (role == 1) u.ProfilMentor = new ProfilMentor { StareVerificare = "aprobat", Descriere = "Profesor de limba română, cu 8 ani de experiență. Învățăm cu răbdare și exemple clare.", PozaUrl = "fixture-photo.png", DovadaCalificareUrl = "fixture-diploma.pdf", Materii = new List<MentorMaterie> { new() { MaterieId = subjects[0].Id } } };
+            if (role == 1) u.ProfilMentor = new ProfilMentor { StareVerificare = "aprobat", ActivatLa = DateTime.UtcNow, Descriere = "Profesor de limba română, cu 8 ani de experiență. Învățăm cu răbdare și exemple clare.", PozaUrl = "fixture-photo.png", DovadaCalificareUrl = "fixture-diploma.pdf", Materii = new List<MentorMaterie> { new() { MaterieId = subjects[0].Id } } };
             db.Add(u);
         }
         await db.SaveChangesAsync();
+
+        // A few SIRUTA rows (the full register takes seconds to load): Bucharest with two sectors, Alba with two localities.
+        db.AddRange(new Judet { Id = 40, Nume = "București" }, new Judet { Id = 1, Nume = "Alba" });
+        db.AddRange(
+            new Localitate { Id = 179141, JudetId = 40, Nume = "Sectorul 1", UatId = 179132, UatNume = "Municipiul București", Urban = true, Cautare = "sectorul 1" },
+            new Localitate { Id = 179150, JudetId = 40, Nume = "Sectorul 2", UatId = 179132, UatNume = "Municipiul București", Urban = true, Cautare = "sectorul 2" },
+            new Localitate { Id = 1026, JudetId = 1, Nume = "Alba Iulia", UatId = 1017, UatNume = "Municipiul Alba Iulia", Urban = true, Cautare = "alba iulia" },
+            new Localitate { Id = 1035, JudetId = 1, Nume = "Bărăbanț", UatId = 1017, UatNume = "Municipiul Alba Iulia", Urban = true, Cautare = "barabant" });
+        // An approved organisation run by "director" (organisation admin and professor), with irina as an approved professor.
+        var director = new Utilizator { Nume = "Dana Director", Username = "director", Email = "director@example.invalid", Telefon = "+40722000111",
+            EmailConfirmatLa = DateTime.UtcNow, JudetId = 40 };
+        director.ParolaHash = Parole.Hash(director, ParolaTest);
+        director.Roluri.Add(new UtilizatorRol { Rol = await db.Roluri.SingleAsync(r => r.Nume == "organizatie") });
+        director.Roluri.Add(new UtilizatorRol { RolId = roles[1].Id });
+        director.ProfilMentor = new ProfilMentor { StareVerificare = "aprobat", ActivatLa = DateTime.UtcNow, Descriere = "Directoarea liceului." };
+        db.Add(director);
+        await db.SaveChangesAsync();
+        var liceu = new Organizatie { Nume = "Liceul de Test", Adresa = "Strada Școlii 1", JudetId = 40, LocalitateId = 179141, Stare = Organizatie.Aprobata,
+            AdminId = director.Id, CreatLa = DateTime.UtcNow, DecisLa = DateTime.UtcNow };
+        db.Add(liceu);
+        await db.SaveChangesAsync();
+        var irina = await db.Utilizatori.SingleAsync(u => u.Username == "irina");
+        db.AddRange(
+            new MembruOrganizatie { OrganizatieId = liceu.Id, UtilizatorId = director.Id, Rol = MembruOrganizatie.RolProfesor, Stare = MembruOrganizatie.Aprobat, CerutLa = DateTime.UtcNow },
+            new MembruOrganizatie { OrganizatieId = liceu.Id, UtilizatorId = irina.Id, Rol = MembruOrganizatie.RolProfesor, Stare = MembruOrganizatie.Aprobat, CerutLa = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
+
+    /// <summary>Id of the fixture organisation "Liceul de Test" (approved, admin: director).</summary>
+    public const int IdLiceu = 1;
 
     public void Check(bool condition, string label)
     {
@@ -172,6 +213,24 @@ public sealed class Harness : IAsyncDisposable
 
     /// <summary>A client holding the session cookie of <paramref name="username"/>.</summary>
     public async Task<HttpClient> Login(string username, string parola = ParolaTest) => (await LoginCuCookie(username, parola)).Client;
+
+    /// <summary>Registers a student and confirms the email with the code from the fake mailbox; returns the signed-in client.</summary>
+    public async Task<HttpClient> InregistreazaElev(string username, string? telefon = null)
+    {
+        var client = Anonim();
+        var email = username + "@example.invalid";
+        (await client.PostAsJsonAsync("/autentificare/inregistrare", new { nume = username + " Test", username, email, parola = ParolaTest })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/autentificare/confirma-email", new { email, cod = Emailuri.UltimulCod(email) })).EnsureSuccessStatusCode();
+        if (telefon is not null) await VerificaTelefon(client, telefon);
+        return client;
+    }
+
+    /// <summary>Verifies a phone number for the signed-in client with the code from the fake SMS provider.</summary>
+    public async Task VerificaTelefon(HttpClient client, string telefon)
+    {
+        (await client.PostAsJsonAsync("/utilizatori/me/setari/telefon/cod", new { telefon })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/utilizatori/me/setari/telefon/confirma", new { telefon, cod = Sms.UltimulCod() })).EnsureSuccessStatusCode();
+    }
 
     /// <summary>Like <see cref="Login"/>, also returning the cookies (a SignalR connection needs them).</summary>
     public async Task<(HttpClient Client, CookieContainer Cookies)> LoginCuCookie(string username, string parola = ParolaTest)
@@ -275,4 +334,32 @@ sealed class AntetCsrf : DelegatingHandler
         cerere.Headers.Add(Securitate.AntetCsrf, "1");
         return base.SendAsync(cerere, ct);
     }
+}
+
+/// <summary>The mail provider: keeps every email; <see cref="Esueaza"/> makes it fail like an unreachable server.</summary>
+public sealed class FakeEmail : IExpeditorEmail
+{
+    public string Nume => "fals";
+    public bool Esueaza { get; set; }
+    public ConcurrentQueue<Email> Trimise { get; } = new();
+
+    public Task TrimiteAsync(Email mesaj, CancellationToken ct)
+    {
+        if (Esueaza) throw new TrimitereEsuata("Serverul de email nu răspunde.");
+        Trimise.Enqueue(mesaj);
+        return Task.CompletedTask;
+    }
+
+    public string UltimulCod(string catre) => System.Text.RegularExpressions.Regex.Match(
+        Trimise.Last(m => m.Catre.Equals(catre, StringComparison.OrdinalIgnoreCase)).Text, @"\b\d{6}\b").Value;
+}
+
+public sealed class FakeSms : IExpeditorSms
+{
+    public string Nume => "fals";
+    public ConcurrentQueue<Sms> Trimise { get; } = new();
+
+    public Task TrimiteAsync(Sms mesaj, CancellationToken ct) { Trimise.Enqueue(mesaj); return Task.CompletedTask; }
+
+    public string UltimulCod() => System.Text.RegularExpressions.Regex.Match(Trimise.Last().Text, @"\b\d{6}\b").Value;
 }

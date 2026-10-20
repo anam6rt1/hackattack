@@ -18,6 +18,8 @@ public static class LimiteCereri
     public const string Ai = "ai";
     /// <summary>"Sună-mă" outbound calls, per user.</summary>
     public const string Telefon = "telefon";
+    /// <summary>SMS codes (each one costs money), per user.</summary>
+    public const string Sms = "sms";
 }
 
 /// <summary>
@@ -63,6 +65,7 @@ public static class Securitate
             Fereastra(o, LimiteCereri.Email, cfg.GetValue("Limite:EmailuriPeOra", 6), TimeSpan.FromHours(1), peUtilizator: true);
             Fereastra(o, LimiteCereri.Ai, cfg.GetValue("Limite:CereriAiPeMinut", 10), TimeSpan.FromMinutes(1), peUtilizator: true);
             Fereastra(o, LimiteCereri.Telefon, cfg.GetValue("Limite:ApeluriPeMinut", 2), TimeSpan.FromMinutes(1), peUtilizator: true);
+            Fereastra(o, LimiteCereri.Sms, cfg.GetValue("Limite:SmsPeOra", 3), TimeSpan.FromHours(1), peUtilizator: true);
             // Everything else: a generous ceiling per user (or per IP when signed out) against scripted abuse.
             var global = cfg.GetValue("Limite:CereriPeMinut", 600);
             o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(h => RateLimitPartition.GetFixedWindowLimiter(Cheie(h, true),

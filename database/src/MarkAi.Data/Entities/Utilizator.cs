@@ -22,6 +22,27 @@ public partial class Utilizator
     /// <summary>Part of every session token; raising it signs the account out everywhere.</summary>
     public int VersiuneSesiune { get; set; }
 
+    /// <summary>Null until the emailed code is confirmed; unconfirmed accounts cannot sign in and are deleted after a day.</summary>
+    public DateTime? EmailConfirmatLa { get; set; }
+
+    /// <summary>When the "your account will be deleted soon" email was sent, so it is sent only once.</summary>
+    public DateTime? AvertizatLa { get; set; }
+
+    /// <summary>Set when the phone number was confirmed with an SMS code; "Sună-mă" calls only verified numbers.</summary>
+    public DateTime? TelefonVerificatLa { get; set; }
+
+    /// <summary>When the "your application will be deleted tomorrow" reminder was sent (professors, organisation admins).</summary>
+    public DateTime? AvertizatAprobareLa { get; set; }
+
+    public int? JudetId { get; set; }
+
+    public int? LocalitateId { get; set; }
+
+    /// <summary>Students' school year: "IX", "X", "XI" or "XII".</summary>
+    public string? Clasa { get; set; }
+
+    public virtual ICollection<MembruOrganizatie> Organizatii { get; set; } = new List<MembruOrganizatie>();
+
     public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
     public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();

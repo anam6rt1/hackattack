@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { profesorAprobat, useSesiune } from '@/lib/sesiune'
+import { esteProfesor, profesorAprobat, useSesiune } from '@/lib/sesiune'
 import { useTema } from '@/components/Tema'
 import { STILURI, TEME } from '@/lib/tema-sezon'
 import { Avatar } from '@/components/ProfilTeme'
@@ -26,6 +26,8 @@ const ICON = {
   profesori: <><path d="M12 4 2 9l10 5 10-5z" /><path d="M6 11.5V16c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.5l-6 3z" /></>,
   linia: <path d="M6.6 3.5 9 3l1.6 4.4-2 1.4a12 12 0 0 0 6.6 6.6l1.4-2L21 15l-.5 2.4A2.5 2.5 0 0 1 18 19.5 15.5 15.5 0 0 1 4.5 6 2.5 2.5 0 0 1 6.6 3.5z" />,
   continut: <path d="M5 3h10l4 4v14H5zM14 3v5h5M8 12h8M8 16h8" fill="none" strokeWidth="2" />,
+  mesaje: <path d="M3 6h18v12H3zM3 6l9 7 9-7" fill="none" strokeWidth="2" />,
+  organizatie: <path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6M10 11h4" fill="none" strokeWidth="2" />,
 }
 
 const PAGINI = {
@@ -41,12 +43,22 @@ const PAGINI = {
     { href: '/', nume: 'Acasă', icon: 'acasa' },
     { href: '/profesori', nume: 'Ședințele mele', icon: 'profesori' },
     { href: '/admin/continut', nume: 'Conținut', icon: 'continut' },
+    { href: '/organizatie', nume: 'Elevi', icon: 'organizatie' },
+    { href: '/linia-ai', nume: 'Linia AI', icon: 'linia' },
+  ],
+  organizatie: [
+    { href: '/', nume: 'Acasă', icon: 'acasa' },
+    { href: '/organizatie', nume: 'Organizația', icon: 'organizatie' },
+    { href: '/profesori', nume: 'Ședințele mele', icon: 'profesori' },
+    { href: '/admin/continut', nume: 'Conținut', icon: 'continut' },
     { href: '/linia-ai', nume: 'Linia AI', icon: 'linia' },
   ],
   admin: [
     { href: '/', nume: 'Acasă', icon: 'acasa' },
+    { href: '/admin/organizatii', nume: 'Organizații', icon: 'organizatie' },
     { href: '/admin/profesori', nume: 'Profesori', icon: 'profesori' },
     { href: '/admin/continut', nume: 'Conținut', icon: 'continut' },
+    { href: '/admin/mesaje', nume: 'Mesaje', icon: 'mesaje' },
   ],
 }
 
@@ -141,7 +153,7 @@ export default function Meniu() {
   const { utilizator, iese } = useSesiune()
   const [deschis, setDeschis] = useState(false)
   const activ = (href) => (href === '/' ? cale === '/' : cale.startsWith(href))
-  const pagini = utilizator && (utilizator.rol !== 'profesor' || profesorAprobat(utilizator)) ? PAGINI[utilizator.rol] : []
+  const pagini = utilizator && (!esteProfesor(utilizator) || profesorAprobat(utilizator)) ? PAGINI[utilizator.rol] : []
 
   async function ieseSiPleaca() {
     await iese()

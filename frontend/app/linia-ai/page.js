@@ -29,18 +29,41 @@ function Telefonul({ utilizator, linie, onSalvat }) {
   const { reincarca } = useSesiune()
   const [telefon, setTelefon] = useState(utilizator.telefon ?? '')
   const [mesaj, setMesaj] = useState(null)
+  const [codTrimis, setCodTrimis] = useState(null) // numărul la care a plecat codul prin SMS
+  const [cod, setCod] = useState('')
+  const [lucreaza, setLucreaza] = useState(false)
   const [apel, setApel] = useState(null) // { ok, text } după apăsarea „Sună-mă”
   const [suna, setSuna] = useState(false)
 
-  async function salveaza(e) {
+  // Pasul 1: codul pleacă prin SMS la numărul scris. Pasul 2: codul confirmă că numărul e al tău și îl salvează.
+  async function cereCod(e) {
     e.preventDefault()
+    setLucreaza(true)
     try {
-      await api('/utilizatori/me/setari/telefon', { metoda: 'PUT', corp: { telefon } })
-      await reincarca()
-      onSalvat()
-      setMesaj({ ok: true, text: 'Numărul a fost salvat.' })
+      const r = await api('/utilizatori/me/setari/telefon/cod', { metoda: 'POST', corp: { telefon } })
+      setCodTrimis(r.telefon)
+      setCod('')
+      setMesaj({ ok: true, text: r.mesaj })
     } catch (err) {
       setMesaj({ ok: false, text: err.message })
+    } finally {
+      setLucreaza(false)
+    }
+  }
+
+  async function confirmaCod(e) {
+    e.preventDefault()
+    setLucreaza(true)
+    try {
+      const r = await api('/utilizatori/me/setari/telefon/confirma', { metoda: 'POST', corp: { telefon: codTrimis, cod } })
+      setCodTrimis(null)
+      await reincarca()
+      onSalvat()
+      setMesaj({ ok: true, text: r.mesaj })
+    } catch (err) {
+      setMesaj({ ok: false, text: err.message })
+    } finally {
+      setLucreaza(false)
     }
   }
 
@@ -66,11 +89,11 @@ function Telefonul({ utilizator, linie, onSalvat }) {
         {utilizator.rol === 'elev' ? (
           <>
             <p>Apasă butonul și tutorele te sună pe numărul tău de telefon. Nu ai nevoie de date mobile.</p>
-            <button className="tv-btn" onClick={sunaMa} disabled={suna || !linie.poateSuna || !linie.telefonulMeu}>
+            <button className="tv-btn" onClick={sunaMa} disabled={suna || !linie.poateSuna || !linie.telefonVerificat}>
               {suna ? 'Se inițiază apelul...' : 'Sună-mă'}
             </button>
-            {!linie.telefonulMeu && <p className="tv-indiciu">Salvează mai întâi numărul tău de telefon.</p>}
-            {linie.telefonulMeu && !linie.poateSuna && <p className="tv-indiciu">Apelurile nu sunt încă pornite pe server.</p>}
+            {!linie.telefonVerificat && <p className="tv-indiciu">Verifică mai întâi numărul tău de telefon (mai jos), cu codul primit prin SMS.</p>}
+            {linie.telefonVerificat && !linie.poateSuna && <p className="tv-indiciu">Apelurile nu sunt încă pornite pe server.</p>}
             {apel && <p className={apel.ok ? 'tv-succes' : 'tv-eroare'} role="status">{apel.text}</p>}
           </>
         ) : (
@@ -79,17 +102,28 @@ function Telefonul({ utilizator, linie, onSalvat }) {
         <p className="tv-indiciu">Aplicația este în curs de dezvoltare, vom oferi posibilitatea de a suna la un număr de telefon în curând.</p>
       </div>
       {utilizator.rol === 'elev' && (
-        <form className="tv-cutie tv-panou-lat tv-form" onSubmit={salveaza}>
+        <form className="tv-cutie tv-panou-lat tv-form" onSubmit={codTrimis ? confirmaCod : cereCod}>
           <h3>Numărul tău de telefon</h3>
           <p>
-            {linie.telefonulMeu
-              ? `Tutorele te sună pe ${linie.telefonulMeu} când apeși „Sună-mă”. Apelarea liniei de pe acest număr va fi disponibilă în curând.`
-              : 'Adaugă numărul de pe care suni, ca tutorele să te recunoască și să continue de unde ai rămas.'}
+            {linie.telefonVerificat
+              ? `Tutorele te sună pe ${linie.telefonulMeu} (verificat) când apeși „Sună-mă”. Apelarea liniei de pe acest număr va fi disponibilă în curând.`
+              : linie.telefonulMeu
+                ? `Numărul ${linie.telefonulMeu} nu e verificat încă. Primești un cod prin SMS ca să confirmi că e al tău.`
+                : 'Adaugă numărul tău. Primești un cod prin SMS ca să confirmi că e al tău; abia apoi tutorele te poate suna.'}
           </p>
-          <div className="tv-grid-2">
-            <input className="tv-camp-text" type="tel" value={telefon} onChange={(e) => setTelefon(e.target.value)} placeholder="07xx xxx xxx" aria-label="Numărul tău de telefon" />
-            <button className="tv-btn" disabled={!telefon.trim()}>Salvează</button>
-          </div>
+          {codTrimis ? (
+            <div className="tv-grid-2">
+              <input className="tv-camp-text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={cod}
+                onChange={(e) => setCod(e.target.value)} placeholder="Codul din SMS" aria-label="Codul primit prin SMS" />
+              <button className="tv-btn" disabled={lucreaza || cod.trim().length !== 6}>Confirmă</button>
+            </div>
+          ) : (
+            <div className="tv-grid-2">
+              <input className="tv-camp-text" type="tel" value={telefon} onChange={(e) => setTelefon(e.target.value)} placeholder="07xx xxx xxx" aria-label="Numărul tău de telefon" />
+              <button className="tv-btn" disabled={lucreaza || !telefon.trim()}>{linie.telefonVerificat ? 'Schimbă numărul' : 'Trimite codul prin SMS'}</button>
+            </div>
+          )}
+          {codTrimis && <button type="button" className="tv-btn tv-aur" onClick={() => setCodTrimis(null)}>Alt număr / retrimite</button>}
           {mesaj && <p className={mesaj.ok ? 'tv-succes' : 'tv-eroare'}>{mesaj.text}</p>}
         </form>
       )}

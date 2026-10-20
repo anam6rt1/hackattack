@@ -44,9 +44,10 @@ static class VerificariSecuritate
         await george.PatchAsJsonAsync("/utilizatori/me", new { telefon = "0722123456" });
         var telefon = await h.Db(db => db.Utilizatori.Where(u => u.Username == "george").Select(u => u.Telefon).SingleAsync());
         h.Check(telefon is null, "PATCH /utilizatori/me ignores the phone number");
-        r = await george.PutAsJsonAsync("/utilizatori/me/setari/telefon", new { telefon = "0722123456" });
+        r = await george.PostAsJsonAsync("/utilizatori/me/setari/telefon/cod", new { telefon = "0722123456" });
         h.Check(r.StatusCode == HttpStatusCode.BadRequest, "phone already used by another account rejected");
-        r = await george.PutAsJsonAsync("/utilizatori/me/setari/telefon", new { telefon = "0722999888" });
+        await h.VerificaTelefon(george, "0722999888");
+        r = await george.GetAsync("/utilizatori/me");
         h.Check(r.IsSuccessStatusCode, "own phone number saved through settings");
 
         // Session revocation: "sign out everywhere" ends every session of the account.
@@ -74,8 +75,9 @@ static class VerificariSecuritate
         h.Check(exe.StatusCode == HttpStatusCode.BadRequest, "executable renamed to .jpg rejected");
         using var aplicant = h.Anonim();
         var bun = await InregistrareProfesor(aplicant, "prof3", ("poza.png", Png), ("dovada.pdf", Pdf));
-        h.Check(bun.StatusCode == HttpStatusCode.Created, "valid photo and PDF accepted");
-        var aplicantId = (await bun.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        h.Check(bun.StatusCode == HttpStatusCode.Accepted, "valid photo and PDF accepted");
+        (await aplicant.PostAsJsonAsync("/autentificare/confirma-email", new { email = "prof3@example.invalid", cod = h.Emailuri.UltimulCod("prof3@example.invalid") })).EnsureSuccessStatusCode();
+        var aplicantId = (await aplicant.GetFromJsonAsync<JsonElement>("/utilizatori/me")).GetProperty("id").GetInt32();
         h.Check(Directory.EnumerateFiles(h.Serviciu<Microsoft.Extensions.Configuration.IConfiguration>()["Stocare:Director"]!, "*.partial", SearchOption.AllDirectories).Any() == false,
             "no half-written files left in storage");
 
@@ -110,6 +112,7 @@ static class VerificariSecuritate
             { new StringContent(username + "@example.invalid"), "Email" }, { new StringContent(Harness.ParolaTest), "Parola" },
             { new StringContent("07" + Random.Shared.Next(10000000, 99999999)), "Telefon" },
             { new StringContent("Predau limba română de mulți ani."), "Descriere" }, { new StringContent("1"), "MaterieIds" },
+            { new StringContent(Harness.IdLiceu.ToString()), "OrganizatieIds" }, { new StringContent("40"), "JudetId" },
             Fisier(poza.Nume, poza.Date, "Poza"), Fisier(dovada.Nume, dovada.Date, "Dovada"),
         };
         return await client.PostAsync("/autentificare/inregistrare-profesor", f);

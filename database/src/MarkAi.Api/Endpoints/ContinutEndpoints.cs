@@ -271,7 +271,7 @@ public static class ContinutEndpoints
     private static async Task<bool> PoateEdita(MarkAiDbContext db, ClaimsPrincipal u, int materieId, CancellationToken ct)
     {
         if (u.EsteAdmin()) return true;
-        if (!u.IsInRole(Roluri.Profesor)) return false;
+        if (!u.EsteProfesor()) return false;
         var uid = u.Id();
         return await db.Set<MentorMaterie>().AnyAsync(m => m.MentorId == uid && m.MaterieId == materieId
             && m.Mentor.StareVerificare == RezervareService.MentorAprobat, ct);

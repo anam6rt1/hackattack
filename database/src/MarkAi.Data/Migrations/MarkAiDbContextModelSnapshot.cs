@@ -165,6 +165,58 @@ namespace MarkAi.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.CodVerificare", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creat_la");
+
+                    b.Property<string>("Destinatie")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("destinatie");
+
+                    b.Property<DateTime>("ExpiraLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expira_la");
+
+                    b.Property<DateTime?>("FolositLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("folosit_la");
+
+                    b.Property<string>("HashCod")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("hash_cod");
+
+                    b.Property<int>("Incercari")
+                        .HasColumnType("integer")
+                        .HasColumnName("incercari");
+
+                    b.Property<string>("Scop")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("scop");
+
+                    b.Property<int>("UtilizatorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("utilizator_id");
+
+                    b.HasKey("Id")
+                        .HasName("cod_verificare_pkey");
+
+                    b.HasIndex(new[] { "UtilizatorId", "Scop" }, "idx_cod_verificare_utilizator_scop");
+
+                    b.ToTable("cod_verificare", "mark_ai");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.ComisionMentor", b =>
                 {
                     b.Property<int>("Id")
@@ -645,6 +697,64 @@ namespace MarkAi.Data.Migrations
                     b.ToTable("interfata", "mark_ai");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.Judet", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Nume")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nume");
+
+                    b.HasKey("Id")
+                        .HasName("judet_pkey");
+
+                    b.ToTable("judet", "mark_ai");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.Localitate", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Cautare")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare");
+
+                    b.Property<int>("JudetId")
+                        .HasColumnType("integer")
+                        .HasColumnName("judet_id");
+
+                    b.Property<string>("Nume")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nume");
+
+                    b.Property<int>("UatId")
+                        .HasColumnType("integer")
+                        .HasColumnName("uat_id");
+
+                    b.Property<string>("UatNume")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("uat_nume");
+
+                    b.Property<bool>("Urban")
+                        .HasColumnType("boolean")
+                        .HasColumnName("urban");
+
+                    b.HasKey("Id")
+                        .HasName("localitate_pkey");
+
+                    b.HasIndex(new[] { "JudetId", "Cautare" }, "idx_localitate_judet_cautare");
+
+                    b.ToTable("localitate", "mark_ai");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Materie", b =>
                 {
                     b.Property<int>("Id")
@@ -680,6 +790,75 @@ namespace MarkAi.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("materie", "mark_ai");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.MembruOrganizatie", b =>
+                {
+                    b.Property<int>("OrganizatieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("organizatie_id");
+
+                    b.Property<int>("UtilizatorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("utilizator_id");
+
+                    b.Property<DateTime?>("AmintitLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("amintit_la");
+
+                    b.Property<DateTime>("CerutLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cerut_la");
+
+                    b.Property<int?>("DecisDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("decis_de_id");
+
+                    b.Property<DateTime?>("DecisLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decis_la");
+
+                    b.Property<DateTime?>("ExpiraLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expira_la");
+
+                    b.Property<string>("MotivRespingere")
+                        .HasColumnType("text")
+                        .HasColumnName("motiv_respingere");
+
+                    b.Property<bool>("PoatePublicaPublic")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("poate_publica_public");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("rol");
+
+                    b.Property<string>("Stare")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("stare");
+
+                    b.HasKey("OrganizatieId", "UtilizatorId")
+                        .HasName("membru_organizatie_pkey");
+
+                    b.HasIndex("DecisDeId");
+
+                    b.HasIndex(new[] { "OrganizatieId", "Rol", "Stare" }, "idx_membru_organizatie_org_rol_stare");
+
+                    b.HasIndex(new[] { "UtilizatorId" }, "membru_organizatie_un_elev_key")
+                        .IsUnique()
+                        .HasFilter("rol = 'elev' AND stare IN ('in_asteptare', 'aprobat')");
+
+                    b.ToTable("membru_organizatie", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("membru_organizatie_rol_check", "rol IN ('profesor', 'elev')");
+
+                            t.HasCheckConstraint("membru_organizatie_stare_check", "stare IN ('in_asteptare', 'aprobat', 'respins', 'expirat')");
+                        });
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.MentorMaterie", b =>
@@ -747,6 +926,76 @@ namespace MarkAi.Data.Migrations
                     b.ToTable("mesaj", "mark_ai");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.MesajIesire", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Canal")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("canal");
+
+                    b.Property<string>("Catre")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("catre");
+
+                    b.Property<DateTime>("CreatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creat_la");
+
+                    b.Property<string>("Eroare")
+                        .HasColumnType("text")
+                        .HasColumnName("eroare");
+
+                    b.Property<string>("Furnizor")
+                        .HasColumnType("text")
+                        .HasColumnName("furnizor");
+
+                    b.Property<string>("Html")
+                        .HasColumnType("text")
+                        .HasColumnName("html");
+
+                    b.Property<int>("Incercari")
+                        .HasColumnType("integer")
+                        .HasColumnName("incercari");
+
+                    b.Property<string>("Subiect")
+                        .HasColumnType("text")
+                        .HasColumnName("subiect");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<string>("Tip")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tip");
+
+                    b.Property<DateTime?>("TrimisLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("trimis_la");
+
+                    b.Property<DateTime>("UrmatoareaIncercareLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("urmatoarea_incercare_la");
+
+                    b.HasKey("Id")
+                        .HasName("mesaj_iesire_pkey");
+
+                    b.HasIndex(new[] { "Canal", "CreatLa" }, "idx_mesaj_iesire_canal_data");
+
+                    b.HasIndex(new[] { "TrimisLa", "UrmatoareaIncercareLa" }, "idx_mesaj_iesire_de_trimis");
+
+                    b.ToTable("mesaj_iesire", "mark_ai");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.MuchieGraf", b =>
                 {
                     b.Property<int>("GrafId")
@@ -811,6 +1060,78 @@ namespace MarkAi.Data.Migrations
                             t.HasCheckConstraint("nivel_xp_nivel_check", "(nivel >= 0)");
 
                             t.HasCheckConstraint("nivel_xp_xp_necesar_check", "(xp_necesar >= 0)");
+                        });
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.Organizatie", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminId")
+                        .HasColumnType("integer")
+                        .HasColumnName("admin_id");
+
+                    b.Property<string>("Adresa")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("adresa");
+
+                    b.Property<DateTime>("CreatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creat_la");
+
+                    b.Property<int?>("DecisDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("decis_de_id");
+
+                    b.Property<DateTime?>("DecisLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decis_la");
+
+                    b.Property<int>("JudetId")
+                        .HasColumnType("integer")
+                        .HasColumnName("judet_id");
+
+                    b.Property<int?>("LocalitateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("localitate_id");
+
+                    b.Property<string>("MotivRespingere")
+                        .HasColumnType("text")
+                        .HasColumnName("motiv_respingere");
+
+                    b.Property<string>("Nume")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nume");
+
+                    b.Property<string>("Stare")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("stare");
+
+                    b.HasKey("Id")
+                        .HasName("organizatie_pkey");
+
+                    b.HasIndex("DecisDeId");
+
+                    b.HasIndex("JudetId");
+
+                    b.HasIndex("LocalitateId");
+
+                    b.HasIndex(new[] { "Stare", "JudetId" }, "idx_organizatie_stare_judet");
+
+                    b.HasIndex(new[] { "AdminId" }, "organizatie_admin_id_key")
+                        .IsUnique();
+
+                    b.ToTable("organizatie", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("organizatie_stare_check", "stare IN ('in_asteptare', 'aprobata', 'respinsa')");
                         });
                 });
 
@@ -1468,6 +1789,18 @@ namespace MarkAi.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AvertizatAprobareLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("avertizat_aprobare_la");
+
+                    b.Property<DateTime?>("AvertizatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("avertizat_la");
+
+                    b.Property<string>("Clasa")
+                        .HasColumnType("text")
+                        .HasColumnName("clasa");
+
                     b.Property<DateTime>("CreatLa")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1478,6 +1811,18 @@ namespace MarkAi.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("email");
+
+                    b.Property<DateTime?>("EmailConfirmatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_confirmat_la");
+
+                    b.Property<int?>("JudetId")
+                        .HasColumnType("integer")
+                        .HasColumnName("judet_id");
+
+                    b.Property<int?>("LocalitateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("localitate_id");
 
                     b.Property<string>("Nume")
                         .IsRequired()
@@ -1495,6 +1840,10 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("telefon");
 
+                    b.Property<DateTime?>("TelefonVerificatLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("telefon_verificat_la");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1509,6 +1858,10 @@ namespace MarkAi.Data.Migrations
                     b.HasKey("Id")
                         .HasName("utilizator_pkey");
 
+                    b.HasIndex("JudetId");
+
+                    b.HasIndex("LocalitateId");
+
                     b.HasIndex(new[] { "Email" }, "utilizator_email_key")
                         .IsUnique();
 
@@ -1518,7 +1871,10 @@ namespace MarkAi.Data.Migrations
                     b.HasIndex(new[] { "Username" }, "utilizator_username_key")
                         .IsUnique();
 
-                    b.ToTable("utilizator", "mark_ai");
+                    b.ToTable("utilizator", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("utilizator_clasa_check", "clasa IS NULL OR clasa IN ('IX', 'X', 'XI', 'XII')");
+                        });
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.UtilizatorMaterie", b =>
@@ -1951,6 +2307,16 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Tarif");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.CodVerificare", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", null)
+                        .WithMany()
+                        .HasForeignKey("UtilizatorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("cod_verificare_utilizator_id_fkey");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.ComisionMentor", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.ProfilMentor", "Mentor")
@@ -2123,6 +2489,45 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Utilizator");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.Localitate", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Judet", "Judet")
+                        .WithMany("Localitati")
+                        .HasForeignKey("JudetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("localitate_judet_id_fkey");
+
+                    b.Navigation("Judet");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.MembruOrganizatie", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", null)
+                        .WithMany()
+                        .HasForeignKey("DecisDeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("membru_organizatie_decis_de_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Organizatie", "Organizatie")
+                        .WithMany("Membri")
+                        .HasForeignKey("OrganizatieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("membru_organizatie_organizatie_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
+                        .WithMany("Organizatii")
+                        .HasForeignKey("UtilizatorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("membru_organizatie_utilizator_id_fkey");
+
+                    b.Navigation("Organizatie");
+
+                    b.Navigation("Utilizator");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.MentorMaterie", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
@@ -2173,6 +2578,40 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("GrafCurNavigation");
 
                     b.Navigation("GrafCurs");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.Organizatie", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "Admin")
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("organizatie_admin_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", null)
+                        .WithMany()
+                        .HasForeignKey("DecisDeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("organizatie_decis_de_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Judet", "Judet")
+                        .WithMany()
+                        .HasForeignKey("JudetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("organizatie_judet_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Localitate", "Localitate")
+                        .WithMany()
+                        .HasForeignKey("LocalitateId")
+                        .HasConstraintName("organizatie_localitate_id_fkey");
+
+                    b.Navigation("Admin");
+
+                    b.Navigation("Judet");
+
+                    b.Navigation("Localitate");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Plata", b =>
@@ -2349,6 +2788,21 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Mesaj");
 
                     b.Navigation("Sesiune");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.Utilizator", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Judet", null)
+                        .WithMany()
+                        .HasForeignKey("JudetId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("utilizator_judet_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Localitate", null)
+                        .WithMany()
+                        .HasForeignKey("LocalitateId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("utilizator_localitate_id_fkey");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.UtilizatorMaterie", b =>
@@ -2558,6 +3012,11 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("ReguliBackground");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.Judet", b =>
+                {
+                    b.Navigation("Localitati");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Materie", b =>
                 {
                     b.Navigation("CamereTutoring");
@@ -2576,6 +3035,11 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("JurnaleSms");
 
                     b.Navigation("PasiTabla");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.Organizatie", b =>
+                {
+                    b.Navigation("Membri");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.ProfilMentor", b =>
@@ -2631,6 +3095,8 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Grafuri");
 
                     b.Navigation("Materii");
+
+                    b.Navigation("Organizatii");
 
                     b.Navigation("PreferinteUtilizator");
 

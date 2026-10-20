@@ -2,6 +2,7 @@ using System.Net.Mail;
 using MarkAi.Api.Endpoints;
 using MarkAi.Api.Infrastructura;
 using MarkAi.Api.Servicii;
+using MarkAi.Api.Servicii.Mesagerie;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
@@ -20,7 +21,7 @@ public static class SetariContEndpoints
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ConfirmariCont>();
-        services.AddSingleton<IEmailConfirmare, EmailConfirmareSmtp>();
+        services.AddScoped<IEmailConfirmare, EmailConfirmarePosta>();
         return services;
     }
 
@@ -34,7 +35,7 @@ public static class SetariContEndpoints
             var p = await db.ProfiluriMentor.AsNoTracking().Where(x => x.UtilizatorId == u.Id)
                 .Select(x => new { x.Descriere, x.StareVerificare, ArePoza = x.PozaUrl != null,
                     AreDovada = x.DovadaCalificareUrl != null, MaterieIds = x.Materii.Select(m => m.MaterieId).ToList() }).SingleOrDefaultAsync(ct);
-            return Results.Ok(new { utilizator = u, profesor = u.Rol == Roluri.Profesor ? p : null });
+            return Results.Ok(new { utilizator = u, profesor = Roluri.EsteProfesor(u.Rol) ? p : null });
         });
         g.MapPatch("", async (DateCont c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
@@ -45,14 +46,16 @@ public static class SetariContEndpoints
             if (!username.All(ch => char.IsLetterOrDigit(ch) || ch is '.' or '_' or '-'))
                 throw new CerereInvalida("Utilizatorul poate conține litere, cifre, punct, cratimă și underscore.");
             var phone = Validare.Telefon(c.Telefon);
-            if (rol == Roluri.Profesor && phone is null) throw new CerereInvalida("Telefonul este obligatoriu pentru profesori.");
+            if (Roluri.EsteProfesor(rol) && phone is null) throw new CerereInvalida("Telefonul este obligatoriu pentru profesori.");
             if (await db.Utilizatori.AnyAsync(x => x.Id != u.Id && x.Username.ToLower() == username.ToLower(), ct))
                 throw new CerereInvalida("Acest nume de utilizator este deja folosit.");
             if (phone is not null && await db.Utilizatori.AnyAsync(x => x.Id != u.Id && x.Telefon == phone, ct))
                 throw new CerereInvalida("Acest telefon este deja asociat altui cont.");
             u.Nume = Validare.Obligatoriu(c.Nume, "Nume și prenume", 120);
+            // A different number must be verified again by SMS before "Sună-mă" calls it.
+            if (phone != u.Telefon) u.TelefonVerificatLa = null;
             u.Username = username; u.Telefon = phone;
-            if (rol == Roluri.Profesor)
+            if (Roluri.EsteProfesor(rol))
             {
                 var p = u.ProfilMentor ?? throw new CerereInvalida("Profilul de profesor nu există.");
                 var subjects = (c.MaterieIds ?? []).Distinct().ToArray();
@@ -63,10 +66,9 @@ public static class SetariContEndpoints
                 {
                     var removed = p.Materii.Where(x => !subjects.Contains(x.MaterieId)).ToArray();
                     db.RemoveRange(removed);
+                    // Approval belongs to the organisations the professor is in, not to the subject list.
                     foreach (var id in subjects.Except(p.Materii.Select(m => m.MaterieId)))
                         p.Materii.Add(new MentorMaterie { MaterieId = id });
-                    p.StareVerificare = AutentificareEndpoints.StareInAsteptare;
-                    p.MotivRespingere = null; p.VerificatDeId = null;
                 }
             }
             else if (c.Descriere is not null || c.MaterieIds is not null)
@@ -75,37 +77,67 @@ public static class SetariContEndpoints
             return Results.Ok(new { mesaj = "Datele contului au fost salvate." });
         });
         // The only way to change the phone number used by "Sună-mă" (SMS verification is added in a later phase).
-        g.MapPut("/telefon", async (DateTelefon c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
+        // County, locality and (for students) school year: used by the "near me" filters and the grade filter.
+        g.MapPut("/loc", async (DateLoc c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
+        {
+            var u = await db.Utilizatori.SingleAsync(x => x.Id == h.User.Id(), ct);
+            (u.JudetId, u.LocalitateId) = c.JudetId is { } j ? await OrganizatiiEndpoints.ValideazaLocul(db, j, c.LocalitateId, ct) : ((int?)null, (int?)null);
+            if (h.User.IsInRole(Roluri.Elev)) u.Clasa = AutentificareEndpoints.Clasa(c.Clasa);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { mesaj = "Datele au fost salvate." });
+        });
+
+        // Phone numbers are verified by an SMS code before they are saved: step 1 sends the code, step 2 saves the number.
+        g.MapPost("/telefon/cod", async (DateTelefon c, HttpContext h, MarkAiDbContext db, CoduriVerificare coduri, Posta posta,
+            TimeProvider ceas, CancellationToken ct) =>
+        {
+            var telefon = Validare.Telefon(c.Telefon) ?? throw new CerereInvalida("Scrie numărul de telefon.");
+            if (await db.Utilizatori.AnyAsync(x => x.Id != h.User.Id() && x.Telefon == telefon, ct))
+                throw new CerereInvalida("Acest telefon este deja asociat altui cont.");
+            var cod = await coduri.CreeazaAsync(h.User.Id(), CoduriVerificare.ScopTelefon, telefon, ceas.GetUtcNow().UtcDateTime.AddMinutes(10), ct);
+            try { await posta.TrimiteAcumAsync(Sabloane.CodTelefon(telefon, cod), "cod_telefon", ct); }
+            catch (TrimitereEsuata ex) { return Results.Json(new { mesaj = ex.Message }, statusCode: 503); }
+            return Results.Ok(new { telefon, mesaj = $"Ți-am trimis un SMS cu un cod pe {telefon}. Codul expiră în 10 minute." });
+        }).RequireRateLimiting(LimiteCereri.Sms);
+
+        g.MapPost("/telefon/confirma", async (ConfirmareTelefon c, HttpContext h, MarkAiDbContext db, CoduriVerificare coduri,
+            TimeProvider ceas, CancellationToken ct) =>
+        {
+            var telefon = Validare.Telefon(c.Telefon) ?? throw new CerereInvalida("Scrie numărul de telefon.");
+            if (!await coduri.VerificaAsync(h.User.Id(), CoduriVerificare.ScopTelefon, telefon, c.Cod ?? "", ct))
+                throw new CerereInvalida("Codul nu este corect sau a expirat. Cere un cod nou.");
+            if (await db.Utilizatori.AnyAsync(x => x.Id != h.User.Id() && x.Telefon == telefon, ct))
+                throw new CerereInvalida("Acest telefon este deja asociat altui cont.");
+            var u = await db.Utilizatori.SingleAsync(x => x.Id == h.User.Id(), ct);
+            (u.Telefon, u.TelefonVerificatLa) = (telefon, ceas.GetUtcNow().UtcDateTime);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { telefon, mesaj = "Numărul a fost verificat și salvat." });
+        }).RequireRateLimiting(LimiteCereri.Autentificare);
+
+        // Removes the number (a new one goes through the SMS code above).
+        g.MapDelete("/telefon", async (HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var u = await db.Utilizatori.Include(x => x.Roluri).ThenInclude(x => x.Rol).SingleAsync(x => x.Id == h.User.Id(), ct);
-            var telefon = Validare.Telefon(c.Telefon);
-            if (telefon is null && Roluri.Principal(u.Roluri.Select(x => x.Rol.Nume)) == Roluri.Profesor)
-                throw new CerereInvalida("Telefonul este obligatoriu pentru profesori.");
-            if (telefon is not null && await db.Utilizatori.AnyAsync(x => x.Id != u.Id && x.Telefon == telefon, ct))
-                throw new CerereInvalida("Acest telefon este deja asociat altui cont.");
-            u.Telefon = telefon;
+            if (Roluri.EsteProfesor(Roluri.Principal(u.Roluri.Select(x => x.Rol.Nume)))) throw new CerereInvalida("Telefonul este obligatoriu pentru profesori.");
+            (u.Telefon, u.TelefonVerificatLa) = (null, null);
             await db.SaveChangesAsync(ct);
-            return Results.Ok(new { telefon, mesaj = telefon is null ? "Numărul a fost șters." : "Numărul a fost salvat." });
+            return Results.Ok(new { mesaj = "Numărul a fost șters." });
         });
         g.MapPost("/documente", async ([FromForm] DocumenteCont c, HttpContext h, MarkAiDbContext db, Stocare storage, CancellationToken ct) =>
         {
             var u = await AutentificareEndpoints.Curent(db, h.User.Id(), ct);
-            if (u.Rol != Roluri.Profesor) return Results.Forbid();
+            if (!Roluri.EsteProfesor(u.Rol)) return Results.Forbid();
             var p = await db.ProfiluriMentor.SingleAsync(x => x.UtilizatorId == u.Id, ct);
             if (c.Poza is null && c.Dovada is null) throw new CerereInvalida("Alege o fotografie sau o dovadă a calificării.");
             var (pozaVeche, dovadaVeche) = (p.PozaUrl, p.DovadaCalificareUrl);
             if (c.Poza is not null) p.PozaUrl = await storage.SalveazaPozaAsync(c.Poza, ct);
-            if (c.Dovada is not null)
-            {
-                p.DovadaCalificareUrl = await storage.SalveazaDovadaAsync(c.Dovada, ct);
-                p.StareVerificare = AutentificareEndpoints.StareInAsteptare;
-                p.MotivRespingere = null; p.VerificatDeId = null;
-            }
+            // A new document is seen by the organisations' admins; it does not undo approvals already given.
+            if (c.Dovada is not null) p.DovadaCalificareUrl = await storage.SalveazaDovadaAsync(c.Dovada, ct);
             await db.SaveChangesAsync(ct);
             // The replaced files are no longer referenced anywhere.
             if (c.Poza is not null) storage.Sterge(pozaVeche);
             if (c.Dovada is not null) storage.Sterge(dovadaVeche);
-            return Results.Ok(new { mesaj = c.Dovada is null ? "Fotografia a fost actualizată." : "Documentul a fost trimis pentru verificare." });
+            return Results.Ok(new { mesaj = c.Dovada is null ? "Fotografia a fost actualizată." : "Documentul a fost actualizat; administratorii organizațiilor tale îl pot vedea." });
         }).DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(Stocare.MaxCerereMb * 1024 * 1024));
         g.MapPost("/confirmari", async (CerereConfirmare c, HttpContext h, MarkAiDbContext db,
             ConfirmariCont codes, IEmailConfirmare mail, CancellationToken ct) =>
@@ -155,6 +187,8 @@ public static class SetariContEndpoints
     }
 
     public record DateTelefon(string? Telefon);
+    public record ConfirmareTelefon(string? Telefon, string? Cod);
+    public record DateLoc(int? JudetId, int? LocalitateId, string? Clasa);
 
     public sealed class DocumenteCont { public IFormFile? Poza { get; set; } public IFormFile? Dovada { get; set; } }
 }
