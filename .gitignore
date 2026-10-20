@@ -2,6 +2,8 @@
 **/bin/
 **/obj/
 .vs/
+.idea/
+.vscode/
 *.user
 *.suo
 *.userosscache
@@ -23,6 +25,7 @@ pgpass.conf
 *.pfx
 *.p12
 *.key
+*.pem
 
 # Database backups and local runtime data; SQL migrations stay versioned
 *.dump
@@ -34,6 +37,11 @@ pgpass.conf
 # Test outputs, coverage and logs
 TestResults/
 coverage/
+# Playwright and Vitest outputs (Phase 6)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 *.coverage
 *.coveragexml
 *.trx

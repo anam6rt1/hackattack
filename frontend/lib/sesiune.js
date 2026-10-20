@@ -2,7 +2,8 @@
 // Cine e conectat: un context comun pentru tot site-ul.
 //   utilizator === undefined → încă verificăm
 //   utilizator === null      → vizitator (nu e logat)
-//   altfel                   → { id, nume, rol: 'elev' | 'profesor' | 'admin', stareProfesor, ... }
+//   altfel                   → { id, nume, rol: 'elev' | 'profesor' | 'organizatie' | 'admin', stareProfesor, organizatii, ... }
+// „organizatie” = administratorul unei organizații; predă și el, deci poate tot ce poate un profesor.
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -33,15 +34,20 @@ export function SesiuneProvider({ children }) {
       setUtilizator(u)
       return u
     },
-    async inregistreazaElev(date) {
-      const u = await api('/autentificare/inregistrare', { metoda: 'POST', corp: date })
+    // Înregistrarea nu intră în cont: întoarce { email, mesaj }, iar contul devine activ după confirmaEmail().
+    inregistreazaElev(date) {
+      return api('/autentificare/inregistrare', { metoda: 'POST', corp: date })
+    },
+    inregistreazaProfesor(formular) {
+      return api('/autentificare/inregistrare-profesor', { metoda: 'POST', formular })
+    },
+    async confirmaEmail(email, cod) {
+      const u = await api('/autentificare/confirma-email', { metoda: 'POST', corp: { email, cod } })
       setUtilizator(u)
       return u
     },
-    async inregistreazaProfesor(formular) {
-      const u = await api('/autentificare/inregistrare-profesor', { metoda: 'POST', formular })
-      setUtilizator(u)
-      return u
+    retrimiteConfirmare(email) {
+      return api('/autentificare/retrimite-confirmare', { metoda: 'POST', corp: { email } })
     },
     async iese() {
       await api('/autentificare/iesire', { metoda: 'POST' }).catch(() => {})
@@ -55,7 +61,8 @@ export function useSesiune() {
   return useContext(Context)
 }
 
-export const profesorAprobat = (u) => u?.rol === 'profesor' && u.stareProfesor === 'aprobat'
+export const esteProfesor = (u) => u?.rol === 'profesor' || u?.rol === 'organizatie'
+export const profesorAprobat = (u) => esteProfesor(u) && u.stareProfesor === 'aprobat'
 
 // Unde se întoarce cineva după ce intră în cont (de ex. linkul unei camere Triviador deschis din codul QR).
 // Doar adrese din site: „/joc/ABC234” da, „//alt-site.ro” sau „https://...” nu.
@@ -89,8 +96,10 @@ export function preiaInapoi() {
 export function usePagina(...roluri) {
   const { utilizator } = useSesiune()
   const router = useRouter()
-  const neaprobat = utilizator?.rol === 'profesor' && !profesorAprobat(utilizator)
-  const permis = utilizator && !neaprobat && (roluri.length === 0 || roluri.includes(utilizator.rol))
+  const neaprobat = esteProfesor(utilizator) && !profesorAprobat(utilizator)
+  // Paginile de profesor sunt și ale administratorilor de organizații.
+  const rolPermis = (rol) => roluri.includes(rol) || (rol === 'organizatie' && roluri.includes('profesor'))
+  const permis = utilizator && !neaprobat && (roluri.length === 0 || rolPermis(utilizator.rol))
 
   useEffect(() => {
     if (utilizator === undefined) return

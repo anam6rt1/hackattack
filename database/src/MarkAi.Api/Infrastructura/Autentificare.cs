@@ -14,14 +14,18 @@ public static class Roluri
 {
     public const string Elev = "elev";
     public const string Profesor = "profesor";
+    /// <summary>The admin of an organisation; also a professor in it, so everything a professor may do, they may too.</summary>
+    public const string Organizatie = "organizatie";
     public const string Admin = "admin";
 
     /// <summary>An account has exactly one experience; the highest role wins if several were assigned.</summary>
     public static string Principal(IEnumerable<string> roluri)
     {
         var set = roluri.ToHashSet();
-        return set.Contains(Admin) ? Admin : set.Contains(Profesor) ? Profesor : Elev;
+        return set.Contains(Admin) ? Admin : set.Contains(Organizatie) ? Organizatie : set.Contains(Profesor) ? Profesor : Elev;
     }
+
+    public static bool EsteProfesor(string rol) => rol is Profesor or Organizatie;
 }
 
 public static class Politici
@@ -84,6 +88,9 @@ public static class ExtensiiUtilizator
         int.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException());
 
     public static bool EsteAdmin(this ClaimsPrincipal p) => p.IsInRole(Roluri.Admin);
+
+    /// <summary>A professor account or an organisation admin (who also teaches).</summary>
+    public static bool EsteProfesor(this ClaimsPrincipal p) => p.IsInRole(Roluri.Profesor) || p.IsInRole(Roluri.Organizatie);
 }
 
 /// <summary>
@@ -128,7 +135,7 @@ public sealed class VerificareProfesorAprobat(MarkAiDbContext db) : Authorizatio
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, CerintaProfesorAprobat cerinta)
     {
         if (cerinta.AcceptaAdmin && context.User.IsInRole(Roluri.Admin)) { context.Succeed(cerinta); return; }
-        if (!context.User.IsInRole(Roluri.Profesor)) return;
+        if (!context.User.EsteProfesor()) return;
         var id = context.User.Id();
         if (await db.ProfiluriMentor.AnyAsync(m => m.UtilizatorId == id && m.StareVerificare == Data.Servicii.RezervareService.MentorAprobat))
             context.Succeed(cerinta);

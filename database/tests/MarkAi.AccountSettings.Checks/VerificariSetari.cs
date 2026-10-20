@@ -27,7 +27,7 @@ static class VerificariSetari
         var teacherSaved = await teacher.PatchAsJsonAsync("/utilizatori/me/setari", new { nume="Irina Marin", username="irina", telefon="0722123456", descriere="Profil actualizat", materieIds=new[] {1,2} });
         h.Check(teacherSaved.IsSuccessStatusCode, "teacher biography and subjects saved");
         mentor = await teacher.GetFromJsonAsync<JsonElement>("/utilizatori/me/setari");
-        h.Check(mentor.GetProperty("profesor").GetProperty("stareVerificare").GetString() == "in_asteptare", "changed subjects require new approval");
+        h.Check(mentor.GetProperty("profesor").GetProperty("stareVerificare").GetString() == "aprobat", "changing subjects keeps the approval (organisations approve professors)");
         async Task<string> Request(string purpose, string value, string password=Harness.ParolaTest)
         {
             var r = await student.PostAsJsonAsync("/utilizatori/me/setari/confirmari", new { scop=purpose, parolaActuala=password, valoareNoua=value });

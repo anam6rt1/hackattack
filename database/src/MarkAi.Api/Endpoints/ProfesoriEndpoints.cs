@@ -137,26 +137,8 @@ public static class ProfesoriEndpoints
         admin.MapGet("/profesori/{id:int}/dovada", async (int id, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
             stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.DovadaCalificareUrl).SingleOrDefaultAsync(ct),
                 $"dovada-calificare-{id}"));
-        admin.MapPost("/profesori/{id:int}/aprobare", async (int id, Aprobare c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
-        {
-            var m = await Profil(db, id, ct);
-            m.OnorariuNegociat = await OnorariuValid(db, c.OnorariuNegociat, ct);
-            m.StareVerificare = RezervareService.MentorAprobat;
-            m.MotivRespingere = null;
-            m.VerificatDeId = h.User.Id();
-            m.ActivatLa ??= DateTime.UtcNow;
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
-        });
-        admin.MapPost("/profesori/{id:int}/respingere", async (int id, Respingere c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
-        {
-            var m = await Profil(db, id, ct);
-            m.StareVerificare = AutentificareEndpoints.StareRespins;
-            m.MotivRespingere = Validare.Obligatoriu(c.Motiv, "Motiv", 1000);
-            m.VerificatDeId = h.User.Id();
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
-        });
+        // Professors are approved by the admins of their organisations (OrganizatiiEndpoints); the platform admin sees the
+        // list and sets the fee each professor receives for paid tutoring.
         admin.MapPut("/profesori/{id:int}/onorariu", async (int id, Aprobare c, MarkAiDbContext db, CancellationToken ct) =>
         {
             var m = await Profil(db, id, ct);

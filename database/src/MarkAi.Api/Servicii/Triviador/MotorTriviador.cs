@@ -268,6 +268,9 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
         if (camera.Faza == "estimare") Raspunde(camera, jucator, valoare);
     });
 
+    /// <summary>Integration checks only: whether a room is still open, without joining it.</summary>
+    internal bool Exista(string cod) => _camere.ContainsKey(cod);
+
     /// <summary>Integration checks only (InternalsVisibleTo): arranges the board, e.g. an island owner or the round, then publishes.</summary>
     internal Task PentruVerificariAsync(string cod, string? insula = null, string? proprietar = null, int? runda = null)
     {

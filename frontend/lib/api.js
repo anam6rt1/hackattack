@@ -6,10 +6,12 @@
 
 export const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5080').replace(/\/$/, '')
 
+// date = corpul răspunsului de eroare (de ex. { cod: 'email_neconfirmat', email } la intrarea în cont)
 export class EroareApi extends Error {
-  constructor(status, mesaj) {
+  constructor(status, mesaj, date = null) {
     super(mesaj)
     this.status = status
+    this.date = date
   }
 }
 
@@ -30,7 +32,7 @@ export async function api(cale, { metoda = 'GET', corp, formular } = {}) {
   const date = await raspuns.json().catch(() => null)
   if (!raspuns.ok) {
     const implicit = raspuns.status === 401 ? 'Trebuie să intri în cont.' : raspuns.status === 403 ? 'Nu ai acces aici.' : 'A apărut o eroare. Încearcă din nou.'
-    throw new EroareApi(raspuns.status, date?.mesaj || implicit)
+    throw new EroareApi(raspuns.status, date?.mesaj || implicit, date)
   }
   return date
 }

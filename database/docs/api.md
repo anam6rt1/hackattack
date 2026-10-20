@@ -46,7 +46,41 @@ Setări din `appsettings.json`: `Frontend:Origini` (CORS), `Autentificare:Cookie
   generic, iar detaliile rămân în jurnal. Cererile au cel mult 2 MB (încărcările de fișiere, 16 MB).
 - **Fișiere**: tipul e verificat după primii octeți, nu doar după extensie; documentele se descarcă (`attachment`), nu se afișează.
   Poza unui profesor e publică doar după aprobare (în rest o vede doar el și adminul).
-- **Telefonul** se schimbă doar prin `PUT /utilizatori/me/setari/telefon` (verifică să nu fie al altui cont).
+- **Telefonul** se verifică prin SMS: `POST /utilizatori/me/setari/telefon/cod` trimite codul (10 minute), `POST .../telefon/confirma`
+  îl salvează ca verificat; `DELETE .../telefon` îl șterge. Schimbarea numărului din profil anulează verificarea. „Sună-mă” și
+  apelurile primite folosesc doar numere verificate.
+
+## Conturi confirmate
+
+- `POST /autentificare/inregistrare` (și `inregistrare-profesor`) nu mai intră în cont: răspunde 202 cu `{ email, mesaj }`, același
+  răspuns și pentru un email care are deja cont (proprietarul primește un email „cineva a încercat…”, cel mult o dată pe oră).
+- `POST /autentificare/confirma-email { email, cod }` confirmă și intră în cont; `POST /autentificare/retrimite-confirmare { email }`
+  trimite un cod nou (răspuns generic). Codurile sunt în `cod_verificare` (hash cu cheia serverului), 5 încercări, un cod nou îl anulează pe cel vechi.
+- Intrarea cu un cont neconfirmat (parola corectă) → 403 `{ cod: "email_neconfirmat", email }`.
+- Parolă uitată: `POST /autentificare/parola-uitata { identificator, canal: "email"|"sms" }` (răspuns generic; SMS doar spre telefonul
+  verificat al contului, altfel email; peste plafonul de SMS tot pe email) și `POST /autentificare/parola-noua { identificator, cod, parola }`
+  (cod de 15 minute, o singură folosire). După schimbare: toate sesiunile se închid, contul neconfirmat devine confirmat, proprietarul primește un email.
+- `CuratareConturi` (la 5 minute): avertizare cu un cod nou în ultima oră, apoi ștergere după `Conturi:OreConfirmare` (24) ore,
+  cu email de notificare. Ștergerea (`StergereCont`) e explicită și ordonată, șterge și fișierele, și refuză conturile cu rezervări.
+- Mesageria (`Servicii/Mesagerie`): furnizori interschimbabili prin configurare (`Email:Furnizor` smtp|jurnal, `Sms:Furnizor` twilio|jurnal).
+  Codurile pleacă imediat; notificările stau în `mesaj_iesire` și le trimite `ProcesorMesaje` (reîncercări la 1/5/15/60/240 minute).
+  După trimiterea reală, conținutul nu mai e păstrat. `GET /admin/mesaje` (doar admin) arată ultimele 100; textul doar pentru „jurnal”.
+
+## Organizații
+
+- **Roluri**: `elev`, `profesor`, `organizatie` (administratorul unei organizații; predă și el, deci are tot ce are un profesor), `admin` (platforma).
+- **Aprobări**: adminul platformei aprobă organizațiile noi (`/admin/organizatii`); adminul organizației aprobă profesorii care cer să
+  intre (`/organizatia-mea/membri`); elevii îi confirmă oricare profesor aprobat al organizației sau adminul ei (`/organizatii/{id}/elevi`).
+  Starea profesorului (`profil_mentor.stare_verificare`) e derivată: aprobat într-o organizație aprobată sau admin al uneia.
+- **Reguli**: un elev — cel mult o organizație (index parțial); un profesor — oricâte; o organizație — un singur admin.
+  Cererile expiră după 7 zile (adminul e anunțat cu o zi înainte); profesorii niciodată aprobați și adminii organizațiilor
+  neaprobate primesc o amintire în ziua 6 și sunt șterși în ziua 7 (`Conturi:ZileAprobare`).
+- **Înregistrare**: `inregistrare` (elev: județ/localitate/clasă/organizație opționale), `inregistrare-profesor` (județ și cel puțin o
+  organizație obligatorii), `inregistrare-organizatie` (cont + organizație). Notificările către cei care decid pleacă după confirmarea emailului.
+- **Locuri**: județele și localitățile vin din SIRUTA (INS, CC BY 4.0): `MarkAi.Database seed-localitati`. `GET /judete`,
+  `GET /judete/{id}/localitati?q=` (căutare fără diacritice), `GET /localitati/{id}`, `GET /organizatii?judetId=&q=`.
+- **Date existente**: `MarkAi.Database organizatie-demo <admin> [nume] [judet] [localitate]` creează o organizație aprobată cu toți
+  profesorii și elevii existenți (de rulat imediat după migrarea `Organizatii`).
 
 ## Roluri
 
@@ -57,7 +91,7 @@ Testul unei lecții: `POST /cursuri/{id}/quiz` pornește (sau reia) o încercare
 explicațiile; lecția e trecută (100 XP, o singură dată) cu 4 din 5 (80%). Între două încercări e o pauză (`Limite:PauzaQuizSecunde`, 60 s).
 - **profesor**: se înscrie cu materii, bio, poză și dovada calificării; până la aprobare primește 403 la toate rutele de profesor
   (frontendul îl trimite la `/in-asteptare`). Aprobat: programează ședințe (plătite la tariful fix sau pro bono) și editează lecțiile materiilor predate.
-- **admin**: aprobă/respinge profesori, stabilește onorariul negociat (≤ tariful elevului), editează orice conținut.
+- **admin**: aprobă/respinge organizații, stabilește onorariul negociat al profesorilor (≤ tariful elevului), editează orice conținut.
 
 Plata elevului este simulată (`plata.status = 'simulata'`); profesorul primește onorariul negociat, păstrat în `comision_mentor.suma_comision`.
 

@@ -17,7 +17,7 @@ static class VerificariTwilio
     {
         h.Ai.Raspunde = (_, _, _) => """{"raspuns":"Foarte bine, continuăm.","final":false,"voce":{"voce":"ioana","viteza":100,"ton":0}}""";
         using var george = await h.Login("george");
-        await george.PutAsJsonAsync("/utilizatori/me/setari/telefon", new { telefon = "0722111222" });
+        await h.VerificaTelefon(george, "0722111222");
 
         // 1. "Sună-mă": the session exists before Twilio dials, and the URL names it.
         var (sesiune1, cheie1, _) = await Suna(h, george, "first call");
@@ -74,9 +74,8 @@ static class VerificariTwilio
         h.Check(refuz.StatusCode == HttpStatusCode.Conflict && (await refuz.Content.ReadAsStringAsync()).Contains("cele 3 apeluri"), "fourth call in 24 hours refused");
 
         // 4. A call Twilio refuses is marked failed and hidden from the call list.
-        using var maria = h.Anonim();
-        var inregistrare = await maria.PostAsJsonAsync("/autentificare/inregistrare", new { nume = "Maria Pop", username = "maria", email = "maria@example.invalid", parola = Harness.ParolaTest, telefon = "0733111222" });
-        h.Check(inregistrare.IsSuccessStatusCode, "second student registered");
+        using var maria = await h.InregistreazaElev("maria", telefon: "0733111222");
+        h.Check((await maria.GetFromJsonAsync<JsonElement>("/utilizatori/me")).GetProperty("telefonVerificat").GetBoolean(), "second student registered with a verified phone");
         h.Twilio.Eroare = (400, 21219, "The number is unverified.");
         var esuat = await maria.PostAsync("/linia-ai/suna-ma", null);
         h.Check(esuat.StatusCode == HttpStatusCode.BadRequest && (await esuat.Content.ReadAsStringAsync()).Contains("nu este verificat"), "Twilio's refusal explained to the student");

@@ -1,6 +1,6 @@
 'use client'
-// /admin/profesori : cererile profesorilor. Administratorul vede dovada calificării, stabilește
-// onorariul negociat (cât primește profesorul pe elev, din tariful fix) și aprobă sau respinge.
+// /admin/profesori : profesorii platformei. Îi aprobă administratorii organizațiilor în care predau;
+// administratorul platformei vede dovada calificării și stabilește onorariul negociat (cât primește profesorul pe elev, din tariful fix).
 
 import { useCallback, useEffect, useState } from 'react'
 import { API, api, urlApi } from '@/lib/api'
@@ -15,14 +15,12 @@ const STARI = [
 
 function Cerere({ c, pret, onSchimbat }) {
   const [onorariu, setOnorariu] = useState(c.onorariuNegociat || (pret ? Math.round(pret.suma * 0.7) : 0))
-  const [motiv, setMotiv] = useState('')
-  const [respinge, setRespinge] = useState(false)
   const [eroare, setEroare] = useState('')
 
   async function trimite(cale, corp) {
     setEroare('')
     try {
-      await api(`/admin/profesori/${c.id}/${cale}`, { metoda: cale === 'onorariu' ? 'PUT' : 'POST', corp })
+      await api(`/admin/profesori/${c.id}/${cale}`, { metoda: 'PUT', corp })
       onSchimbat()
     } catch (e) {
       setEroare(e.message)
@@ -55,25 +53,12 @@ function Cerere({ c, pret, onSchimbat }) {
         <input className="tv-camp-text" type="number" min={0} max={pret?.suma} step="0.5" value={onorariu} onChange={(e) => setOnorariu(e.target.value)} />
       </label>
 
-      {respinge ? (
-        <div className="tv-form">
-          <textarea className="tv-camp-text" rows={2} value={motiv} onChange={(e) => setMotiv(e.target.value)} placeholder="Motivul (îl vede profesorul)" aria-label="Motivul respingerii" />
-          <div className="tv-grid-2">
-            <button className="tv-btn tv-gri" onClick={() => setRespinge(false)}>Renunț</button>
-            <button className="tv-btn" style={{ background: 'var(--rau)', boxShadow: '0 5px 0 #a8322a' }} disabled={!motiv.trim()} onClick={() => trimite('respingere', { motiv })}>
-              Respinge
-            </button>
-          </div>
+      {c.stare === 'aprobat' ? (
+        <div className="tv-butoane">
+          <button className="tv-btn" onClick={() => trimite('onorariu', { onorariuNegociat: Number(onorariu) })}>Salvează onorariul</button>
         </div>
       ) : (
-        <div className="tv-butoane">
-          {c.stare === 'aprobat' ? (
-            <button className="tv-btn" onClick={() => trimite('onorariu', { onorariuNegociat: Number(onorariu) })}>Salvează onorariul</button>
-          ) : (
-            <button className="tv-btn" onClick={() => trimite('aprobare', { onorariuNegociat: Number(onorariu) })}>Aprobă</button>
-          )}
-          {c.stare !== 'respins' && <button className="tv-btn tv-gri" onClick={() => setRespinge(true)}>Respinge</button>}
-        </div>
+        <p className="tv-indiciu">Cererea e decisă de administratorii organizațiilor alese de profesor.</p>
       )}
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
     </article>
@@ -104,8 +89,8 @@ export default function AdminProfesori() {
       <div className="tv-continut">
         <section className="tv-erou" style={{ paddingBottom: 110 }}>
           <span className="tv-erou-pill">Administrare</span>
-          <h1>Cererile profesorilor</h1>
-          <p>Verifică dovada calificării, stabilește onorariul după discuția telefonică și aprobă profilul.</p>
+          <h1>Profesorii</h1>
+          <p>Profesorii sunt aprobați de administratorii organizațiilor lor. Aici vezi dovada calificării și stabilești onorariul după discuția telefonică.</p>
         </section>
         <div className="tv-coala">
           <div className="tv-taburi" role="tablist" style={{ maxWidth: 480 }}>

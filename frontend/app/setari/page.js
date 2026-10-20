@@ -4,12 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { API, api, EroareApi } from '@/lib/api'
-import { useSesiune } from '@/lib/sesiune'
+import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
+import SetariOrganizatie from '@/components/SetariOrganizatie'
 import './setari.css'
 
 const DECOR = decorSVG(13)
-const ROLURI = { elev: 'Cont de elev', profesor: 'Cont de profesor', admin: 'Administrator' }
+const ROLURI = { elev: 'Cont de elev', profesor: 'Cont de profesor', organizatie: 'Administrator de organizație', admin: 'Administrator' }
 const TABS = [ ['profil', 'Date personale', 'user'], ['securitate', 'Securitatea contului', 'shield'] ]
 
 function Icon({ name, ...props }) {
@@ -112,7 +113,7 @@ export default function SetariCont() {
     event.preventDefault(); setBusy(true); setError('')
     try {
       const payload = { nume: form.nume, username: form.username, telefon: form.telefon }
-      if (utilizator.rol === 'profesor') { payload.descriere = form.descriere; payload.materieIds = form.materieIds }
+      if (esteProfesor(utilizator)) { payload.descriere = form.descriere; payload.materieIds = form.materieIds }
       const result = await setariApi('', { metoda: 'PATCH', corp: payload })
       await load(); await reincarca(); notify(result.mesaj)
     } catch (e) { setError(e.message) } finally { setBusy(false) }
@@ -159,8 +160,9 @@ export default function SetariCont() {
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
-  const teacher = utilizator?.rol === 'profesor'
-  const tabs = teacher ? [...TABS, ['profesor', 'Profil de profesor', 'book']] : TABS
+  const teacher = esteProfesor(utilizator)
+  const tabs = [...TABS, ...(teacher ? [['profesor', 'Profil de profesor', 'book']] : []),
+    ...(utilizator && utilizator.rol !== 'admin' ? [['organizatie', 'Organizație și loc', 'user']] : [])]
 
   return <main className="tv-pagina sc-page">
     <div className="sc-shell">
@@ -185,7 +187,7 @@ export default function SetariCont() {
             <Field label="Nume și prenume" name="nume" value={form.nume} onChange={e => update('nume', e.target.value)} autoComplete="name" maxLength={120} required />
             <div className="sc-two"><Field label="Utilizator" name="username" value={form.username} onChange={e => update('username', e.target.value)} autoComplete="username" maxLength={40} required /><Field label={teacher ? 'Telefon' : 'Telefon (opțional)'} name="telefon" type="tel" value={form.telefon} onChange={e => update('telefon', e.target.value)} placeholder="07xx xxx xxx" autoComplete="tel" required={teacher} /></div>
             <div className="sc-email-line"><Field label="Email" type="email" value={data.utilizator.email} readOnly /><button type="button" className="sc-text-button" onClick={() => { setScop('email'); changeTab('securitate') }}>Schimbă emailul <Icon name="arrow" width="16" /></button></div>
-            <div className="sc-info"><Icon name="shield" /><p>{teacher ? 'Telefonul ne ajută să păstrăm legătura pentru verificarea profilului și ședințele tale.' : 'Cu numărul de telefon, Linia AI te poate recunoaște când suni.'}</p></div>
+            <div className="sc-info"><Icon name="shield" /><p>{teacher ? 'Telefonul ne ajută să păstrăm legătura pentru verificarea profilului și ședințele tale.' : data.utilizator.telefonVerificat ? 'Numărul e verificat prin SMS, deci Linia AI te poate suna. Dacă îl schimbi aici, trebuie verificat din nou pe pagina Linia AI.' : 'Linia AI te sună doar pe un număr verificat cu un cod prin SMS; verificarea se face pe pagina Linia AI.'}</p></div>
             {teacher && <p className="sc-hint">Materiile predate și documentele se actualizează din secțiunea „Profil de profesor”.</p>}
             {error && <div className="sc-error" role="alert">{error}</div>}
             <div className="sc-footer"><span><Icon name="lock" width="16" /> Doar tu poți edita aceste date</span><button className="sc-button sc-green" disabled={busy}>{busy ? 'Se salvează…' : 'Salvează modificările'}<Icon name="check" /></button></div>
@@ -203,6 +205,7 @@ export default function SetariCont() {
             </form>
             <div className="sc-security-note"><span><Icon name="lock" /></span><div><strong>Ieși de pe toate dispozitivele</strong><p>Închide toate sesiunile deschise ale contului, de exemplu dacă ai intrat de pe un calculator străin. După schimbarea parolei sau a emailului, celelalte dispozitive sunt scoase automat.</p></div><button type="button" className="sc-text-button" onClick={iesirePesteTot} disabled={busy}>Ieși peste tot</button></div></>}
 
+          {tab === 'organizatie' && utilizator.rol !== 'admin' && <SetariOrganizatie utilizator={utilizator} onSchimbat={reincarca} />}
           {tab === 'profesor' && teacher && <><p className="sc-intro">Ajută elevii să te cunoască. Aceste informații apar pe profilul tău de profesor.</p>
             <div className="sc-status"><Icon name="shield" /><span>{data.profesor?.stareVerificare === 'aprobat' ? 'Profil verificat de echipa noastră' : 'Profilul este în curs de verificare sau necesită actualizare'}</span></div>
             <form className="sc-form" onSubmit={save}><fieldset className="sc-subjects"><legend>Materii predate</legend>{subjects.map(subject => <label key={subject.id}><input type="checkbox" checked={form.materieIds.includes(subject.id)} onChange={e => update('materieIds', e.target.checked ? [...form.materieIds, subject.id] : form.materieIds.filter(id => id !== subject.id))} />{subject.denumire}</label>)}</fieldset>

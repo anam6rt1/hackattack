@@ -10,7 +10,7 @@ using MarkAi.Data.Servicii;
 
 namespace MarkAi.Api.Endpoints;
 
-public record LiniaAiDto(string Numar, string? TelefonulMeu, SetariVoce Voce, IReadOnlyList<VoceTutor> Voci, bool PoateSuna);
+public record LiniaAiDto(string Numar, string? TelefonulMeu, bool TelefonVerificat, SetariVoce Voce, IReadOnlyList<VoceTutor> Voci, bool PoateSuna);
 public record ApelDto(int Id, DateTime InceputLa, DateTime? FinalizatLa, string Status, string? Curs, int NumarMesaje, string? Previzualizare);
 public record MesajDto(int Id, string Expeditor, string Tip, string Continut, DateTime CreatLa);
 
@@ -23,8 +23,11 @@ public static class LiniaAiEndpoints
         var g = app.MapGroup("").WithTags("Linia AI").RequireAuthorization();
 
         g.MapGet("/linia-ai", async (HttpContext h, IConfiguration cfg, MarkAiDbContext db, TwilioApeluri apeluri, TutorTelefon tutor, CancellationToken ct) =>
-            new LiniaAiDto(cfg["LiniaAi:Numar"] ?? "", await db.Utilizatori.Where(u => u.Id == h.User.Id()).Select(u => u.Telefon).SingleAsync(ct),
-                await VociTutor.CitesteAsync(db, h.User.Id(), ct), VociTutor.Toate, apeluri.Configurat && tutor.Configurat));
+        {
+            var t = await db.Utilizatori.Where(u => u.Id == h.User.Id()).Select(u => new { u.Telefon, Verificat = u.TelefonVerificatLa != null }).SingleAsync(ct);
+            return new LiniaAiDto(cfg["LiniaAi:Numar"] ?? "", t.Telefon, t.Verificat, await VociTutor.CitesteAsync(db, h.User.Id(), ct), VociTutor.Toate,
+                apeluri.Configurat && tutor.Configurat);
+        });
 
         // "Sună-mă": Twilio calls the student's saved number; the conversation then runs through the voice webhooks below.
         // The session exists before Twilio dials, with a random key for this call's webhooks (only its hash is stored).
@@ -32,8 +35,9 @@ public static class LiniaAiEndpoints
         {
             if (!tutor.Configurat) throw new Conflict("Tutorele nu este încă pornit pe server.");
             var uid = h.User.Id();
-            var telefon = await db.Utilizatori.Where(u => u.Id == uid).Select(u => u.Telefon).SingleAsync(ct)
-                ?? throw new CerereInvalida("Salvează mai întâi numărul tău de telefon.");
+            // Only a number confirmed by SMS: otherwise anyone could type someone else's number and have it called.
+            var telefon = await db.Utilizatori.Where(u => u.Id == uid && u.TelefonVerificatLa != null).Select(u => u.Telefon).SingleOrDefaultAsync(ct)
+                ?? throw new CerereInvalida("Verifică mai întâi numărul tău de telefon cu codul primit prin SMS.");
             var acum = DateTime.UtcNow;
             var recent = acum.AddMinutes(-11);
             if (await db.Sesiuni.AnyAsync(s => s.UtilizatorId == uid && s.Canal == CanalTelefon && s.FinalizatLa == null && s.InceputLa > recent, ct))
@@ -118,7 +122,7 @@ public static class LiniaAiEndpoints
                 if (!SemnaturaValida(req, form, cfg)) return Results.StatusCode(403);
                 var callSid = form["CallSid"].ToString();
                 if (callSid.Length == 0) return Results.StatusCode(403);
-                var elevApelant = await db.Utilizatori.SingleOrDefaultAsync(u => u.Telefon == form["From"].ToString(), ct);
+                var elevApelant = await db.Utilizatori.SingleOrDefaultAsync(u => u.Telefon == form["From"].ToString() && u.TelefonVerificatLa != null, ct);
                 if (elevApelant is null)
                     return Twiml(cfg, Spune("Bună! Acest număr nu este asociat unui cont. Adaugă-ți numărul de telefon pe pagina Linia AI de pe site și sună din nou.", VociTutor.Implicit), new XElement("Hangup"));
                 if (await LimitaAtinsa(db, cfg, elevApelant.Id, DateTime.UtcNow, ct) is { } motiv)

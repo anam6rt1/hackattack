@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { api, dataOra, urlApi } from '@/lib/api'
-import { usePagina } from '@/lib/sesiune'
+import { esteProfesor, usePagina } from '@/lib/sesiune'
 import { decorSVG } from '../joc/arta'
 import Incarcare from '@/components/Incarcare'
 import SloturileMele from '@/components/profesori/SloturileMele'
@@ -201,7 +201,7 @@ function PanouProfesor() {
 export default function PaginaProfesori() {
   const utilizator = usePagina('elev', 'profesor')
   if (!utilizator) return <Incarcare />
-  const profesor = utilizator.rol === 'profesor'
+  const profesor = esteProfesor(utilizator)
 
   return (
     <main className="tv-pagina">
