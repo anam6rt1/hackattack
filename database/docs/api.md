@@ -85,10 +85,23 @@ Starea: `GET /cursuri/{id}/generare`. Un profesor poate porni cel mult `Limite:G
 
 ## Triviador
 
-`/hub/joc` (SignalR) este doar un releu pentru cameră: `Intra(cod, gazda)`, `Trimite("stare" | "actiune", payload)` și evenimentele
-`prezenta`, `intrat`, `stare`, `actiune`. Jocul rulează în browserul gazdei, care primește întrebările cu răspunsuri din
-`GET /trivia/intrebari` (compromis acceptat al acestui design). Prezența e în memorie, deci API-ul rulează într-o singură instanță.
-Tabelele `trivia_*` și `TriviaService` rămân pentru o variantă viitoare cu jocul arbitrat de server.
+Jocul rulează pe server (`Servicii/Triviador/MotorTriviador.cs`); clienții trimit doar intenții și primesc starea publică.
+
+- `POST /trivia/camere` `{ materieIds, insule (9–30), maxJucatori (2–4) }` → `{ cod }` (6 caractere). Cine creează camera e gazda.
+  Cel mult 3 camere deschise per gazdă și 200 în total; o cameră goală se închide după 10 minute.
+- Hub `/hub/joc` (SignalR, doar elevi): `Intra(cod)` întoarce starea; gazda: `AdaugaBot("usor"|"mediu"|"greu")`, `ScoateBot(id)`,
+  `Porneste()`, `JocNou()`; jucătorii: `Ataca(insula)`, `Raspunde(index)`, `Estimeaza(numar)`. Serverul trimite `stare` după fiecare schimbare.
+- Starea nu conține niciodată răspunsul unei întrebări deschise; `rezultat` (cu răspunsul) apare doar în faza „rezultat”.
+  `termenLa` și `acum` sunt timpi ai serverului (ms), pentru cronometru.
+- Harta e generată pe server (insule pe o grilă cu poduri care nu se intersectează, mereu conexă; cetățile cât mai departe).
+  Insulele poartă numele capitolelor materiilor alese; întrebările vin din toate întrebările active ale acestor materii
+  (inclusiv cele ale lecțiilor private: e un joc de exercițiu), cu setul demonstrativ de română dacă materiile nu au întrebări.
+- Reguli: 30 s pentru alegerea insulei, 15 s pentru întrebare; duel corect-corect → estimare, egalitatea o câștigă apărătorul.
+  Runde = ⌈insule libere / jucători⌉ + 2. Boții răspund corect în 50% / 70% / 90% din cazuri și estimează la ±30% / ±15% / ±5%.
+- XP la final, acordat o singură dată de server (`eveniment_recompensa`, tip `triviador`): 10 per insulă + 50 câștigătorului
+  (la egalitate, tuturor celor la egalitate); într-un joc cu boți, cu 30% mai puțin; boții nu primesc nimic.
+- Camerele sunt în memorie (o singură instanță de API; se pierd la repornire). Tabelele `trivia_*` și `TriviaService` nu sunt folosite
+  de joc (au triggere care blochează ștergerea, deci nu se scriu fără să fie schimbate).
 
 ## Linia AI (Twilio + Claude)
 

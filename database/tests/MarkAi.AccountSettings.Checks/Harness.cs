@@ -161,19 +161,25 @@ public sealed class Harness : IAsyncDisposable
     }
 
     /// <summary>A signed-out browser: keeps cookies and sends the X-MarkAi header like the site does.</summary>
-    public HttpClient Anonim()
+    public HttpClient Anonim() => Anonim(new CookieContainer());
+
+    private static HttpClient Anonim(CookieContainer cookies)
     {
-        var client = new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer() }) { BaseAddress = new Uri(Adresa) };
+        var client = new HttpClient(new HttpClientHandler { CookieContainer = cookies }) { BaseAddress = new Uri(Adresa) };
         client.DefaultRequestHeaders.Add(Securitate.AntetCsrf, "1");
         return client;
     }
 
     /// <summary>A client holding the session cookie of <paramref name="username"/>.</summary>
-    public async Task<HttpClient> Login(string username, string parola = ParolaTest)
+    public async Task<HttpClient> Login(string username, string parola = ParolaTest) => (await LoginCuCookie(username, parola)).Client;
+
+    /// <summary>Like <see cref="Login"/>, also returning the cookies (a SignalR connection needs them).</summary>
+    public async Task<(HttpClient Client, CookieContainer Cookies)> LoginCuCookie(string username, string parola = ParolaTest)
     {
-        var client = Anonim();
+        var cookies = new CookieContainer();
+        var client = Anonim(cookies);
         var r = await client.PostAsJsonAsync("/autentificare", new { identificator = username, parola });
-        r.EnsureSuccessStatusCode(); return client;
+        r.EnsureSuccessStatusCode(); return (client, cookies);
     }
 
     public async ValueTask DisposeAsync()

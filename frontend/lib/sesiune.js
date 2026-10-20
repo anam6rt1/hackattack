@@ -57,8 +57,15 @@ export function useSesiune() {
 
 export const profesorAprobat = (u) => u?.rol === 'profesor' && u.stareProfesor === 'aprobat'
 
-// Paginile protejate: trimite vizitatorii la pagina de start, profesorii neaprobați la /in-asteptare
-// și pe cei cu alt rol înapoi acasă. Întoarce utilizatorul doar când are voie să vadă pagina.
+// Unde se întoarce cineva după ce intră în cont (de ex. linkul unei camere Triviador deschis din codul QR).
+// Doar adrese din site: „/joc/ABC234” da, „//alt-site.ro” sau „https://...” nu.
+export function adresaInapoi(valoare) {
+  return typeof valoare === 'string' && valoare.startsWith('/') && !valoare.startsWith('//') && !valoare.startsWith('/\\') ? valoare : null
+}
+
+// Paginile protejate: trimite vizitatorii la pagina de start (care îi readuce aici după intrarea în cont),
+// profesorii neaprobați la /in-asteptare și pe cei cu alt rol înapoi acasă.
+// Întoarce utilizatorul doar când are voie să vadă pagina.
 export function usePagina(...roluri) {
   const { utilizator } = useSesiune()
   const router = useRouter()
@@ -67,7 +74,7 @@ export function usePagina(...roluri) {
 
   useEffect(() => {
     if (utilizator === undefined) return
-    if (utilizator === null) router.replace('/')
+    if (utilizator === null) router.replace('/?inapoi=' + encodeURIComponent(window.location.pathname + window.location.search))
     else if (neaprobat) router.replace('/in-asteptare')
     else if (!permis) router.replace('/')
   }, [utilizator, neaprobat, permis, router])

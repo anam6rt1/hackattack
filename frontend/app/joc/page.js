@@ -1,5 +1,6 @@
 'use client'
-// Pagina /joc : creezi o cameră Triviador pentru o materie sau intri într-una cu un cod.
+// Pagina /joc : creezi o cameră Triviador (materii, mărimea hărții, câți jucători) sau intri într-una cu un cod.
+// Camera o creează serverul, care și arbitrează jocul.
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,43 +9,47 @@ import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import Harta from './Harta'
 
-// Fără I și O, ca să nu fie confundate cu 1 și 0
-const LITERE = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-
-function codNou() {
-  let cod = ''
-  for (let i = 0; i < 4; i++) cod += LITERE[Math.floor(Math.random() * LITERE.length)]
-  return cod
-}
+const LUNGIME_COD = 6
 
 export default function PaginaJoc() {
   const elev = usePagina('elev')
   const router = useRouter()
   const [cod, setCod] = useState('')
   const [materii, setMaterii] = useState([])
-  const [materieId, setMaterieId] = useState('')
+  const [alese, setAlese] = useState([])
+  const [insule, setInsule] = useState(9)
+  const [maxJucatori, setMaxJucatori] = useState(3)
+  const [eroare, setEroare] = useState('')
+  const [seCreeaza, setSeCreeaza] = useState(false)
 
   useEffect(() => {
     if (!elev) return
     api('/materii').then((r) => {
       setMaterii(r.elemente)
-      if (r.elemente.length) setMaterieId(String(r.elemente[0].id))
+      if (r.elemente.length) setAlese([r.elemente[0].id])
     })
   }, [elev])
 
   if (!elev) return <Incarcare />
 
-  function creeazaCamera() {
-    const c = codNou()
-    // acest tab e gazda camerei și ține minte materia aleasă
-    sessionStorage.setItem('gazda-' + c, JSON.stringify({ materieId: Number(materieId) }))
-    router.push('/joc/' + c)
+  const comuta = (id) => setAlese((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]))
+
+  async function creeazaCamera() {
+    setSeCreeaza(true)
+    setEroare('')
+    try {
+      const r = await api('/trivia/camere', { metoda: 'POST', corp: { materieIds: alese, insule, maxJucatori } })
+      router.push('/joc/' + r.cod)
+    } catch (e) {
+      setEroare(e.message)
+      setSeCreeaza(false)
+    }
   }
 
   function intraInCamera(e) {
     e.preventDefault()
     const c = cod.trim().toUpperCase()
-    if (c.length === 4) router.push('/joc/' + c)
+    if (c.length === LUNGIME_COD) router.push('/joc/' + c)
   }
 
   return (
@@ -55,26 +60,41 @@ export default function PaginaJoc() {
           <div className="tv-card tv-formular">
             <h3>Triviador</h3>
             <p className="tv-indiciu">
-              Cucerește insulele răspunzând la întrebări din lecții. Până la 3 jucători, fiecare de pe telefonul lui.
+              Cucerește insulele răspunzând la întrebări din lecții. 2–4 jucători, fiecare de pe telefonul lui; locurile libere le pot lua roboți.
             </p>
+            <fieldset className="tv-eticheta-camp">
+              <span>Materiile jocului</span>
+              {materii.map((m) => (
+                <label key={m.id} className="tv-bifa">
+                  <input type="checkbox" checked={alese.includes(m.id)} onChange={() => comuta(m.id)} /> {m.denumire}
+                </label>
+              ))}
+            </fieldset>
             <label className="tv-eticheta-camp">
-              <span>Materia jocului</span>
-              <select className="tv-camp-text" value={materieId} onChange={(e) => setMaterieId(e.target.value)}>
-                {materii.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
+              <span>Insule pe hartă: {insule}</span>
+              <input type="range" min={9} max={30} value={insule} onChange={(e) => setInsule(Number(e.target.value))} />
+            </label>
+            <label className="tv-eticheta-camp">
+              <span>Jucători</span>
+              <select className="tv-camp-text" value={maxJucatori} onChange={(e) => setMaxJucatori(Number(e.target.value))}>
+                {[2, 3, 4].map((n) => <option key={n} value={n}>{n} jucători</option>)}
               </select>
             </label>
-            <button className="tv-btn" onClick={creeazaCamera} disabled={!materieId}>Creează o cameră</button>
+            {eroare && <p className="tv-mic" role="alert">{eroare}</p>}
+            <button className="tv-btn" onClick={creeazaCamera} disabled={!alese.length || seCreeaza}>
+              {seCreeaza ? 'Se creează camera…' : 'Creează o cameră'}
+            </button>
             <div className="tv-mic" style={{ textAlign: 'center' }}>sau intră cu un cod</div>
             <form onSubmit={intraInCamera} className="tv-formular">
               <input
                 className="tv-camp tv-camp-cod"
                 value={cod}
                 onChange={(e) => setCod(e.target.value.toUpperCase())}
-                maxLength={4}
+                maxLength={LUNGIME_COD}
                 placeholder="COD"
                 aria-label="Codul camerei"
               />
-              <button type="submit" className="tv-btn tv-aur">Intră în cameră</button>
+              <button type="submit" className="tv-btn tv-aur" disabled={cod.trim().length !== LUNGIME_COD}>Intră în cameră</button>
             </form>
           </div>
         </aside>

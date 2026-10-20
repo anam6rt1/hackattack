@@ -11,6 +11,7 @@ var grupuri = new Dictionary<string, Grup>
     ["setari"] = new(VerificariSetari.Ruleaza),
     ["securitate"] = new(VerificariSecuritate.Ruleaza),
     ["quiz"] = new(VerificariQuiz.Ruleaza),
+    ["triviador"] = new(VerificariTriviador.Ruleaza),
 };
 
 if (args.Contains("--preview"))

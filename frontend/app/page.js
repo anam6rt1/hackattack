@@ -2,9 +2,9 @@
 // Pagina de start: vizitatorii văd prezentarea cu intrarea în cont,
 // iar cei logați își văd panoul (elev, profesor sau administrator).
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { profesorAprobat, useSesiune } from '@/lib/sesiune'
+import { adresaInapoi, profesorAprobat, useSesiune } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import Aterizare from '@/components/acasa/Aterizare'
 import AcasaElev from '@/components/acasa/AcasaElev'
@@ -16,11 +16,15 @@ export default function Acasa() {
   const router = useRouter()
   const neaprobat = utilizator?.rol === 'profesor' && !profesorAprobat(utilizator)
 
+  // Venit dintr-un link (de ex. codul QR al unei camere) înainte de a intra în cont: după intrare, înapoi acolo.
+  const [inapoi] = useState(() => (typeof window === 'undefined' ? null : adresaInapoi(new URLSearchParams(window.location.search).get('inapoi'))))
+
   useEffect(() => {
     if (neaprobat) router.replace('/in-asteptare')
-  }, [neaprobat, router])
+    else if (utilizator && inapoi) router.replace(inapoi)
+  }, [neaprobat, utilizator, inapoi, router])
 
-  if (utilizator === undefined || neaprobat) return <Incarcare />
+  if (utilizator === undefined || neaprobat || (utilizator && inapoi)) return <Incarcare />
   if (utilizator === null) return <Aterizare />
   if (utilizator.rol === 'admin') return <AcasaAdmin utilizator={utilizator} />
   if (utilizator.rol === 'profesor') return <AcasaProfesor utilizator={utilizator} />
