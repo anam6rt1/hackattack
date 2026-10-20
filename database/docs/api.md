@@ -111,6 +111,24 @@ Editare: `GET /continut/organizatii`, `GET /continut/parcursuri[/{id}]`, `POST/P
 `{ cursIds }`, `GET /continut/cursuri?parcursId=`, `POST /cursuri { parcursId, ... }`, `PUT/DELETE /cursuri/{id}`. Ștergerea e definitivă
 (întrebări, progres, încercări de test); XP-ul câștigat rămâne. `POST/PUT /materii` sunt doar pentru adminul platformei.
 
+### Fișierele capitolului
+
+Un capitol poate avea cel mult `Fisiere:MaxPeCapitol` (10) fișiere PDF, DOCX sau PPTX de cel mult 20 MB (`fisier_capitol`; fișierul e pe disc
+sub `Stocare:Director/capitole/`, cu nume aleator). Tipul se verifică din conținut: PDF începe cu `%PDF-`; DOCX/PPTX trebuie să fie o
+arhivă Office reală (`[Content_Types].xml` + `word/document.xml` sau `ppt/presentation.xml`), fără macrocomenzi (`vbaProject.bin`,
+tipuri `macroEnabled`, ActiveX) și fără „zip bomb” (≤ 5000 de părți, ≤ 250 MB dezarhivat, raport de compresie ≤ 200).
+
+- `GET /cursuri/{id}/fisiere` — oricine vede capitolul (altfel 404); `GET /fisiere/{id}` — PDF-ul se deschide în browser (CSP strict,
+  fără scripturi, fără cadre), `?descarca=true` sau DOCX/PPTX → descărcare (`attachment`, `nosniff`, CSP `sandbox`).
+- `GET /continut/cursuri/{id}/fisiere` (cu starea textului), `POST /cursuri/{id}/fisiere` (multipart, câmpul `fisier`, câte unul),
+  `DELETE /fisiere/{id}` — cine poate edita capitolul.
+
+Textul se extrage în fundal (`Servicii/FisiereCapitol.cs`: PdfPig pentru PDF, nodurile de text din XML pentru DOCX/PPTX), cel mult
+`Fisiere:MaxCaractereText` (60 000) de caractere; un PDF scanat rămâne pentru elevi, cu starea `fara_text`. La
+`Fisiere:IntarziereRegenerareSecunde` (60) după ultimul fișier procesat (sau șters) se pune **o singură** regenerare a întrebărilor,
+socotită o dată la limita zilnică a celui care a încărcat. Ștergerea capitolului sau a Lecției șterge și fișierele de pe disc;
+ștergerea contului autorului le păstrează (rămân cu Lecția). O dată pe oră se șterg fișierele de pe disc fără rând în bază (mai vechi de o oră).
+
 Plata elevului este simulată (`plata.status = 'simulata'`); profesorul primește onorariul negociat, păstrat în `comision_mentor.suma_comision`.
 
 ## Aspect: temă, stil și avatar
@@ -134,6 +152,7 @@ cere lui Claude întrebări grilă + estimări (ieșire JSON structurată, cu fa
 Întrebările AI anterioare sunt dezactivate, nu șterse. O întrebare editată de om devine `manual` și nu mai e înlocuită.
 Starea: `GET /cursuri/{id}/generare`. Un profesor poate porni cel mult `Limite:GenerariAiPeZi` (10) generări în 24 de ore
 (adminii nu au limită); peste limită, regenerarea cerută primește 409, iar cea automată după o editare nu pornește și starea spune de ce.
+Materialul trimis modelului include textul extras din fișierele capitolului (vezi mai sus).
 
 ## Triviador
 

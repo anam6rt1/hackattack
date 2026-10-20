@@ -47,5 +47,7 @@ public partial class Curs
     public virtual Parcurs Parcurs { get; set; } = null!;
 
     public virtual ICollection<Sesiune> Sesiuni { get; set; } = new List<Sesiune>();
+
+    public virtual ICollection<FisierCapitol> Fisiere { get; set; } = new List<FisierCapitol>();
 }
 

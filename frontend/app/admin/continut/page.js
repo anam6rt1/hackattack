@@ -4,10 +4,11 @@
 // administrează și (adminul platformei) toate.
 // Lecția are o clasă, o organizație de bază (al cărei administrator o poate edita), vizibilitate publică sau doar pentru
 // organizație, și poate fi arătată (doar vizualizare) și în celelalte organizații ale autorului.
-// La salvarea unui capitol nou sau la schimbarea materialului, serverul generează întrebări cu AI.
+// La salvarea unui capitol nou sau la schimbarea materialului, serverul generează întrebări cu AI; fișierele capitolului
+// (PDF, DOCX, PPTX) au propria secțiune, iar textul lor intră și el în întrebări.
 
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '@/lib/api'
+import { api, marime, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
@@ -269,7 +270,7 @@ function EditorCurs({ parcursId, curs, onSalvat, onAnulat, onSters }) {
       <label className="tv-optiune" style={{ justifySelf: 'start' }}>
         <input type="checkbox" checked={date.publicat} onChange={(e) => setDate({ ...date, publicat: e.target.checked })} /> Publicat (vizibil elevilor care văd lecția)
       </label>
-      <p className="tv-indiciu">După salvare, întrebările se generează automat din notițe și materialul suplimentar.</p>
+      <p className="tv-indiciu">După salvare, întrebările se generează automat din notițe, materialul suplimentar și fișierele capitolului.</p>
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
       <div className="tv-grid-2">
         <button type="button" className="tv-btn tv-gri" onClick={onAnulat}>Renunț</button>
@@ -345,6 +346,116 @@ function Intrebare({ q, onSalvat }) {
       )}
       {eroare && <p className="tv-eroare">{eroare}</p>}
     </li>
+  )
+}
+
+const TIPURI_FISIER = '.pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation'
+const STARE_TEXT = {
+  in_asteptare: 'se citește textul...',
+  gata: null,
+  fara_text: 'fără text (de ex. un PDF scanat): elevii îl văd, dar nu ajută la întrebări',
+  eroare: 'textul nu a putut fi citit: elevii îl văd, dar nu ajută la întrebări',
+}
+
+// Fișierele capitolului (PDF, DOCX, PPTX): se încarcă pe rând; textul lor intră în materialul pentru întrebările AI,
+// iar serverul le regenerează o singură dată, la un minut după ultimul fișier.
+function Fisiere({ cursId }) {
+  const [date, setDate] = useState(null)
+  const [incarcare, setIncarcare] = useState(null) // { nume, ramase }
+  const [erori, setErori] = useState([])
+
+  const incarca = useCallback(() => api(`/continut/cursuri/${cursId}/fisiere`).then(setDate), [cursId])
+
+  // Cât timp se citește textul unui fișier sau așteaptă regenerarea, lista se reîmprospătează.
+  useEffect(() => {
+    incarca()
+  }, [incarca])
+  const asteapta = !!date && (date.regenerareProgramata || date.elemente.some((f) => f.stareText === 'in_asteptare'))
+  useEffect(() => {
+    if (!asteapta) return
+    const t = setInterval(incarca, 4000)
+    return () => clearInterval(t)
+  }, [asteapta, incarca])
+
+  async function adauga(e) {
+    const alese = [...e.target.files]
+    e.target.value = ''
+    const noi = []
+    for (const [i, f] of alese.entries()) {
+      setIncarcare({ nume: f.name, ramase: alese.length - i })
+      // Verificat și aici: peste limită serverul închide conexiunea, iar browserul ar arăta doar o eroare de rețea.
+      if (f.size > date.maxMb * 1024 * 1024) {
+        noi.push(`${f.name}: are ${marime(f.size)}; limita este ${date.maxMb} MB.`)
+        continue
+      }
+      const formular = new FormData()
+      formular.append('fisier', f)
+      try {
+        await api(`/cursuri/${cursId}/fisiere`, { metoda: 'POST', formular })
+      } catch (err) {
+        noi.push(`${f.name}: ${err.message}`)
+      }
+    }
+    setIncarcare(null)
+    setErori(noi)
+    incarca()
+  }
+
+  async function sterge(f) {
+    if (!confirm(`Ștergi fișierul „${f.nume}”? Elevii nu îl vor mai vedea.`)) return
+    try {
+      await api(`/fisiere/${f.id}`, { metoda: 'DELETE' })
+      setErori([])
+    } catch (err) {
+      setErori([err.message])
+    }
+    incarca()
+  }
+
+  if (!date) return null
+  const plin = date.elemente.length >= date.maxim
+  return (
+    <div className="tv-form">
+      <h3 style={{ fontSize: 21, color: 'var(--navy)' }}>Fișiere</h3>
+      <p className="tv-indiciu">
+        PDF, Word (.docx) sau PowerPoint (.pptx), cel mult {date.maxMb} MB fiecare și {date.maxim} pe capitol. Elevii le deschid din capitol;
+        textul lor e folosit și la întrebările generate cu AI.
+      </p>
+      <ul className="tv-lista">
+        {date.elemente.map((f) => (
+          <li key={f.id} className="tv-rand">
+            <div>
+              <b>{f.nume}</b>
+              <small>
+                {f.tip.toUpperCase()} · {marime(f.marimeOcteti)}
+                {f.incarcatDe ? ` · de ${f.incarcatDe}` : ''}
+                {STARE_TEXT[f.stareText] ? ` · ${STARE_TEXT[f.stareText]}` : ''}
+              </small>
+            </div>
+            <a className="tv-pastila" href={urlApi(`/fisiere/${f.id}`)} target="_blank" rel="noreferrer">Deschide</a>
+            <button type="button" className="tv-pastila tv-pastila-rosu" onClick={() => sterge(f)}>Șterge</button>
+          </li>
+        ))}
+        {date.elemente.length === 0 && <p className="tv-gol">Capitolul nu are fișiere.</p>}
+      </ul>
+      {incarcare && (
+        <p className="tv-status">
+          <b>Se încarcă „{incarcare.nume}”...</b>
+          {incarcare.ramase > 1 && <span>Mai sunt {incarcare.ramase - 1} după el.</span>}
+        </p>
+      )}
+      {date.regenerareProgramata && !incarcare && (
+        <p className="tv-status">
+          <b>Întrebările vor fi regenerate din fișiere.</b>
+          <span>Pornește la un minut după ultimul fișier adăugat sau șters.</span>
+        </p>
+      )}
+      {erori.map((e) => <p key={e} className="tv-eroare">{e}</p>)}
+      <label className="tv-eticheta-camp">
+        <span>{plin ? `Ai ajuns la ${date.maxim} fișiere: șterge unul ca să adaugi altul.` : 'Adaugă fișiere'}</span>
+        <input className="tv-fisier" type="file" multiple accept={TIPURI_FISIER} onChange={adauga} disabled={plin || !!incarcare} />
+      </label>
+    </div>
   )
 }
 
@@ -519,6 +630,8 @@ export default function AdminContinut() {
                   <EditorCurs key={detaliu.id} parcursId={lectie.id} curs={detaliu} onAnulat={() => deschideCapitol(null)}
                     onSalvat={(c) => { setVersiune((v) => v + 1); setDetaliu(c) }}
                     onSters={() => { setVersiune((v) => v + 1); incarcaLectii(); deschideCapitol(null) }} />
+                  <hr className="tv-linie" />
+                  <Fisiere key={`f-${detaliu.id}`} cursId={detaliu.id} />
                   <hr className="tv-linie" />
                   <Intrebari key={`q-${detaliu.id}-${detaliu.titlu}`} cursId={detaliu.id} />
                 </>

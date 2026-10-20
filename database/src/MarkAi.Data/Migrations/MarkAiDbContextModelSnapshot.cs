@@ -504,6 +504,84 @@ namespace MarkAi.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.FisierCapitol", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Cheie")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("cheie");
+
+                    b.Property<int>("CursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("curs_id");
+
+                    b.Property<int?>("IncarcatDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("incarcat_de_id");
+
+                    b.Property<DateTime>("IncarcatLa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("incarcat_la")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<long>("MarimeOcteti")
+                        .HasColumnType("bigint")
+                        .HasColumnName("marime_octeti");
+
+                    b.Property<string>("Nume")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nume");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("sha256");
+
+                    b.Property<string>("StareText")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("in_asteptare")
+                        .HasColumnName("stare_text");
+
+                    b.Property<string>("TextExtras")
+                        .HasColumnType("text")
+                        .HasColumnName("text_extras");
+
+                    b.Property<string>("Tip")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tip");
+
+                    b.HasKey("Id")
+                        .HasName("fisier_capitol_pkey");
+
+                    b.HasIndex(new[] { "Cheie" }, "fisier_capitol_cheie_key")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "CursId" }, "idx_fisier_capitol_curs_id_fkey");
+
+                    b.HasIndex(new[] { "IncarcatDeId" }, "idx_fisier_capitol_incarcat_de_id_fkey");
+
+                    b.ToTable("fisier_capitol", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("fisier_capitol_marime_check", "marime_octeti > 0");
+
+                            t.HasCheckConstraint("fisier_capitol_stare_text_check", "stare_text IN ('in_asteptare', 'gata', 'fara_text', 'eroare')");
+
+                            t.HasCheckConstraint("fisier_capitol_tip_check", "tip IN ('pdf', 'docx', 'pptx')");
+                        });
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.GenerareAi", b =>
                 {
                     b.Property<int>("Id")
@@ -2543,6 +2621,26 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("UtilizatorMaterie");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.FisierCapitol", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
+                        .WithMany("Fisiere")
+                        .HasForeignKey("CursId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fisier_capitol_curs_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "IncarcatDe")
+                        .WithMany()
+                        .HasForeignKey("IncarcatDeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fisier_capitol_incarcat_de_id_fkey");
+
+                    b.Navigation("Curs");
+
+                    b.Navigation("IncarcatDe");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Graf", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
@@ -3145,6 +3243,8 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Curs", b =>
                 {
                     b.Navigation("CamereTutoring");
+
+                    b.Navigation("Fisiere");
 
                     b.Navigation("GrafuriCurs");
 

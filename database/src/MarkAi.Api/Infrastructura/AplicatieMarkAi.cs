@@ -37,6 +37,8 @@ public static class AplicatieMarkAi
         // Background jobs are singletons as well as hosted services, so the checks can run them on demand (RuleazaOdataAsync).
         builder.Services.AddSingleton<GeneratorIntrebari>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GeneratorIntrebari>());
+        builder.Services.AddSingleton<ProcesorFisiere>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcesorFisiere>());
         builder.Services.AddSingleton<Servicii.Triviador.MotorTriviador>();
         // Faster than the defaults (15 s / 30 s), so a player whose phone drops off is seen as gone within ~15 s.
         AdaugaMesagerie(builder);
@@ -121,6 +123,7 @@ public static class AplicatieMarkAi
         AutentificareEndpoints.Mapeaza(app);
         app.MapeazaSetariCont();
         ContinutEndpoints.Mapeaza(app);
+        FisiereEndpoints.Mapeaza(app);
         QuizEndpoints.Mapeaza(app);
         AdminEndpoints.Mapeaza(app);
         OrganizatiiEndpoints.Mapeaza(app);

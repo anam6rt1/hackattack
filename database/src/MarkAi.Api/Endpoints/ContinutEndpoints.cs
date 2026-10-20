@@ -414,30 +414,9 @@ public static class ContinutEndpoints
         new(q.Id, q.Kind, q.Text, q.Explanation, q.Source, q.Active, q.NumericAnswer,
             variante.Select(o => new VariantaCompleta(o.Id, o.Text, o.IsCorrect)).ToList());
 
-    /// <summary>
-    /// Queues AI question generation, within the editor's daily limit (admins are not limited). Over the limit, an explicit
-    /// "regenerate" is refused; an automatic one after an edit is skipped and the editor sees why in the generation status.
-    /// </summary>
-    private static async Task PuneLaGenerare(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, ClaimsPrincipal user, int cursId,
-        bool laCerere, CancellationToken ct)
-    {
-        var uid = user.Id();
-        if (!user.EsteAdmin())
-        {
-            var limita = cfg.GetValue("Limite:GenerariAiPeZi", 10);
-            var deLa = DateTime.UtcNow.AddHours(-24);
-            if (await db.Set<GenerareAi>().CountAsync(g => g.UtilizatorId == uid && g.CreatLa >= deLa, ct) >= limita)
-            {
-                var mesaj = $"Ai folosit cele {limita} generări de întrebări AI din ultimele 24 de ore. Poți edita întrebările manual sau reîncerca mâine.";
-                if (laCerere) throw new Conflict(mesaj);
-                coada.Refuza(cursId, mesaj);
-                return;
-            }
-        }
-        db.Add(new GenerareAi { UtilizatorId = uid, CursId = cursId, CreatLa = DateTime.UtcNow });
-        await db.SaveChangesAsync(ct);
-        coada.Adauga(cursId);
-    }
+    private static Task PuneLaGenerare(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, ClaimsPrincipal user, int cursId,
+        bool laCerere, CancellationToken ct) =>
+        LimitaGenerariAi.PuneAsync(db, coada, cfg, user.Id(), user.EsteAdmin(), cursId, laCerere, ct);
 
     private static string Amprenta(Curs c) =>
         $"{c.Titlu}\u0001{c.Continut}\u0001{string.Join('\u0002', c.Materiale.Select(m => m.Titlu + "\u0003" + m.Text))}";

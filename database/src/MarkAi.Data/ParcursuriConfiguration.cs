@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Data;
 
-/// <summary>Model additions for course paths ("Lecții"): the path, its view-only shares, and the chapter's link to it.</summary>
+/// <summary>Model additions for course paths ("Lecții"): the path, its view-only shares, the chapter's link to it, and chapter files.</summary>
 internal static class ParcursuriConfiguration
 {
     internal static void Configure(ModelBuilder model)
@@ -63,6 +63,36 @@ internal static class ParcursuriConfiguration
             e.HasOne(x => x.Parcurs).WithMany(p => p.Capitole)
                 .HasForeignKey(x => new { x.ParcursId, x.MaterieId }).HasPrincipalKey(p => new { p.Id, p.MaterieId })
                 .OnDelete(DeleteBehavior.Restrict).HasConstraintName("curs_parcurs_id_materie_id_fkey");
+        });
+
+        model.Entity<FisierCapitol>(e =>
+        {
+            e.ToTable("fisier_capitol", "mark_ai", t =>
+            {
+                t.HasCheckConstraint("fisier_capitol_tip_check", "tip IN ('pdf', 'docx', 'pptx')");
+                t.HasCheckConstraint("fisier_capitol_stare_text_check", "stare_text IN ('in_asteptare', 'gata', 'fara_text', 'eroare')");
+                t.HasCheckConstraint("fisier_capitol_marime_check", "marime_octeti > 0");
+            });
+            e.HasKey(x => x.Id).HasName("fisier_capitol_pkey");
+            e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();
+            e.Property(x => x.CursId).HasColumnName("curs_id");
+            e.Property(x => x.Nume).HasColumnName("nume");
+            e.Property(x => x.Tip).HasColumnName("tip");
+            e.Property(x => x.Cheie).HasColumnName("cheie");
+            e.Property(x => x.MarimeOcteti).HasColumnName("marime_octeti");
+            e.Property(x => x.Sha256).HasColumnName("sha256");
+            e.Property(x => x.StareText).HasColumnName("stare_text").HasDefaultValue(FisierCapitol.InAsteptare);
+            e.Property(x => x.TextExtras).HasColumnName("text_extras");
+            e.Property(x => x.IncarcatDeId).HasColumnName("incarcat_de_id");
+            e.Property(x => x.IncarcatLa).HasColumnName("incarcat_la").HasDefaultValueSql("now()");
+            e.HasIndex(x => x.Cheie, "fisier_capitol_cheie_key").IsUnique();
+            e.HasIndex(x => x.CursId, "idx_fisier_capitol_curs_id_fkey");
+            e.HasIndex(x => x.IncarcatDeId, "idx_fisier_capitol_incarcat_de_id_fkey");
+            // Rows go with their chapter; StergereContinut removes the stored files after the commit.
+            e.HasOne(x => x.Curs).WithMany(c => c.Fisiere).HasForeignKey(x => x.CursId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("fisier_capitol_curs_id_fkey");
+            e.HasOne(x => x.IncarcatDe).WithMany().HasForeignKey(x => x.IncarcatDeId)
+                .OnDelete(DeleteBehavior.SetNull).HasConstraintName("fisier_capitol_incarcat_de_id_fkey");
         });
     }
 }

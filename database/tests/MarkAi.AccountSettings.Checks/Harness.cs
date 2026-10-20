@@ -126,7 +126,8 @@ public sealed class Harness : IAsyncDisposable
                 builder.Services.AddSingleton<IExpeditorEmail>(emailuri);
                 builder.Services.AddSingleton<IExpeditorSms>(sms);
             }
-            builder.Services.RemoveAll<IHostedService>();
+            // The manual preview runs the background jobs like the real app (file text extraction, AI queue, mail); checks run them on demand.
+            if (!ceasReal) builder.Services.RemoveAll<IHostedService>();
             // The fake Twilio API is served by this same app, behind its CSRF check, which the real Twilio API does not have.
             builder.Services.AddHttpClient("twilio").AddHttpMessageHandler(() => new AntetCsrf());
             var app = builder.Build();
