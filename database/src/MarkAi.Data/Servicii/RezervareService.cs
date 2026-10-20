@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Data.Servicii;
 
-public sealed class LocuriEpuizateException() : InvalidOperationException("Nu mai sunt locuri libere la această ședință.");
+public sealed class LocuriEpuizateException() : Conflict("Nu mai sunt locuri libere la această ședință.");
 
 /// <summary>
 /// Booking a tutoring slot. The slot row is locked so concurrent bookings cannot exceed its capacity.
@@ -25,11 +25,11 @@ public sealed class RezervareService(MarkAiDbContext db)
             .SingleOrDefaultAsync(c => c.Id == slotId, ct) ?? throw new KeyNotFoundException("Ședința nu există.");
         var acum = await db.Database.SqlQuery<DateTime>($"SELECT now() AS \"Value\"").SingleAsync(ct);
         if (slot.Status != SlotDeschis || slot.Mentor.StareVerificare != MentorAprobat || slot.InceputLa is null || slot.InceputLa <= acum)
-            throw new InvalidOperationException("Ședința nu mai acceptă rezervări.");
-        if (slot.MentorId == elevId) throw new InvalidOperationException("Nu îți poți rezerva propria ședință.");
+            throw new Conflict("Ședința nu mai acceptă rezervări.");
+        if (slot.MentorId == elevId) throw new Conflict("Nu îți poți rezerva propria ședință.");
 
         var active = db.Rezervari.Where(r => r.CameraId == slotId && r.Status == RezervareConfirmata);
-        if (await active.AnyAsync(r => r.ElevId == elevId, ct)) throw new InvalidOperationException("Ai rezervat deja această ședință.");
+        if (await active.AnyAsync(r => r.ElevId == elevId, ct)) throw new Conflict("Ai rezervat deja această ședință.");
         if (await active.CountAsync(ct) >= slot.Capacitate) throw new LocuriEpuizateException();
 
         var pret = slot.ProBono ? 0m : slot.Tarif!.Suma;
@@ -62,7 +62,7 @@ public sealed class RezervareService(MarkAiDbContext db)
         if (r.Status != RezervareConfirmata) return;
         // Cancelling frees the seat for someone else, which only makes sense before the session starts.
         if (r.Camera.InceputLa is not null && r.Camera.InceputLa <= DateTime.UtcNow)
-            throw new InvalidOperationException("Ședința a început deja și nu mai poate fi anulată.");
+            throw new Conflict("Ședința a început deja și nu mai poate fi anulată.");
         r.Status = RezervareAnulata;
         if (r.ComisionMentor is not null) r.ComisionMentor.Status = "anulat";
         // Payments are simulated for now, so the refund is too.

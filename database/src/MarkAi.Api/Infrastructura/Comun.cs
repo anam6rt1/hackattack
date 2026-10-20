@@ -37,9 +37,8 @@ public sealed class TratareErori(RequestDelegate next, ILogger<TratareErori> log
         CerereInvalida e => (400, e.Message),
         KeyNotFoundException e => (404, e.Message),
         UnauthorizedAccessException => (403, "Nu ai acces la această resursă."),
-        LocuriEpuizateException e => (409, e.Message),
         DbUpdateException { InnerException: PostgresException { SqlState: "23505" } } => (409, "Există deja o înregistrare cu aceste date."),
-        InvalidOperationException e => (409, e.Message),
+        Conflict e => (409, e.Message),
         _ => (500, ""),
     };
 }

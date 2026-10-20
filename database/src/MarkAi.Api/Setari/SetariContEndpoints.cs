@@ -26,14 +26,8 @@ public static class SetariContEndpoints
 
     public static void MapeazaSetariCont(this WebApplication app)
     {
+        // Browser mutations carry the X-MarkAi header, checked for the whole API in Securitate.
         var g = app.MapGroup("/utilizatori/me/setari").RequireAuthorization().WithTags("Setările contului");
-        // Browser mutations require a non-simple header: cross-site forms cannot forge it.
-        g.AddEndpointFilter(async (context, next) =>
-        {
-            if (context.HttpContext.Request.Method != "GET" && context.HttpContext.Request.Headers["X-MarkAi-Settings"] != "1")
-                return Results.Json(new { mesaj = "Cerere de setări nevalidă." }, statusCode: 403);
-            return await next(context);
-        });
         g.MapGet("", async (HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var u = await AutentificareEndpoints.Curent(db, h.User.Id(), ct);
@@ -80,12 +74,26 @@ public static class SetariContEndpoints
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { mesaj = "Datele contului au fost salvate." });
         });
+        // The only way to change the phone number used by "Sună-mă" (SMS verification is added in a later phase).
+        g.MapPut("/telefon", async (DateTelefon c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
+        {
+            var u = await db.Utilizatori.Include(x => x.Roluri).ThenInclude(x => x.Rol).SingleAsync(x => x.Id == h.User.Id(), ct);
+            var telefon = Validare.Telefon(c.Telefon);
+            if (telefon is null && Roluri.Principal(u.Roluri.Select(x => x.Rol.Nume)) == Roluri.Profesor)
+                throw new CerereInvalida("Telefonul este obligatoriu pentru profesori.");
+            if (telefon is not null && await db.Utilizatori.AnyAsync(x => x.Id != u.Id && x.Telefon == telefon, ct))
+                throw new CerereInvalida("Acest telefon este deja asociat altui cont.");
+            u.Telefon = telefon;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { telefon, mesaj = telefon is null ? "Numărul a fost șters." : "Numărul a fost salvat." });
+        });
         g.MapPost("/documente", async ([FromForm] DocumenteCont c, HttpContext h, MarkAiDbContext db, Stocare storage, CancellationToken ct) =>
         {
             var u = await AutentificareEndpoints.Curent(db, h.User.Id(), ct);
             if (u.Rol != Roluri.Profesor) return Results.Forbid();
             var p = await db.ProfiluriMentor.SingleAsync(x => x.UtilizatorId == u.Id, ct);
             if (c.Poza is null && c.Dovada is null) throw new CerereInvalida("Alege o fotografie sau o dovadă a calificării.");
+            var (pozaVeche, dovadaVeche) = (p.PozaUrl, p.DovadaCalificareUrl);
             if (c.Poza is not null) p.PozaUrl = await storage.SalveazaPozaAsync(c.Poza, ct);
             if (c.Dovada is not null)
             {
@@ -94,8 +102,11 @@ public static class SetariContEndpoints
                 p.MotivRespingere = null; p.VerificatDeId = null;
             }
             await db.SaveChangesAsync(ct);
+            // The replaced files are no longer referenced anywhere.
+            if (c.Poza is not null) storage.Sterge(pozaVeche);
+            if (c.Dovada is not null) storage.Sterge(dovadaVeche);
             return Results.Ok(new { mesaj = c.Dovada is null ? "Fotografia a fost actualizată." : "Documentul a fost trimis pentru verificare." });
-        }).DisableAntiforgery();
+        }).DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(Stocare.MaxCerereMb * 1024 * 1024));
         g.MapPost("/confirmari", async (CerereConfirmare c, HttpContext h, MarkAiDbContext db,
             ConfirmariCont codes, IEmailConfirmare mail, CancellationToken ct) =>
         {
@@ -125,8 +136,9 @@ public static class SetariContEndpoints
                 return Results.Json(new { mesaj = "Emailul de confirmare nu poate fi trimis. Contactează administratorul pentru configurarea serviciului de email." }, statusCode: 503);
             }
             return Results.Ok(new { id = challenge.Id, expiraInSecunde = 300, mesaj = "Codul a fost trimis la adresa actuală de email." });
-        });
-        g.MapPost("/confirmari/finalizeaza", async (ConfirmareCod c, HttpContext h, MarkAiDbContext db, ConfirmariCont codes, CancellationToken ct) =>
+        }).RequireRateLimiting(LimiteCereri.Email);
+        g.MapPost("/confirmari/finalizeaza", async (ConfirmareCod c, HttpContext h, MarkAiDbContext db, ConfirmariCont codes,
+            VersiuniSesiune versiuni, Tokenuri tokenuri, CancellationToken ct) =>
         {
             var pending = codes.Consuma(h.User.Id(), c.Id ?? "", c.Cod ?? "");
             var q = db.Utilizatori.Where(x => x.Id == h.User.Id() && x.ParolaHash == pending.HashAnterior && x.Email == pending.EmailAnterior);
@@ -134,9 +146,15 @@ public static class SetariContEndpoints
                 ? await q.ExecuteUpdateAsync(s => s.SetProperty(x => x.ParolaHash, pending.Valoare), ct)
                 : await q.ExecuteUpdateAsync(s => s.SetProperty(x => x.Email, pending.Valoare), ct);
             if (changed != 1) throw new CerereInvalida("Datele de securitate s-au schimbat. Solicită un cod nou.");
+            // Every other device is signed out; this one gets a fresh session.
+            await versiuni.CresteAsync(db, h.User.Id(), ct);
+            var u = await db.Utilizatori.Include(x => x.Roluri).ThenInclude(x => x.Rol).AsNoTracking().SingleAsync(x => x.Id == h.User.Id(), ct);
+            tokenuri.SeteazaCookie(h.Response, tokenuri.Emite(u, Roluri.Principal(u.Roluri.Select(x => x.Rol.Nume))));
             return Results.Ok(new { mesaj = pending.Scop == "parola" ? "Parola a fost schimbată în siguranță." : "Emailul a fost actualizat." });
         });
     }
+
+    public record DateTelefon(string? Telefon);
 
     public sealed class DocumenteCont { public IFormFile? Poza { get; set; } public IFormFile? Dovada { get; set; } }
 }

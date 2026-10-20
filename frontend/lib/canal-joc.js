@@ -1,25 +1,25 @@
 // Canalul unei camere Triviador, prin hub-ul SignalR al API-ului (/hub/joc).
-// Înlocuiește canalul Supabase Realtime: aceeași idee de „broadcast” (stare, actiune) și „presence”.
-// Identitatea jucătorului vine din cookie-ul de autentificare, nu din browser.
+// Jocul rulează pe server: aici doar trimitem intenții (atac, răspuns, estimare...) și primim starea publică
+// după fiecare schimbare. Identitatea jucătorului vine din cookie-ul de autentificare, nu din browser.
 
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
 import { API } from '@/lib/api'
 
-export function deschideCanal(cod, gazda, { onPrezenta, onIntrat, onStare, onActiune, onConectat, onDeconectat, onEroare }) {
+export function deschideCanal(cod, { onStare, onConectat, onDeconectat, onEroare }) {
   const conexiune = new HubConnectionBuilder()
     .withUrl(API + '/hub/joc', { withCredentials: true })
     .withAutomaticReconnect()
+    // Pe măsura serverului (semnal la 5 s, deconectare după 15 s): cine pierde legătura apare repede ca plecat.
+    .withKeepAliveInterval(5000)
+    .withServerTimeout(15000)
     .configureLogging(LogLevel.Warning)
     .build()
   let inchis = false
 
-  conexiune.on('prezenta', onPrezenta)
-  conexiune.on('intrat', onIntrat)
   conexiune.on('stare', onStare)
-  conexiune.on('actiune', onActiune)
 
   async function intra() {
-    onPrezenta(await conexiune.invoke('Intra', cod, gazda))
+    onStare(await conexiune.invoke('Intra', cod))
     onConectat()
   }
   conexiune.onreconnecting(() => onDeconectat())
@@ -37,8 +37,14 @@ export function deschideCanal(cod, gazda, { onPrezenta, onIntrat, onStare, onAct
   }, 0)
 
   return {
-    trimite(eveniment, payload) {
-      if (conexiune.state === HubConnectionState.Connected) conexiune.invoke('Trimite', eveniment, payload).catch(() => {})
+    // Trimite o intenție serverului; mesajul unei erori (de ex. „Doar gazda poate face asta.”) ajunge la cine a apelat.
+    async trimite(metoda, ...argumente) {
+      if (conexiune.state !== HubConnectionState.Connected) throw new Error('Nu ești conectat la cameră.')
+      try {
+        await conexiune.invoke(metoda, ...argumente)
+      } catch (e) {
+        throw new Error((e?.message ?? '').replace(/^.*HubException: /, '') || 'Acțiunea nu a reușit.')
+      }
     },
     inchide() {
       inchis = true

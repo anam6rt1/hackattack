@@ -284,6 +284,12 @@ html[data-tema="iarna-noapte"] .tv-harta, html[data-tema="iarna-noapte"] .harta-
 .tv-form { display: grid; gap: 12px; color: var(--navy); }
 .tv-eticheta-camp { display: grid; gap: 4px; border: 0; margin: 0; padding: 0; min-width: 0; }
 .tv-eticheta-camp > span { font-size: 13px; font-weight: 800; color: var(--gri-text); }
+.tv-eticheta-camp input[type="range"] { width: 100%; accent-color: var(--ocean); }
+.tv-bifa { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--navy); cursor: pointer; }
+.tv-bifa input { width: 18px; height: 18px; accent-color: var(--ocean); }
+.tv-boti { display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-boti .tv-btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 13px; }
+.tv-scoate { margin-left: auto; border: 0; background: none; color: var(--gri-text); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
 .tv-camp-text { width: 100%; min-width: 0; border: 2px solid #e4ebf6; border-radius: 14px; padding: 10px 12px; font: inherit; color: var(--navy); background: #fff; }
 .tv-camp-text:focus { border-color: var(--ocean); outline: none; }
 textarea.tv-camp-text { resize: vertical; }

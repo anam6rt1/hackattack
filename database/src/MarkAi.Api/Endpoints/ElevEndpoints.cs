@@ -1,4 +1,5 @@
 ﻿using MarkAi.Api.Infrastructura;
+using MarkAi.Api.Servicii.Triviador;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
@@ -13,9 +14,7 @@ public record UltimulCurs(int CursId, string Titlu, string? Capitol, int Materie
 public record ProgresGeneral(NivelCurent Nivel, IReadOnlyList<ProgresMaterie> Materii, UltimulCurs? UltimulCurs,
     IReadOnlyList<CursCompletat> CursuriCompletate);
 
-public record GrilaTriviador(int Id, int? CursId, string Text, IReadOnlyList<string> Variante, int Corect);
-public record EstimareTriviador(int Id, int? CursId, string Text, int Raspuns);
-public record PachetTriviador(IReadOnlyList<GrilaTriviador> Grila, IReadOnlyList<EstimareTriviador> Estimari);
+public record CameraNoua(List<int>? MaterieIds, int Insule = 9, int MaxJucatori = 3);
 
 public record TemaDto(string Cod, string Nume, string? Anotimp, string? PerioadaZilei);
 // Mod/Tema = fundalul (anotimp × zi/noapte), Interfata = stilul desenelor (insule/realist/pixel), Avatar = personajul din profil.
@@ -48,26 +47,11 @@ public static class ElevEndpoints
                 ultimul, completate);
         }).WithTags("Progres").RequireAuthorization(Politici.Elev);
 
-        // The game's host browser referees the match, so the pack includes the answers (accepted trade-off of the relay design).
-        app.MapGet("/trivia/intrebari", async (int materieId, string? cursIds, MarkAiDbContext db, CancellationToken ct) =>
+        // Triviador: a room is created here and then played over the /hub/joc SignalR hub; the server referees the game.
+        app.MapPost("/trivia/camere", async (CameraNoua c, HttpContext h, MotorTriviador motor, CancellationToken ct) =>
         {
-            var cursuri = (cursIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => int.TryParse(s, out var v) ? v : throw new CerereInvalida("cursIds invalid.")).ToList();
-            var q = db.Set<TriviaQuestion>().AsNoTracking().Where(x => x.SubjectId == materieId && x.Active);
-            // Selected courses plus the subject-wide questions, so short courses still give a full game.
-            if (cursuri.Count > 0) q = q.Where(x => x.CourseId == null || cursuri.Contains(x.CourseId.Value));
-            var intrebari = await q.ToListAsync(ct);
-            var ids = intrebari.Where(x => x.Kind == "grila").Select(x => x.Id).ToList();
-            var variante = (await db.Set<TriviaOption>().AsNoTracking().Where(o => ids.Contains(o.QuestionId)).OrderBy(o => o.Id).ToListAsync(ct))
-                .ToLookup(o => o.QuestionId);
-            var grila = intrebari.Where(x => x.Kind == "grila")
-                .Select(x => (x, v: variante[x.Id].ToList()))
-                .Where(t => t.v.Count >= 2 && t.v.Count(o => o.IsCorrect) == 1)
-                .Select(t => new GrilaTriviador(t.x.Id, t.x.CourseId, t.x.Text, t.v.Select(o => o.Text).ToList(), t.v.FindIndex(o => o.IsCorrect)))
-                .ToList();
-            var estimari = intrebari.Where(x => x.Kind == "estimare" && x.NumericAnswer != null)
-                .Select(x => new EstimareTriviador(x.Id, x.CourseId, x.Text, x.NumericAnswer!.Value)).ToList();
-            return new PachetTriviador(grila, estimari);
+            var cod = await motor.CreeazaAsync(h.User.Id(), new SetariCamera(c.MaterieIds ?? [], c.Insule, c.MaxJucatori), ct);
+            return Results.Created($"/joc/{cod}", new { cod });
         }).WithTags("Triviador").RequireAuthorization(Politici.Elev);
 
         var aspect = app.MapGroup("").WithTags("Aspect");

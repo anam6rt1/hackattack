@@ -16,8 +16,6 @@ public record CursDetaliu(int Id, int MaterieId, string Materie, string Titlu, s
     string? VideoUrl, IReadOnlyList<SectiuneMaterial> Materiale, string? Continut, bool Publicat, ProgresCursDto? Progres);
 public record VariantaPublica(int Id, string Text);
 public record IntrebarePublica(int Id, string Text, IReadOnlyList<VariantaPublica> Variante);
-public record RaspunsQuiz(int IntrebareId, int VariantaId);
-public record RezultatRaspuns(bool Corect, int VariantaCorectaId, string? Explicatie, int XpCastigat, ProgresCursDto? Progres);
 public record MarcareActivitate(string Activitate);
 
 public record MaterieEditare(string Denumire, string? Descriere, string? Cod, int? Ordine);
@@ -75,32 +73,7 @@ public static class ContinutEndpoints
             return curs;
         });
 
-        g.MapGet("/cursuri/{id:int}/intrebari", async (int id, MarkAiDbContext db, CancellationToken ct) =>
-        {
-            if (!await db.Curs.AnyAsync(c => c.Id == id && c.Publicat, ct)) throw new KeyNotFoundException("Cursul nu există.");
-            var intrebari = await db.Set<TriviaQuestion>().AsNoTracking()
-                .Where(q => q.CourseId == id && q.Active && q.Kind == "grila").OrderBy(q => q.Id).ToListAsync(ct);
-            var ids = intrebari.Select(q => q.Id).ToList();
-            var variante = (await db.Set<TriviaOption>().AsNoTracking().Where(o => ids.Contains(o.QuestionId)).OrderBy(o => o.Id).ToListAsync(ct))
-                .ToLookup(o => o.QuestionId);
-            // The correct answer stays on the server; the client submits its choice to /raspuns.
-            return Lista<IntrebarePublica>.Din(intrebari
-                .Select(q => new IntrebarePublica(q.Id, q.Text, variante[q.Id].Select(o => new VariantaPublica(o.Id, o.Text)).ToList()))
-                .Where(q => q.Variante.Count >= 2).ToList());
-        });
-
-        g.MapPost("/cursuri/{id:int}/raspuns", async (int id, RaspunsQuiz c, HttpContext h, MarkAiDbContext db, ProgresService progres, CancellationToken ct) =>
-        {
-            var intrebare = await db.Set<TriviaQuestion>().AsNoTracking()
-                .SingleOrDefaultAsync(q => q.Id == c.IntrebareId && q.CourseId == id && q.Active, ct) ?? throw new KeyNotFoundException("Întrebarea nu există.");
-            var variante = await db.Set<TriviaOption>().AsNoTracking().Where(o => o.QuestionId == intrebare.Id).ToListAsync(ct);
-            if (variante.All(o => o.Id != c.VariantaId)) throw new CerereInvalida("Varianta nu aparține întrebării.");
-            var corecta = variante.Single(o => o.IsCorrect);
-            var corect = corecta.Id == c.VariantaId;
-            RezultatProgres? p = corect ? await progres.MarcheazaAsync(h.User.Id(), id, ActivitateCurs.Quiz, ct) : null;
-            return new RezultatRaspuns(corect, corecta.Id, intrebare.Explanation, p?.XpCastigat ?? 0,
-                p is null ? null : new ProgresCursDto(p.VideoVazut, p.MaterialeCitite, p.QuizPromovat, p.CompletatLa));
-        }).RequireAuthorization(Politici.Elev);
+        // The lesson quiz lives in QuizEndpoints: answers are checked there and never sent ahead.
 
         g.MapPost("/cursuri/{id:int}/progres", async (int id, MarcareActivitate c, HttpContext h, ProgresService progres, CancellationToken ct) =>
         {
@@ -158,7 +131,7 @@ public static class ContinutEndpoints
             return new { elemente = cursuri, total = cursuri.Count };
         });
 
-        e.MapPost("/cursuri", async (CursEditare c, HttpContext h, MarkAiDbContext db, CoadaIntrebari coada, CancellationToken ct) =>
+        e.MapPost("/cursuri", async (CursEditare c, HttpContext h, MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
         {
             await AsiguraEditare(db, h.User, c.MaterieId, ct);
             var curs = new Curs { CreatDeId = h.User.Id() };
@@ -166,11 +139,11 @@ public static class ContinutEndpoints
             curs.Ordine = c.Ordine ?? (await db.Curs.Where(x => x.MaterieId == c.MaterieId).MaxAsync(x => (int?)x.Ordine, ct) ?? 0) + 1;
             db.Curs.Add(curs);
             await db.SaveChangesAsync(ct);
-            coada.Adauga(curs.Id);
+            await PuneLaGenerare(db, coada, cfg, h.User, curs.Id, laCerere: false, ct);
             return Results.Created($"/cursuri/{curs.Id}", await Detaliu(db, curs.Id, h.User.Id(), ct));
         });
 
-        e.MapPut("/cursuri/{id:int}", async (int id, CursEditare c, HttpContext h, MarkAiDbContext db, CoadaIntrebari coada, CancellationToken ct) =>
+        e.MapPut("/cursuri/{id:int}", async (int id, CursEditare c, HttpContext h, MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
         {
             var curs = await db.Curs.SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new KeyNotFoundException("Cursul nu există.");
             await AsiguraEditare(db, h.User, curs.MaterieId, ct);
@@ -180,18 +153,18 @@ public static class ContinutEndpoints
             if (c.Ordine is not null) curs.Ordine = c.Ordine.Value;
             await db.SaveChangesAsync(ct);
             // Questions follow the content: regenerate only when the learning material changed.
-            if (Amprenta(curs) != inainte) coada.Adauga(curs.Id);
+            if (Amprenta(curs) != inainte) await PuneLaGenerare(db, coada, cfg, h.User, curs.Id, laCerere: false, ct);
             return await Detaliu(db, curs.Id, h.User.Id(), ct);
         });
 
-        e.MapPost("/cursuri/{id:int}/regenereaza-intrebari", async (int id, HttpContext h, MarkAiDbContext db, CoadaIntrebari coada, CancellationToken ct) =>
+        e.MapPost("/cursuri/{id:int}/regenereaza-intrebari", async (int id, HttpContext h, MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
         {
             var materieId = await db.Curs.Where(x => x.Id == id).Select(x => (int?)x.MaterieId).SingleOrDefaultAsync(ct)
                 ?? throw new KeyNotFoundException("Cursul nu există.");
             await AsiguraEditare(db, h.User, materieId, ct);
-            coada.Adauga(id);
+            await PuneLaGenerare(db, coada, cfg, h.User, id, laCerere: true, ct);
             return Results.Accepted($"/cursuri/{id}/generare", coada.Stare(id));
-        });
+        }).RequireRateLimiting(LimiteCereri.Ai);
 
         e.MapGet("/cursuri/{id:int}/generare", (int id, CoadaIntrebari coada) =>
             coada.Stare(id) ?? new StareGenerare("necunoscuta", null, 0, DateTime.UtcNow));
@@ -237,6 +210,31 @@ public static class ContinutEndpoints
     private static IntrebareCompleta Completa(TriviaQuestion q, IEnumerable<TriviaOption> variante) =>
         new(q.Id, q.Kind, q.Text, q.Explanation, q.Source, q.Active, q.NumericAnswer,
             variante.Select(o => new VariantaCompleta(o.Id, o.Text, o.IsCorrect)).ToList());
+
+    /// <summary>
+    /// Queues AI question generation, within the editor's daily limit (admins are not limited). Over the limit, an explicit
+    /// "regenerate" is refused; an automatic one after an edit is skipped and the editor sees why in the generation status.
+    /// </summary>
+    private static async Task PuneLaGenerare(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, ClaimsPrincipal user, int cursId,
+        bool laCerere, CancellationToken ct)
+    {
+        var uid = user.Id();
+        if (!user.EsteAdmin())
+        {
+            var limita = cfg.GetValue("Limite:GenerariAiPeZi", 10);
+            var deLa = DateTime.UtcNow.AddHours(-24);
+            if (await db.Set<GenerareAi>().CountAsync(g => g.UtilizatorId == uid && g.CreatLa >= deLa, ct) >= limita)
+            {
+                var mesaj = $"Ai folosit cele {limita} generări de întrebări AI din ultimele 24 de ore. Poți edita întrebările manual sau reîncerca mâine.";
+                if (laCerere) throw new Conflict(mesaj);
+                coada.Refuza(cursId, mesaj);
+                return;
+            }
+        }
+        db.Add(new GenerareAi { UtilizatorId = uid, CursId = cursId, CreatLa = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
+        coada.Adauga(cursId);
+    }
 
     private static string Amprenta(Curs c) =>
         $"{c.Titlu}\u0001{c.Continut}\u0001{string.Join('\u0002', c.Materiale.Select(m => m.Titlu + "\u0003" + m.Text))}";

@@ -23,6 +23,9 @@ public sealed class CoadaIntrebari
 
     public StareGenerare? Stare(int cursId) => _stari.GetValueOrDefault(cursId);
 
+    /// <summary>Generation was not queued (e.g. the editor's daily limit); the editor sees the reason.</summary>
+    public void Refuza(int cursId, string mesaj) => _stari[cursId] = new StareGenerare("eroare", mesaj, 0, DateTime.UtcNow);
+
     internal void Actualizeaza(int cursId, StareGenerare stare) => _stari[cursId] = stare;
 
     internal IAsyncEnumerable<int> Citeste(CancellationToken ct) => _coada.Reader.ReadAllAsync(ct);

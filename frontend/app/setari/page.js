@@ -31,7 +31,7 @@ async function setariApi(path = '', { metoda = 'GET', corp, formular } = {}) {
   try {
     response = await fetch(`${API}/utilizatori/me/setari${path}`, {
       method: metoda, credentials: 'include',
-      headers: { 'X-MarkAi-Settings': '1', ...(corp ? { 'Content-Type': 'application/json' } : {}) },
+      headers: { 'X-MarkAi': '1', ...(corp ? { 'Content-Type': 'application/json' } : {}) },
       body: formular || (corp ? JSON.stringify(corp) : undefined),
     })
   } catch { throw new EroareApi(0, 'Nu ne putem conecta la server. Încearcă din nou.') }
@@ -149,6 +149,16 @@ export default function SetariCont() {
     } catch (e) { setOtpError(e.message) } finally { setBusy(false) }
   }
 
+  // Închide toate sesiunile contului (inclusiv aceasta), de exemplu după pierderea unui telefon.
+  async function iesirePesteTot() {
+    if (!window.confirm('Vei fi scos din cont pe toate dispozitivele, inclusiv pe acesta. Continui?')) return
+    setBusy(true); setError('')
+    try {
+      await api('/autentificare/iesire-peste-tot', { metoda: 'POST' })
+      await reincarca(); router.replace('/')
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
   const teacher = utilizator?.rol === 'profesor'
   const tabs = teacher ? [...TABS, ['profesor', 'Profil de profesor', 'book']] : TABS
 
@@ -190,7 +200,8 @@ export default function SetariCont() {
               {scop === 'parola' && <Field label="Confirmă parola nouă" name="confirmare" type="password" autoComplete="new-password" minLength={8} maxLength={128} required />}
               {error && <div className="sc-error" role="alert">{error}</div>}
               <div className="sc-footer"><span><Icon name="mail" width="16" /> Confirmare prin email</span><button className="sc-button sc-gold" disabled={busy}>{busy ? 'Se trimite codul…' : 'Trimite codul de confirmare'}<Icon name="arrow" /></button></div>
-            </form></>}
+            </form>
+            <div className="sc-security-note"><span><Icon name="lock" /></span><div><strong>Ieși de pe toate dispozitivele</strong><p>Închide toate sesiunile deschise ale contului, de exemplu dacă ai intrat de pe un calculator străin. După schimbarea parolei sau a emailului, celelalte dispozitive sunt scoase automat.</p></div><button type="button" className="sc-text-button" onClick={iesirePesteTot} disabled={busy}>Ieși peste tot</button></div></>}
 
           {tab === 'profesor' && teacher && <><p className="sc-intro">Ajută elevii să te cunoască. Aceste informații apar pe profilul tău de profesor.</p>
             <div className="sc-status"><Icon name="shield" /><span>{data.profesor?.stareVerificare === 'aprobat' ? 'Profil verificat de echipa noastră' : 'Profilul este în curs de verificare sau necesită actualizare'}</span></div>

@@ -446,6 +446,37 @@ namespace MarkAi.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.GenerareAi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatLa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creat_la")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("CursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("curs_id");
+
+                    b.Property<int>("UtilizatorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("utilizator_id");
+
+                    b.HasKey("Id")
+                        .HasName("generare_ai_pkey");
+
+                    b.HasIndex(new[] { "UtilizatorId", "CreatLa" }, "idx_generare_ai_utilizator_data");
+
+                    b.ToTable("generare_ai", "mark_ai");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Graf", b =>
                 {
                     b.Property<int>("Id")
@@ -519,6 +550,57 @@ namespace MarkAi.Data.Migrations
                     b.HasIndex(new[] { "GrafId", "MaterieId" }, "idx_graf_curs_graf_id_materie_id_fkey");
 
                     b.ToTable("graf_curs", "mark_ai");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.IncercareQuiz", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Corecte")
+                        .HasColumnType("integer")
+                        .HasColumnName("corecte");
+
+                    b.Property<int>("CursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("curs_id");
+
+                    b.Property<DateTime?>("FinalizataLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finalizata_la");
+
+                    b.Property<DateTime>("InceputLa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("inceput_la")
+                        .HasDefaultValueSql("now()");
+
+                    b.PrimitiveCollection<int[]>("IntrebariIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("intrebari_ids");
+
+                    b.PrimitiveCollection<int[]>("Raspunsuri")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("raspunsuri");
+
+                    b.Property<int>("UtilizatorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("utilizator_id");
+
+                    b.HasKey("Id")
+                        .HasName("incercare_quiz_pkey");
+
+                    b.HasIndex(new[] { "CursId" }, "idx_incercare_quiz_curs_id_fkey");
+
+                    b.HasIndex(new[] { "UtilizatorId", "CursId", "InceputLa" }, "idx_incercare_quiz_utilizator_curs");
+
+                    b.ToTable("incercare_quiz", "mark_ai");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Interfata", b =>
@@ -1162,9 +1244,21 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("canal");
 
+                    b.Property<DateTime?>("CheieExpiraLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cheie_expira_la");
+
+                    b.Property<string>("CheieHash")
+                        .HasColumnType("text")
+                        .HasColumnName("cheie_hash");
+
                     b.Property<int?>("CursId")
                         .HasColumnType("integer")
                         .HasColumnName("curs_id");
+
+                    b.Property<int?>("DurataSecunde")
+                        .HasColumnType("integer")
+                        .HasColumnName("durata_secunde");
 
                     b.Property<DateTime?>("FinalizatLa")
                         .HasColumnType("timestamp with time zone")
@@ -1405,6 +1499,12 @@ namespace MarkAi.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("username");
+
+                    b.Property<int>("VersiuneSesiune")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("versiune_sesiune");
 
                     b.HasKey("Id")
                         .HasName("utilizator_pkey");
@@ -2000,6 +2100,27 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Curs");
 
                     b.Navigation("Graf");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.IncercareQuiz", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
+                        .WithMany()
+                        .HasForeignKey("CursId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("incercare_quiz_curs_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
+                        .WithMany()
+                        .HasForeignKey("UtilizatorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("incercare_quiz_utilizator_id_fkey");
+
+                    b.Navigation("Curs");
+
+                    b.Navigation("Utilizator");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.MentorMaterie", b =>

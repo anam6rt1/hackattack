@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
 using MarkAi.Api.Infrastructura;
+using MarkAi.Data.Servicii;
 
 namespace MarkAi.Api.Servicii;
 
@@ -20,9 +21,9 @@ public sealed record LimiteApel(int Pasi, TimeSpan Durata, TimeSpan RaspunsMaxim
 /// Outbound "Sună-mă" calls: Twilio calls the student's phone and, once answered, fetches the same
 /// voice webhook as an incoming call. This works on a Twilio trial (calls to verified numbers only).
 /// </summary>
-public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, ILogger<TwilioApeluri> log)
+public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, TimeProvider ceas, ILogger<TwilioApeluri> log)
 {
-    private static readonly ConcurrentDictionary<int, DateTime> UltimaCerere = new();
+    private readonly ConcurrentDictionary<int, DateTime> UltimaCerere = new();
     private static readonly TimeSpan Pauza = TimeSpan.FromSeconds(30);
 
     private static string? Sid => Environment.GetEnvironmentVariable("TWILIO_ACCOUNT_SID");
@@ -33,19 +34,20 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, I
     public bool Configurat => !string.IsNullOrEmpty(Sid) && !string.IsNullOrEmpty(Token)
         && !string.IsNullOrEmpty(NumarTwilio) && UrlPublic.StartsWith("https://");
 
-    public async Task SunaAsync(int utilizatorId, string telefon, CancellationToken ct)
+    /// <summary>Asks Twilio to call the student; the call's webhooks carry the session and its key. Returns Twilio's CallSid.</summary>
+    public async Task<string?> SunaAsync(int utilizatorId, string telefon, int sesiuneId, string cheie, CancellationToken ct)
     {
-        if (!Configurat) throw new InvalidOperationException("Apelurile nu sunt configurate pe server.");
+        if (!Configurat) throw new Conflict("Apelurile nu sunt configurate pe server.");
         // A double click must not ring the phone twice.
-        var acum = DateTime.UtcNow;
+        var acum = ceas.GetUtcNow().UtcDateTime;
         if (UltimaCerere.TryGetValue(utilizatorId, out var ultima) && acum - ultima < Pauza)
-            throw new InvalidOperationException("Te sunăm deja. Așteaptă câteva secunde.");
+            throw new Conflict("Te sunăm deja. Așteaptă câteva secunde.");
         UltimaCerere[utilizatorId] = acum;
 
         var parametri = new Dictionary<string, string>
         {
             ["To"] = telefon,
-            ["Url"] = $"{UrlPublic}/twilio/voce?k={Uri.EscapeDataString(Endpoints.LiniaAiEndpoints.CheieApel(telefon) ?? "")}",
+            ["Url"] = $"{UrlPublic}/twilio/voce?{Endpoints.LiniaAiEndpoints.ParametriApel(sesiuneId, cheie)}",
             ["StatusCallback"] = UrlPublic + "/twilio/voce/stare",
         };
         // A "Try out Voice" trial rejects any other parameter (400 "trial accounts have limited parameter access")
@@ -56,7 +58,7 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, I
         { Content = new FormUrlEncodedContent(parametri) };
         cerere.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{Sid}:{Token}")));
         using var r = await http.CreateClient("twilio").SendAsync(cerere, ct);
-        if (r.IsSuccessStatusCode) return;
+        if (r.IsSuccessStatusCode) return (await r.Content.ReadFromJsonAsync<JsonNode>(ct))?["sid"]?.GetValue<string>();
 
         UltimaCerere.TryRemove(utilizatorId, out _);
         var eroare = await r.Content.ReadFromJsonAsync<JsonNode>(ct);

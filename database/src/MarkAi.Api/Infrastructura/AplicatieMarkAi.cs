@@ -20,6 +20,7 @@ public static class AplicatieMarkAi
     {
         var cfg = builder.Configuration;
         ConfigurareObligatorie.Verifica(cfg, builder.Environment, conexiune);
+        Securitate.AdaugaServicii(builder);
 
         builder.Services.AddDbContext<MarkAiDbContext>(o => o.UseNpgsql(conexiune,
             x => x.MigrationsHistoryTable("__EFMigrationsHistory", "mark_ai")));
@@ -35,8 +36,9 @@ public static class AplicatieMarkAi
         // Background jobs are singletons as well as hosted services, so the checks can run them on demand (RuleazaOdataAsync).
         builder.Services.AddSingleton<GeneratorIntrebari>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GeneratorIntrebari>());
-        builder.Services.AddSingleton<Prezenta>();
-        builder.Services.AddSignalR();
+        builder.Services.AddSingleton<Servicii.Triviador.MotorTriviador>();
+        // Faster than the defaults (15 s / 30 s), so a player whose phone drops off is seen as gone within ~15 s.
+        builder.Services.AddSignalR(o => { o.KeepAliveInterval = TimeSpan.FromSeconds(5); o.ClientTimeoutInterval = TimeSpan.FromSeconds(15); });
         builder.Services.AdaugaSetariCont();
 
         ConfigurareAutentificare.Adauga(builder.Services, ConfigurareAutentificare.Optiuni(cfg, builder.Environment));
@@ -52,6 +54,7 @@ public static class AplicatieMarkAi
         if (!app.Services.GetRequiredService<ModelAi>().Configurat)
             app.Logger.LogWarning("No AI key (GEMINI_API_KEY or ANTHROPIC_API_KEY): question generation and the phone tutor are off.");
 
+        Securitate.FoloseteInainteDeAutentificare(app);
         app.UseMiddleware<TratareErori>();
         // Twilio webhooks fail silently on the caller's side ("could not reach your TwiML server"), so log every one with its outcome.
         app.Use(async (ctx, next) =>
@@ -59,12 +62,14 @@ public static class AplicatieMarkAi
             if (!ctx.Request.Path.StartsWithSegments("/twilio")) { await next(); return; }
             var ceas = System.Diagnostics.Stopwatch.StartNew();
             await next();
-            app.Logger.LogInformation("Webhook Twilio {Metoda} {Cale}{Query} ({Tip}, semnătură: {Semnat}, {Agent}) -> {Status} în {Ms} ms",
-                ctx.Request.Method, ctx.Request.Path, ctx.Request.QueryString, ctx.Request.ContentType,
+            // The query string holds the call's key, so it is never logged; the session id is enough to follow a call.
+            app.Logger.LogInformation("Webhook Twilio {Metoda} {Cale} (sesiune {Sesiune}, {Tip}, semnătură: {Semnat}, {Agent}) -> {Status} în {Ms} ms",
+                ctx.Request.Method, ctx.Request.Path, ctx.Request.Query["s"].ToString(), ctx.Request.ContentType,
                 ctx.Request.Headers.ContainsKey("X-Twilio-Signature"), ctx.Request.Headers.UserAgent.ToString(), ctx.Response.StatusCode, ceas.ElapsedMilliseconds);
         });
         app.UseCors();
         app.UseAuthentication();
+        app.UseRateLimiter();
         app.UseAuthorization();
 
         if (app.Environment.IsDevelopment())
@@ -76,6 +81,7 @@ public static class AplicatieMarkAi
         AutentificareEndpoints.Mapeaza(app);
         app.MapeazaSetariCont();
         ContinutEndpoints.Mapeaza(app);
+        QuizEndpoints.Mapeaza(app);
         ElevEndpoints.Mapeaza(app);
         ProfesoriEndpoints.Mapeaza(app);
         LiniaAiEndpoints.Mapeaza(app);
