@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
@@ -16,7 +17,7 @@ public record RaspunsTutor(string Text, bool Final, SetariVoce Voce);
 /// Materials are put into the prompt directly (no tool calls) to keep each reply within Twilio's
 /// webhook time limit.
 /// </summary>
-public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, ModelAi ai)
+public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, ModelAi ai, AccesContinut acces)
 {
     public const string ExpeditorElev = "elev";
     public const string ExpeditorTutor = "tutor";
@@ -110,22 +111,35 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
         }),
     };
 
-    /// <summary>Lesson titles to help Twilio's speech recognition with literary names.</summary>
-    public async Task<string> IndiciiVorbire(CancellationToken ct)
+    /// <summary>
+    /// The published chapters this student may see (<see cref="AccesContinut"/>): organisation-only lessons of other
+    /// organisations never reach the tutor's prompt.
+    /// </summary>
+    private async Task<IQueryable<Curs>> CapitoleVizibile(int utilizatorId, CancellationToken ct)
     {
-        var titluri = await db.Curs.AsNoTracking().Where(c => c.Publicat)
-            .Select(c => c.Capitol ?? c.Titlu).Distinct().OrderBy(t => t).Take(50).ToListAsync(ct);
+        var a = await acces.PentruAsync(utilizatorId, admin: false, ct);
+        return acces.Capitole(a).AsNoTracking().Where(c => c.Publicat && c.Parcurs.Publicat);
+    }
+
+    /// <summary>Lesson titles to help Twilio's speech recognition with literary names.</summary>
+    public async Task<string> IndiciiVorbire(int utilizatorId, CancellationToken ct)
+    {
+        var titluri = await (await CapitoleVizibile(utilizatorId, ct))
+            .Select(c => c.Capitol ?? c.Parcurs.Titlu).Distinct().OrderBy(t => t).Take(50).ToListAsync(ct);
         return string.Join(", ", titluri);
     }
 
-    private Task<Curs?> UltimulCurs(int utilizatorId, CancellationToken ct) =>
-        db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == utilizatorId && p.Curs.Publicat)
+    private async Task<Curs?> UltimulCurs(int utilizatorId, CancellationToken ct)
+    {
+        var vizibile = await CapitoleVizibile(utilizatorId, ct);
+        return await db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == utilizatorId && vizibile.Any(c => c.Id == p.CursId))
             .OrderByDescending(p => p.UltimaAccesare).Select(p => p.Curs).FirstOrDefaultAsync(ct);
+    }
 
     // The lessons mentioned in the student's last two turns come first, then the lesson already being discussed.
     private async Task<List<Curs>> CursuriRelevante(Sesiune sesiune, List<Mesaj> istoric, CancellationToken ct)
     {
-        var toate = await db.Curs.AsNoTracking().Include(c => c.Materie).Where(c => c.Publicat).ToListAsync(ct);
+        var toate = await (await CapitoleVizibile(sesiune.UtilizatorId, ct)).Include(c => c.Materie).Include(c => c.Parcurs).ToListAsync(ct);
         var recent = Normalizeaza(string.Join(' ', istoric.Where(m => m.Expeditor == ExpeditorElev).TakeLast(2).Select(m => m.Continut)));
         var mentionate = toate
             .Select(c => (c, scor: Potrivire(c, recent)))
@@ -145,6 +159,7 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
         if (text.Length == 0) return 0;
         var scor = 0;
         if (c.Capitol is not null && text.Contains(Normalizeaza(c.Capitol))) scor += 3;
+        else if (text.Contains(Normalizeaza(c.Parcurs.Titlu))) scor += 3;
         scor += Normalizeaza(c.Titlu).Split([' ', ':', ',', '-', '„', '”'], StringSplitOptions.RemoveEmptyEntries)
             .Count(w => w.Length > 4 && text.Contains(w));
         return scor;
@@ -160,10 +175,11 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
     private async Task<string> Sistem(Utilizator elev, List<Curs> cursuri, SetariVoce voce, CancellationToken ct)
     {
         var nivel = await progres.NivelAsync(elev.Id, ct);
-        var completate = await db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == elev.Id && p.QuizPromovat)
+        var vizibile = await CapitoleVizibile(elev.Id, ct);
+        var completate = await db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == elev.Id && p.QuizPromovat && vizibile.Any(c => c.Id == p.CursId))
             .Select(p => p.Curs.Titlu).ToListAsync(ct);
-        var catalog = await db.Curs.AsNoTracking().Where(c => c.Publicat).OrderBy(c => c.MaterieId).ThenBy(c => c.Ordine)
-            .Select(c => $"- {c.Materie.Denumire} / {c.Capitol ?? "-"} / {c.Titlu}").Take(80).ToListAsync(ct);
+        var catalog = await vizibile.OrderBy(c => c.MaterieId).ThenBy(c => c.Parcurs.Ordine).ThenBy(c => c.Ordine)
+            .Select(c => $"- {c.Materie.Denumire} / {c.Parcurs.Titlu} (clasa {c.Parcurs.Clasa}) / {c.Titlu}").Take(80).ToListAsync(ct);
 
         var sb = new StringBuilder("""
             Ești tutorele de bacalaureat al platformei „Bac la Română” și vorbești cu un elev la telefon.
@@ -199,7 +215,7 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
             var material = string.Join("\n", c.Materiale.Select(m => $"{m.Titlu}: {m.Text}"));
             if (!string.IsNullOrWhiteSpace(c.Continut)) material += "\n" + c.Continut;
             if (material.Length > MaxCaractereCurs) material = material[..MaxCaractereCurs];
-            sb.AppendLine().AppendLine($"<lectie materie=\"{c.Materie.Denumire}\" capitol=\"{c.Capitol}\" titlu=\"{c.Titlu}\">")
+            sb.AppendLine().AppendLine($"<lectie materie=\"{c.Materie.Denumire}\" lectie=\"{c.Parcurs.Titlu}\" capitol=\"{c.Titlu}\">")
               .AppendLine(material).AppendLine("</lectie>");
         }
         return sb.ToString();

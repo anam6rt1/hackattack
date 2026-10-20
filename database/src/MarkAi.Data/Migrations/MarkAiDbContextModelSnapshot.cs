@@ -111,6 +111,18 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("link_intalnire");
 
+                    b.Property<int?>("LocJudetId")
+                        .HasColumnType("integer")
+                        .HasColumnName("loc_judet_id");
+
+                    b.Property<int?>("LocLocalitateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("loc_localitate_id");
+
+                    b.Property<int?>("LocOrganizatieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("loc_organizatie_id");
+
                     b.Property<int>("MaterieId")
                         .HasColumnType("integer")
                         .HasColumnName("materie_id");
@@ -118,6 +130,10 @@ namespace MarkAi.Data.Migrations
                     b.Property<int>("MentorId")
                         .HasColumnType("integer")
                         .HasColumnName("mentor_id");
+
+                    b.Property<string>("NotaLoc")
+                        .HasColumnType("text")
+                        .HasColumnName("nota_loc");
 
                     b.Property<bool>("ProBono")
                         .ValueGeneratedOnAdd()
@@ -134,6 +150,13 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("tarif_id");
 
+                    b.Property<string>("Tip")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("online")
+                        .HasColumnName("tip");
+
                     b.Property<string>("Titlu")
                         .IsRequired()
                         .HasColumnType("text")
@@ -146,6 +169,12 @@ namespace MarkAi.Data.Migrations
                         .IsUnique();
 
                     b.HasIndex(new[] { "CursId", "MaterieId" }, "idx_camera_tutoring_curs_id_materie_id_fkey");
+
+                    b.HasIndex(new[] { "LocJudetId" }, "idx_camera_tutoring_loc_judet_id_fkey");
+
+                    b.HasIndex(new[] { "LocLocalitateId" }, "idx_camera_tutoring_loc_localitate_id_fkey");
+
+                    b.HasIndex(new[] { "LocOrganizatieId" }, "idx_camera_tutoring_loc_organizatie_id_fkey");
 
                     b.HasIndex(new[] { "MaterieId" }, "idx_camera_tutoring_materie_id_fkey");
 
@@ -161,7 +190,11 @@ namespace MarkAi.Data.Migrations
 
                             t.HasCheckConstraint("camera_tutoring_link_intalnire_check", "link_intalnire IS NULL OR link_intalnire ~ '^https://'");
 
+                            t.HasCheckConstraint("camera_tutoring_loc_check", "tip = 'online' OR loc_judet_id IS NOT NULL");
+
                             t.HasCheckConstraint("camera_tutoring_pro_bono_check", "pro_bono = (tarif_id IS NULL)");
+
+                            t.HasCheckConstraint("camera_tutoring_tip_check", "tip IN ('online', 'fata_in_fata', 'hibrid')");
                         });
                 });
 
@@ -304,6 +337,13 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("capitol");
 
+                    b.Property<string>("Cautare")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare")
+                        .HasComputedColumnSql("lower(translate(titlu || ' ' || coalesce(capitol, '') || ' ' || coalesce(descriere, ''), 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
                     b.Property<string>("Continut")
                         .HasColumnType("text")
                         .HasColumnName("continut");
@@ -332,6 +372,10 @@ namespace MarkAi.Data.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("ordine");
 
+                    b.Property<int>("ParcursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parcurs_id");
+
                     b.Property<bool>("Publicat")
                         .HasColumnType("boolean")
                         .HasColumnName("publicat");
@@ -356,6 +400,8 @@ namespace MarkAi.Data.Migrations
                     b.HasIndex(new[] { "MaterieId" }, "idx_curs_materie_id_fkey");
 
                     b.HasIndex(new[] { "MaterieId", "Ordine" }, "idx_curs_materie_id_ordine");
+
+                    b.HasIndex(new[] { "ParcursId", "MaterieId" }, "idx_curs_parcurs_id_materie_id_fkey");
 
                     b.ToTable("curs", "mark_ai");
                 });
@@ -495,6 +541,84 @@ namespace MarkAi.Data.Migrations
                             t.HasCheckConstraint("eveniment_recompensa_puncte_materie_check", "(puncte_materie >= 0)");
 
                             t.HasCheckConstraint("eveniment_recompensa_xp_acordat_check", "(xp_acordat >= 0)");
+                        });
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.FisierCapitol", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Cheie")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("cheie");
+
+                    b.Property<int>("CursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("curs_id");
+
+                    b.Property<int?>("IncarcatDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("incarcat_de_id");
+
+                    b.Property<DateTime>("IncarcatLa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("incarcat_la")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<long>("MarimeOcteti")
+                        .HasColumnType("bigint")
+                        .HasColumnName("marime_octeti");
+
+                    b.Property<string>("Nume")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nume");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("sha256");
+
+                    b.Property<string>("StareText")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("in_asteptare")
+                        .HasColumnName("stare_text");
+
+                    b.Property<string>("TextExtras")
+                        .HasColumnType("text")
+                        .HasColumnName("text_extras");
+
+                    b.Property<string>("Tip")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tip");
+
+                    b.HasKey("Id")
+                        .HasName("fisier_capitol_pkey");
+
+                    b.HasIndex(new[] { "Cheie" }, "fisier_capitol_cheie_key")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "CursId" }, "idx_fisier_capitol_curs_id_fkey");
+
+                    b.HasIndex(new[] { "IncarcatDeId" }, "idx_fisier_capitol_incarcat_de_id_fkey");
+
+                    b.ToTable("fisier_capitol", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("fisier_capitol_marime_check", "marime_octeti > 0");
+
+                            t.HasCheckConstraint("fisier_capitol_stare_text_check", "stare_text IN ('in_asteptare', 'gata', 'fara_text', 'eroare')");
+
+                            t.HasCheckConstraint("fisier_capitol_tip_check", "tip IN ('pdf', 'docx', 'pptx')");
                         });
                 });
 
@@ -1135,6 +1259,113 @@ namespace MarkAi.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.Parcurs", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AutorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("autor_id");
+
+                    b.Property<string>("Cautare")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare")
+                        .HasComputedColumnSql("lower(translate(titlu || ' ' || coalesce(descriere, ''), 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
+                    b.Property<string>("Clasa")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("clasa");
+
+                    b.Property<DateTime>("CreatLa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creat_la")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Descriere")
+                        .HasColumnType("text")
+                        .HasColumnName("descriere");
+
+                    b.Property<int>("MaterieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("materie_id");
+
+                    b.Property<int>("Ordine")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("ordine");
+
+                    b.Property<int?>("OrganizatieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("organizatie_id");
+
+                    b.Property<bool>("Publicat")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("publicat");
+
+                    b.Property<string>("Titlu")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("titlu");
+
+                    b.Property<string>("Vizibilitate")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("public")
+                        .HasColumnName("vizibilitate");
+
+                    b.HasKey("Id")
+                        .HasName("parcurs_pkey");
+
+                    b.HasAlternateKey("Id", "MaterieId")
+                        .HasName("parcurs_id_materie_id_key");
+
+                    b.HasIndex(new[] { "AutorId" }, "idx_parcurs_autor_id_fkey");
+
+                    b.HasIndex(new[] { "MaterieId", "Clasa" }, "idx_parcurs_materie_clasa");
+
+                    b.HasIndex(new[] { "OrganizatieId" }, "idx_parcurs_organizatie_id_fkey");
+
+                    b.ToTable("parcurs", "mark_ai", t =>
+                        {
+                            t.HasCheckConstraint("parcurs_clasa_check", "clasa IN ('IX', 'X', 'XI', 'XII', 'Bac')");
+
+                            t.HasCheckConstraint("parcurs_organizatie_check", "vizibilitate = 'public' OR organizatie_id IS NOT NULL");
+
+                            t.HasCheckConstraint("parcurs_vizibilitate_check", "vizibilitate IN ('public', 'organizatie')");
+                        });
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.ParcursOrganizatie", b =>
+                {
+                    b.Property<int>("ParcursId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parcurs_id");
+
+                    b.Property<int>("OrganizatieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("organizatie_id");
+
+                    b.HasKey("ParcursId", "OrganizatieId")
+                        .HasName("parcurs_organizatie_pkey");
+
+                    b.HasIndex(new[] { "OrganizatieId" }, "idx_parcurs_organizatie_organizatie_id_fkey");
+
+                    b.ToTable("parcurs_organizatie", "mark_ai");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Plata", b =>
                 {
                     b.Property<int>("Id")
@@ -1277,6 +1508,10 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("dovada_calificare_url");
 
+                    b.Property<int?>("LocOrganizatieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("loc_organizatie_id");
+
                     b.Property<string>("Moneda")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1317,6 +1552,8 @@ namespace MarkAi.Data.Migrations
                         .HasName("profil_mentor_pkey");
 
                     b.HasIndex("VerificatDeId");
+
+                    b.HasIndex(new[] { "LocOrganizatieId" }, "idx_profil_mentor_loc_organizatie_id_fkey");
 
                     b.ToTable("profil_mentor", "mark_ai", t =>
                         {
@@ -1492,6 +1729,13 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("moneda");
 
+                    b.Property<string>("Participare")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("online")
+                        .HasColumnName("participare");
+
                     b.Property<DateTime>("RezervataLa")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1523,6 +1767,8 @@ namespace MarkAi.Data.Migrations
                             t.HasCheckConstraint("rezervare_check", "((finalizata_la IS NULL) OR (finalizata_la >= rezervata_la))");
 
                             t.HasCheckConstraint("rezervare_moneda_check", "(moneda ~ '^[A-Z]{3}$'::text)");
+
+                            t.HasCheckConstraint("rezervare_participare_check", "participare IN ('online', 'la_sala')");
 
                             t.HasCheckConstraint("rezervare_tarif_achitat_check", "(tarif_achitat >= (0)::numeric)");
                         });
@@ -2275,6 +2521,24 @@ namespace MarkAi.Data.Migrations
 
             modelBuilder.Entity("MarkAi.Data.Entities.CameraTutoring", b =>
                 {
+                    b.HasOne("MarkAi.Data.Entities.Judet", "LocJudet")
+                        .WithMany()
+                        .HasForeignKey("LocJudetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("camera_tutoring_loc_judet_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Localitate", "LocLocalitate")
+                        .WithMany()
+                        .HasForeignKey("LocLocalitateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("camera_tutoring_loc_localitate_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Organizatie", "LocOrganizatie")
+                        .WithMany()
+                        .HasForeignKey("LocOrganizatieId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("camera_tutoring_loc_organizatie_id_fkey");
+
                     b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
                         .WithMany("CamereTutoring")
                         .HasForeignKey("MaterieId")
@@ -2299,6 +2563,12 @@ namespace MarkAi.Data.Migrations
                         .HasConstraintName("camera_tutoring_curs_id_materie_id_fkey");
 
                     b.Navigation("Curs");
+
+                    b.Navigation("LocJudet");
+
+                    b.Navigation("LocLocalitate");
+
+                    b.Navigation("LocOrganizatie");
 
                     b.Navigation("Materie");
 
@@ -2358,6 +2628,14 @@ namespace MarkAi.Data.Migrations
                         .IsRequired()
                         .HasConstraintName("curs_materie_id_fkey");
 
+                    b.HasOne("MarkAi.Data.Entities.Parcurs", "Parcurs")
+                        .WithMany("Capitole")
+                        .HasForeignKey("ParcursId", "MaterieId")
+                        .HasPrincipalKey("Id", "MaterieId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("curs_parcurs_id_materie_id_fkey");
+
                     b.OwnsMany("MarkAi.Data.Entities.SectiuneMaterial", "Materiale", b1 =>
                         {
                             b1.Property<int>("CursId");
@@ -2388,6 +2666,8 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Materiale");
 
                     b.Navigation("Materie");
+
+                    b.Navigation("Parcurs");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Decontare", b =>
@@ -2425,6 +2705,26 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Utilizator");
 
                     b.Navigation("UtilizatorMaterie");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.FisierCapitol", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Curs", "Curs")
+                        .WithMany("Fisiere")
+                        .HasForeignKey("CursId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fisier_capitol_curs_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "IncarcatDe")
+                        .WithMany()
+                        .HasForeignKey("IncarcatDeId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fisier_capitol_incarcat_de_id_fkey");
+
+                    b.Navigation("Curs");
+
+                    b.Navigation("IncarcatDe");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.Graf", b =>
@@ -2614,6 +2914,55 @@ namespace MarkAi.Data.Migrations
                     b.Navigation("Localitate");
                 });
 
+            modelBuilder.Entity("MarkAi.Data.Entities.Parcurs", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Utilizator", "Autor")
+                        .WithMany()
+                        .HasForeignKey("AutorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("parcurs_autor_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Materie", "Materie")
+                        .WithMany("Parcursuri")
+                        .HasForeignKey("MaterieId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("parcurs_materie_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Organizatie", "Organizatie")
+                        .WithMany()
+                        .HasForeignKey("OrganizatieId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("parcurs_organizatie_id_fkey");
+
+                    b.Navigation("Autor");
+
+                    b.Navigation("Materie");
+
+                    b.Navigation("Organizatie");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.ParcursOrganizatie", b =>
+                {
+                    b.HasOne("MarkAi.Data.Entities.Organizatie", "Organizatie")
+                        .WithMany()
+                        .HasForeignKey("OrganizatieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("parcurs_organizatie_organizatie_id_fkey");
+
+                    b.HasOne("MarkAi.Data.Entities.Parcurs", "Parcurs")
+                        .WithMany("Partajari")
+                        .HasForeignKey("ParcursId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("parcurs_organizatie_parcurs_id_fkey");
+
+                    b.Navigation("Organizatie");
+
+                    b.Navigation("Parcurs");
+                });
+
             modelBuilder.Entity("MarkAi.Data.Entities.Plata", b =>
                 {
                     b.HasOne("MarkAi.Data.Entities.Rezervare", "Rezervare")
@@ -2653,6 +3002,12 @@ namespace MarkAi.Data.Migrations
 
             modelBuilder.Entity("MarkAi.Data.Entities.ProfilMentor", b =>
                 {
+                    b.HasOne("MarkAi.Data.Entities.Organizatie", "LocOrganizatie")
+                        .WithMany()
+                        .HasForeignKey("LocOrganizatieId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("profil_mentor_loc_organizatie_id_fkey");
+
                     b.HasOne("MarkAi.Data.Entities.Utilizator", "Utilizator")
                         .WithOne("ProfilMentor")
                         .HasForeignKey("MarkAi.Data.Entities.ProfilMentor", "UtilizatorId")
@@ -2664,6 +3019,8 @@ namespace MarkAi.Data.Migrations
                         .HasForeignKey("VerificatDeId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("profil_mentor_verificat_de_id_fkey");
+
+                    b.Navigation("LocOrganizatie");
 
                     b.Navigation("Utilizator");
                 });
@@ -2981,6 +3338,8 @@ namespace MarkAi.Data.Migrations
                 {
                     b.Navigation("CamereTutoring");
 
+                    b.Navigation("Fisiere");
+
                     b.Navigation("GrafuriCurs");
 
                     b.Navigation("Progrese");
@@ -3027,6 +3386,8 @@ namespace MarkAi.Data.Migrations
 
                     b.Navigation("Mentori");
 
+                    b.Navigation("Parcursuri");
+
                     b.Navigation("UtilizatoriMaterii");
                 });
 
@@ -3040,6 +3401,13 @@ namespace MarkAi.Data.Migrations
             modelBuilder.Entity("MarkAi.Data.Entities.Organizatie", b =>
                 {
                     b.Navigation("Membri");
+                });
+
+            modelBuilder.Entity("MarkAi.Data.Entities.Parcurs", b =>
+                {
+                    b.Navigation("Capitole");
+
+                    b.Navigation("Partajari");
                 });
 
             modelBuilder.Entity("MarkAi.Data.Entities.ProfilMentor", b =>

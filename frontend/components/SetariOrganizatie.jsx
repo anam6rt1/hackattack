@@ -4,10 +4,49 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { profesorAprobat } from '@/lib/sesiune'
 import AlegeLoc from '@/components/AlegeLoc'
 import AlegeOrganizatie from '@/components/AlegeOrganizatie'
 
 const STARI = { in_asteptare: 'cerere în așteptare', aprobat: 'membru', respins: 'cerere respinsă', expirat: 'cerere expirată' }
+
+// Profesorii aprobați aleg unde predau, pentru filtrul „Aproape de mine” al elevilor: locul propriu (de mai sus) sau o organizație.
+function LocPredare() {
+  const [date, setDate] = useState(null)
+  const [mesaj, setMesaj] = useState(null)
+  useEffect(() => {
+    api('/profesori/me/loc').then(setDate).catch(() => setDate(null))
+  }, [])
+
+  async function alege(e) {
+    const organizatieId = e.target.value ? Number(e.target.value) : null
+    try {
+      setDate(await api('/profesori/me/loc', { metoda: 'PUT', corp: { organizatieId } }))
+      setMesaj({ ok: true, text: 'Locul a fost salvat.' })
+    } catch (err) {
+      setMesaj({ ok: false, text: err.message })
+    }
+  }
+
+  if (!date) return null
+  return (
+    <div className="tv-form">
+      <h3>Unde predai</h3>
+      <label className="tv-eticheta-camp">
+        <span>Elevii care caută profesori „aproape de mine” te găsesc aici</span>
+        <select className="tv-camp-text" value={date.organizatieId ?? ''} onChange={alege}>
+          {date.optiuni.map((o) => (
+            <option key={o.organizatieId ?? ''} value={o.organizatieId ?? ''}>
+              {o.eticheta}{o.loc ? ` (${[o.loc.localitate, o.loc.judet].filter(Boolean).join(', ')})` : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      {!date.loc && <p className="tv-indiciu">Nu apari la „Aproape de mine” până nu alegi județul mai sus sau o organizație.</p>}
+      {mesaj && <p className={mesaj.ok ? 'tv-succes' : 'tv-eroare'}>{mesaj.text}</p>}
+    </div>
+  )
+}
 
 export default function SetariOrganizatie({ utilizator, onSchimbat }) {
   const elev = utilizator.rol === 'elev'
@@ -64,7 +103,7 @@ export default function SetariOrganizatie({ utilizator, onSchimbat }) {
     <div className="tv-form">
       {localitate !== undefined && (
         <form className="tv-form" onSubmit={salveazaLoc}>
-          <h3>Unde înveți</h3>
+          <h3>{elev ? 'Unde înveți' : 'Unde locuiești'}</h3>
           <AlegeLoc judetInitial={utilizator.judetId} localitateInitiala={localitate} />
           {elev && (
             <label className="tv-eticheta-camp">
@@ -79,6 +118,10 @@ export default function SetariOrganizatie({ utilizator, onSchimbat }) {
           <button className="tv-btn">Salvează</button>
           {mesajLoc && <p className={mesajLoc.ok ? 'tv-succes' : 'tv-eroare'}>{mesajLoc.text}</p>}
         </form>
+      )}
+
+      {profesorAprobat(utilizator) && (
+        <LocPredare key={`${utilizator.judetId}-${utilizator.localitateId}-${apartenente?.length}`} />
       )}
 
       <h3>Organizații</h3>

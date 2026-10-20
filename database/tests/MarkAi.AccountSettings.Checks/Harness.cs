@@ -126,7 +126,8 @@ public sealed class Harness : IAsyncDisposable
                 builder.Services.AddSingleton<IExpeditorEmail>(emailuri);
                 builder.Services.AddSingleton<IExpeditorSms>(sms);
             }
-            builder.Services.RemoveAll<IHostedService>();
+            // The manual preview runs the background jobs like the real app (file text extraction, AI queue, mail); checks run them on demand.
+            if (!ceasReal) builder.Services.RemoveAll<IHostedService>();
             // The fake Twilio API is served by this same app, behind its CSRF check, which the real Twilio API does not have.
             builder.Services.AddHttpClient("twilio").AddHttpMessageHandler(() => new AntetCsrf());
             var app = builder.Build();
@@ -194,6 +195,14 @@ public sealed class Harness : IAsyncDisposable
 
     /// <summary>Id of the fixture organisation "Liceul de Test" (approved, admin: director).</summary>
     public const int IdLiceu = 1;
+
+    /// <summary>A public platform Lecție (no organisation) created by the admin client; returns its id.</summary>
+    public static async Task<int> LectiePlatforma(HttpClient admin, int materieId = 1, string titlu = "Lecție de test", string clasa = "Bac")
+    {
+        var r = await admin.PostAsJsonAsync("/parcursuri", new { materieId, titlu, clasa, vizibilitate = "public", organizatieId = (int?)null });
+        r.EnsureSuccessStatusCode();
+        return (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+    }
 
     public void Check(bool condition, string label)
     {

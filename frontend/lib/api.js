@@ -40,6 +40,9 @@ export async function api(cale, { metoda = 'GET', corp, formular } = {}) {
 // Linkuri către fișiere servite de API (ex. poza unui profesor)
 export const urlApi = (cale) => (cale ? API + cale : null)
 
+// Mărimea unui fișier pentru oameni: „850 KB”, „12,4 MB”
+export const marime = (o) => (o >= 1024 * 1024 ? `${(o / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(o / 1024))} KB`)
+
 // „https://www.youtube.com/watch?v=abc” sau „https://youtu.be/abc” → „abc”
 export function idYoutube(url) {
   if (!url) return null

@@ -43,7 +43,7 @@ static class VerificariTriviador
         h.Check(s.Str("faza") == "lobby" && s.Str("gazdaId") == george.Id, "creator is the host");
         await maria.Intra(cod);
         s = await george.Asteapta(x => x.GetProperty("jucatori").GetArrayLength() == 2, "second player seated");
-        h.Check(s.GetProperty("harta").GetProperty("insule").EnumerateArray().Any(i => i.Str("nume") == "Romantismul"), "islands named after the subject's chapters");
+        h.Check(s.GetProperty("harta").GetProperty("insule").EnumerateArray().Any(i => i.Str("nume") == "Romantismul"), "islands named after the subject's Lecții");
         h.Check(await Esueaza(() => maria.Hub.InvokeAsync("Porneste")), "only the host can start");
         h.Check(await Esueaza(() => maria.Hub.InvokeAsync("Trimite", "stare", new { faza = "final" })), "clients can no longer broadcast game state");
 
@@ -216,8 +216,9 @@ static class VerificariTriviador
     static async Task PregatesteIntrebari(Harness h)
     {
         using var admin = await h.Login("admin");
+        var lectie = await Harness.LectiePlatforma(admin, titlu: "Romantismul");
         foreach (var (titlu, capitol) in new[] { ("Luceafărul", "Romantismul"), ("Ion", "Romanul interbelic") })
-            (await admin.PostAsJsonAsync("/cursuri", new { materieId = 1, titlu, capitol,
+            (await admin.PostAsJsonAsync("/cursuri", new { parcursId = lectie, titlu, capitol,
                 materiale = new[] { new { titlu = "Material", text = "„Luceafărul” a apărut în 1883, „Ion” în 1920." } } })).EnsureSuccessStatusCode();
         h.Ai.Raspunde = (_, _, _) => JsonSerializer.Serialize(new
         {

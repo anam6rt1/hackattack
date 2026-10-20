@@ -63,6 +63,21 @@ internal static class Seed
     private static string NumeTema(string anotimp, string moment) =>
         $"{anotimp switch { "primavara" => "Primăvară", "vara" => "Vară", "toamna" => "Toamnă", _ => "Iarnă" }} · {(moment == "zi" ? "zi" : "noapte")}";
 
+    /// <summary>
+    /// The platform Lecție a seeded chapter goes into: one per subject and chapter label, as the Parcursuri migration grouped
+    /// the existing ones (public, grade "Bac", authored by the first platform admin if there is one).
+    /// </summary>
+    private static async Task<int> ParcursPlatforma(MarkAiDbContext db, int materieId, string? capitol, int ordine)
+    {
+        var titlu = capitol ?? "Lecții";
+        var p = await db.Set<Parcurs>().FirstOrDefaultAsync(x => x.MaterieId == materieId && x.OrganizatieId == null && x.Titlu == titlu);
+        if (p is not null) return p.Id;
+        var admin = await db.UtilizatoriRoluri.Where(r => r.Rol.Nume == "admin").OrderBy(r => r.UtilizatorId).Select(r => (int?)r.UtilizatorId).FirstOrDefaultAsync();
+        db.Add(p = new Parcurs { MaterieId = materieId, Titlu = titlu, Clasa = "Bac", AutorId = admin, Ordine = ordine, CreatLa = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        return p.Id;
+    }
+
     private static async Task ImportaRomana(MarkAiDbContext db, string dataDir)
     {
         var materie = await db.Materii.SingleOrDefaultAsync(m => m.Cod == "romana");
@@ -86,10 +101,11 @@ internal static class Seed
             var curs = await db.Curs.SingleOrDefaultAsync(c => c.MaterieId == materie.Id && c.Titlu == titlu);
             if (curs is null)
             {
+                var capitol = Capitole.GetValueOrDefault(id.Split('-')[0], id);
                 db.Curs.Add(curs = new Curs
                 {
-                    MaterieId = materie.Id, Titlu = titlu, Descriere = nivel.Tema, Ordine = ordine,
-                    Capitol = Capitole.GetValueOrDefault(id.Split('-')[0], id),
+                    MaterieId = materie.Id, ParcursId = await ParcursPlatforma(db, materie.Id, capitol, ordine), Titlu = titlu, Descriere = nivel.Tema, Ordine = ordine,
+                    Capitol = capitol,
                     VideoUrl = string.IsNullOrEmpty(nivel.Video?.YoutubeId) ? null : $"https://www.youtube.com/watch?v={nivel.Video.YoutubeId}",
                     Materiale = nivel.Materiale.Select(m => new SectiuneMaterial { Titlu = m.Titlu, Text = m.Text }).ToList(),
                 });
@@ -135,7 +151,7 @@ internal static class Seed
                     var ordine = vecin?.Ordine ?? (await db.Curs.Where(c => c.MaterieId == materie.Id).MaxAsync(c => (int?)c.Ordine) ?? 0) + 1;
                     db.Curs.Add(curs = new Curs
                     {
-                        MaterieId = materie.Id, Titlu = cj.Titlu, Descriere = cj.Descriere, Capitol = cj.Capitol, Ordine = ordine,
+                        MaterieId = materie.Id, ParcursId = await ParcursPlatforma(db, materie.Id, cj.Capitol, ordine), Titlu = cj.Titlu, Descriere = cj.Descriere, Capitol = cj.Capitol, Ordine = ordine,
                         Materiale = cj.Materiale.Select(m => new SectiuneMaterial { Titlu = m.Titlu, Text = m.Text }).ToList(),
                     });
                     await db.SaveChangesAsync();

@@ -141,7 +141,7 @@ public static class LiniaAiEndpoints
                 return Twiml(cfg, Spune($"Bună, {elev.Nume.Split(' ')[0]}! Tutorele nu este încă pornit pe server. Te rugăm să revii mai târziu.", voce), new XElement("Hangup"));
             var salut = await tutor.SalutAsync(elev, ct);
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, salut, ct);
-            return Twiml(cfg, Asculta(salut, voce, await tutor.IndiciiVorbire(ct), sesiune.Id, cheie),
+            return Twiml(cfg, Asculta(salut, voce, await tutor.IndiciiVorbire(elev.Id, ct), sesiune.Id, cheie),
                 Spune("Nu te-am auzit. Sună din nou oricând!", voce), new XElement("Hangup"));
         });
 
@@ -151,7 +151,7 @@ public static class LiniaAiEndpoints
             var sesiune = await SesiuneAutentica(req, form, db, cfg, ct);
             if (sesiune is null) return Results.StatusCode(403);
             var cheie = req.Query["k"].ToString();
-            var indicii = await tutor.IndiciiVorbire(ct);
+            var indicii = await tutor.IndiciiVorbire(sesiune.UtilizatorId, ct);
             var voce = await VociTutor.CitesteAsync(db, sesiune.UtilizatorId, ct);
 
             // Every TwiML document Twilio fetches is one "step"; each step adds exactly one tutor message, so

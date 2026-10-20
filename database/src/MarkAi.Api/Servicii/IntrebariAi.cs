@@ -1,7 +1,10 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading.Channels;
+using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
+using MarkAi.Data.Entities;
+using MarkAi.Data.Servicii;
 using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,6 +34,38 @@ public sealed class CoadaIntrebari
     internal IAsyncEnumerable<int> Citeste(CancellationToken ct) => _coada.Reader.ReadAllAsync(ct);
 
     internal bool IncearcaCiteste(out int cursId) => _coada.Reader.TryRead(out cursId);
+}
+
+/// <summary>
+/// Queues AI question generation within the editor's daily limit (<c>Limite:GenerariAiPeZi</c>; admins are not limited).
+/// Over the limit, an explicit "regenerate" is refused; an automatic one (after an edit or a file upload) is skipped and
+/// the editor sees why in the generation status.
+/// </summary>
+public static class LimitaGenerariAi
+{
+    /// <param name="uid">Who is charged; null only for content whose uploader no longer exists (then <paramref name="admin"/> is true).</param>
+    public static async Task PuneAsync(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, int? uid, bool admin, int cursId,
+        bool laCerere, CancellationToken ct)
+    {
+        if (!admin)
+        {
+            var limita = cfg.GetValue("Limite:GenerariAiPeZi", 10);
+            var deLa = DateTime.UtcNow.AddHours(-24);
+            if (await db.Set<GenerareAi>().CountAsync(g => g.UtilizatorId == uid && g.CreatLa >= deLa, ct) >= limita)
+            {
+                var mesaj = $"Ai folosit cele {limita} generări de întrebări AI din ultimele 24 de ore. Poți edita întrebările manual sau reîncerca mâine.";
+                if (laCerere) throw new Conflict(mesaj);
+                coada.Refuza(cursId, mesaj);
+                return;
+            }
+        }
+        if (uid is not null)
+        {
+            db.Add(new GenerareAi { UtilizatorId = uid.Value, CursId = cursId, CreatLa = DateTime.UtcNow });
+            await db.SaveChangesAsync(ct);
+        }
+        coada.Adauga(cursId);
+    }
 }
 
 /// <summary>
@@ -89,7 +124,8 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
 
         var material = string.Join("\n\n", curs.Materiale.Select(m => $"## {m.Titlu}\n{m.Text}"));
         if (!string.IsNullOrWhiteSpace(curs.Continut)) material += "\n\n" + curs.Continut;
-        if (string.IsNullOrWhiteSpace(material)) throw new ConfigurareLipsa("Cursul nu are materiale din care să fie generate întrebări.");
+        material += await TextFisiereAsync(db, cursId, ct);
+        if (string.IsNullOrWhiteSpace(material)) throw new ConfigurareLipsa("Capitolul nu are materiale (text sau fișiere cu text) din care să fie generate întrebări.");
 
         var grila = cfg.GetValue("Claude:IntrebariGrila", 8);
         var estimari = cfg.GetValue("Claude:IntrebariEstimare", 2);
@@ -128,6 +164,23 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return valide.Count;
+    }
+
+    // The extracted text of the chapter's files, oldest first, within Fisiere:MaxCaractereText in total.
+    private async Task<string> TextFisiereAsync(MarkAiDbContext db, int cursId, CancellationToken ct)
+    {
+        var ramase = cfg.GetValue("Fisiere:MaxCaractereText", 60_000);
+        var fisiere = await db.Set<FisierCapitol>().AsNoTracking().Where(f => f.CursId == cursId && f.StareText == FisierCapitol.Gata)
+            .OrderBy(f => f.Id).Select(f => new { f.Nume, f.TextExtras }).ToListAsync(ct);
+        var text = new System.Text.StringBuilder();
+        foreach (var f in fisiere.Where(f => !string.IsNullOrWhiteSpace(f.TextExtras)))
+        {
+            if (ramase <= 0) break;
+            var parte = f.TextExtras!.Length <= ramase ? f.TextExtras : f.TextExtras[..ramase];
+            text.Append($"\n\n## Fișier: {f.Nume}\n{parte}");
+            ramase -= parte.Length;
+        }
+        return text.ToString();
     }
 
     private static readonly Dictionary<string, JsonElement> Schema = new()

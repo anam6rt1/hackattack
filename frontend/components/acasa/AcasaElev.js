@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api, dataOra } from '@/lib/api'
+import { textLoc } from '@/lib/sedinte'
 import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
 import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
@@ -36,7 +37,7 @@ export default function AcasaElev({ utilizator }) {
         <section className="tv-erou">
           <span className="tv-erou-pill">Acasă</span>
           <h1>Salut, {utilizator.nume.split(' ')[0]}!</h1>
-          <p>{ultimulCurs ? `Data trecută ai lucrat la „${ultimulCurs.titlu}”.` : 'Începe cu prima insulă: o lecție scurtă și o întrebare.'}</p>
+          <p>{ultimulCurs ? `Data trecută ai lucrat la „${ultimulCurs.titlu}”.` : 'Alege o materie și o lecție: fiecare capitol e o insulă, cu notițe, video și un test scurt.'}</p>
           <svg className="tv-decor" viewBox="0 0 520 220" aria-hidden="true" dangerouslySetInnerHTML={{ __html: DECOR }} />
         </section>
 
@@ -56,7 +57,7 @@ export default function AcasaElev({ utilizator }) {
               </div>
               <p className="tv-indiciu">
                 {nivel.xpUrmatorNivel
-                  ? `Mai ai ${nivel.xpUrmatorNivel - nivel.xpTotal} XP până la „${nivel.titluUrmator}”. Fiecare lecție terminată îți aduce 100 XP.`
+                  ? `Mai ai ${nivel.xpUrmatorNivel - nivel.xpTotal} XP până la „${nivel.titluUrmator}”. Fiecare capitol terminat îți aduce 100 XP.`
                   : 'Ai atins cel mai înalt nivel. Felicitări!'}
               </p>
             </div>
@@ -64,15 +65,15 @@ export default function AcasaElev({ utilizator }) {
             <div className="tv-cutie tv-panou-lat">
               <h3>{ultimulCurs && !ultimulCurs.completat ? 'Continuă de unde ai rămas' : 'Următorul pas'}</h3>
               {ultimulCurs ? (
-                <Link className="tv-rand" href={`/materiale/${ultimulCurs.materieId}`}>
+                <Link className="tv-rand" href={`/parcurs/${ultimulCurs.parcursId}`}>
                   <div>
                     <b>{ultimulCurs.titlu}</b>
-                    <small>{ultimulCurs.materie}{ultimulCurs.capitol ? ` · ${ultimulCurs.capitol}` : ''}</small>
+                    <small>{ultimulCurs.materie} · {ultimulCurs.parcurs}</small>
                   </div>
                   <span className={`tv-pastila ${ultimulCurs.completat ? 'tv-pastila-verde' : 'tv-pastila-aur'}`}>{ultimulCurs.completat ? 'Terminat' : 'În lucru'}</span>
                 </Link>
               ) : (
-                <p>Deschide Materiale și alege prima lecție de pe hartă.</p>
+                <p>Deschide Materiale, alege o lecție și începe cu orice capitol de pe hartă.</p>
               )}
               <div className="tv-butoane">
                 <Link className="tv-btn" href="/materiale">Mergi la materiale</Link>
@@ -91,7 +92,7 @@ export default function AcasaElev({ utilizator }) {
                     <Link className="tv-rand" href={`/materiale/${m.materieId}`}>
                       <div>
                         <b>{m.denumire}</b>
-                        <small>{m.cursuriCompletate} din {m.totalCursuri} lecții · {m.puncte} puncte</small>
+                        <small>{m.cursuriCompletate} din {m.totalCursuri} capitole · {m.puncte} puncte</small>
                         <div className="tv-bara tv-bara-verde" style={{ marginTop: 6 }}>
                           <i style={{ width: `${m.totalCursuri ? (m.cursuriCompletate / m.totalCursuri) * 100 : 0}%` }} />
                         </div>
@@ -111,7 +112,9 @@ export default function AcasaElev({ utilizator }) {
                       <div>
                         <b>{r.slot.titlu}</b>
                         <small>{dataOra(r.slot.inceputLa)} · {r.profesor}</small>
-                        {r.slot.linkIntalnire ? (
+                        {r.participare === 'la_sala' ? (
+                          <small>La sală: {textLoc(r.slot.loc)}{r.slot.notaLoc ? ` · ${r.slot.notaLoc}` : ''}</small>
+                        ) : r.slot.linkIntalnire ? (
                           <a className="tv-link-sedinta" href={r.slot.linkIntalnire} target="_blank" rel="noreferrer">Intră în ședință →</a>
                         ) : (
                           <small>Profesorul va adăuga linkul ședinței.</small>

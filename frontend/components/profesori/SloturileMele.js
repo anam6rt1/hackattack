@@ -1,9 +1,10 @@
 'use client'
-// Ședințele profesorului: programează una nouă (plătită la tariful fix al platformei sau pro bono)
-// și vezi cine s-a înscris la fiecare.
+// Ședințele profesorului: programează una nouă (plătită la tariful fix al platformei sau pro bono; online, față în față
+// sau hibrid) și vezi cine s-a înscris la fiecare și cum participă.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, dataOra } from '@/lib/api'
+import { PARTICIPARE, TIPURI_SEDINTA, textLoc } from '@/lib/sedinte'
 
 // Orele din lista de alegere: din 30 în 30 de minute, 07:00–21:30
 const ORE = Array.from({ length: 30 }, (_, i) => `${String(7 + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
@@ -12,8 +13,14 @@ const ziLocala = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
 function SlotNou({ panou, onCreat }) {
   const [eroare, setEroare] = useState('')
   const [trimite, setTrimite] = useState(false)
+  const [tip, setTip] = useState('online')
+  const [locuri, setLocuri] = useState(null) // locul propriu + organizațiile profesorului
   const pret = panou.pret
   const azi = ziLocala(new Date())
+
+  useEffect(() => {
+    api('/profesori/me/loc').then(setLocuri).catch(() => setLocuri(null))
+  }, [])
 
   async function trimiteFormular(e) {
     e.preventDefault()
@@ -30,9 +37,11 @@ function SlotNou({ panou, onCreat }) {
         corp: {
           materieId: Number(f.materieId), titlu: f.titlu, descriere: f.descriere || null,
           inceputLa: inceput.toISOString(), capacitate: Number(f.capacitate), proBono: f.proBono === 'da', linkIntalnire: f.linkIntalnire || null,
+          tip, locOrganizatieId: tip !== 'online' && f.loc ? Number(f.loc) : null, notaLoc: tip !== 'online' ? f.notaLoc || null : null,
         },
       })
       e.target.reset()
+      setTip('online')
       onCreat(nou)
     } catch (err) {
       setEroare(err.message)
@@ -82,11 +91,45 @@ function SlotNou({ panou, onCreat }) {
         <span>Descriere (opțional)</span>
         <textarea className="tv-camp-text" name="descriere" rows={2} maxLength={1000} />
       </label>
-      <label className="tv-eticheta-camp">
-        <span>Link ședință (opțional, îl poți adăuga și mai târziu)</span>
-        <input className="tv-camp-text" name="linkIntalnire" type="url" maxLength={500} placeholder="https://meet.google.com/..." />
-      </label>
-      <p className="tv-indiciu">Linkul îl văd doar elevii care și-au rezervat un loc.</p>
+      <fieldset className="tv-eticheta-camp">
+        <span>Cum se ține</span>
+        <div className="tv-optiuni">
+          {Object.entries(TIPURI_SEDINTA).map(([v, t]) => (
+            <label key={v} className="tv-optiune">
+              <input type="radio" name="tip" value={v} checked={tip === v} onChange={() => setTip(v)} /> {t}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {tip === 'hibrid' && <p className="tv-indiciu">La o ședință hibridă, fiecare elev alege la rezervare dacă vine la sală sau participă online.</p>}
+      {tip !== 'online' && (
+        <>
+          <label className="tv-eticheta-camp">
+            <span>Locul</span>
+            <select className="tv-camp-text" name="loc" defaultValue="">
+              {(locuri?.optiuni ?? [{ organizatieId: null, eticheta: 'Locul meu' }]).map((o) => (
+                <option key={o.organizatieId ?? ''} value={o.organizatieId ?? ''}>
+                  {o.organizatieId ? `${o.eticheta} (${textLoc({ ...o.loc, organizatie: null })})` : o.loc ? `${o.eticheta}: ${textLoc(o.loc)}` : o.eticheta}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="tv-eticheta-camp">
+            <span>Detalii despre loc (opțional, de ex. „Sala 12, etajul 2”)</span>
+            <input className="tv-camp-text" name="notaLoc" maxLength={200} />
+          </label>
+        </>
+      )}
+      {tip !== 'fata_in_fata' && (
+        <label className="tv-eticheta-camp">
+          <span>Link ședință (opțional, îl poți adăuga și mai târziu)</span>
+          <input className="tv-camp-text" name="linkIntalnire" type="url" maxLength={500} placeholder="https://meet.google.com/..." />
+        </label>
+      )}
+      <p className="tv-indiciu">
+        {tip === 'online' ? 'Linkul îl văd' : tip === 'hibrid' ? 'Linkul și detaliile locului le văd' : 'Detaliile locului le văd'} doar elevii care și-au rezervat un loc
+        {tip === 'online' ? '.' : '; localitatea și județul le vede oricine.'}
+      </p>
       {pret && (
         <p className="tv-indiciu">
           Elevul plătește tariful fix al platformei ({pret.suma} {pret.moneda} / {pret.durataMinute} min). Tu primești onorariul negociat:{' '}
@@ -95,6 +138,34 @@ function SlotNou({ panou, onCreat }) {
       )}
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
       <button className="tv-btn" disabled={trimite}>{trimite ? 'Se programează...' : 'Programează ședința'}</button>
+    </form>
+  )
+}
+
+// Adaugă sau schimbă detaliile locului („Sala 12”) direct din listă
+function NotaLoc({ slot, onActualizat }) {
+  const [editare, setEditare] = useState(false)
+  const [nota, setNota] = useState(slot.notaLoc ?? '')
+  const [eroare, setEroare] = useState('')
+
+  async function salveaza(e) {
+    e.preventDefault()
+    setEroare('')
+    try {
+      onActualizat(await api(`/profesori/me/sloturi/${slot.id}/nota`, { metoda: 'PUT', corp: { notaLoc: nota.trim() || null } }))
+      setEditare(false)
+    } catch (err) {
+      setEroare(err.message)
+    }
+  }
+
+  if (!editare) return <button className="tv-pastila" onClick={() => setEditare(true)}>{slot.notaLoc ? 'Schimbă detaliile locului' : 'Adaugă detalii loc'}</button>
+  return (
+    <form className="tv-link-editor" onSubmit={salveaza}>
+      <input className="tv-camp-text" value={nota} maxLength={200} onChange={(e) => setNota(e.target.value)} placeholder="Sala 12, etajul 2" aria-label="Detalii despre loc" autoFocus />
+      <button className="tv-pastila tv-pastila-aur">Salvează</button>
+      <button type="button" className="tv-pastila" onClick={() => { setEditare(false); setNota(slot.notaLoc ?? ''); setEroare('') }}>Renunț</button>
+      {eroare && <span className="tv-pastila tv-pastila-rosu" role="alert">{eroare}</span>}
     </form>
   )
 }
@@ -146,29 +217,35 @@ export default function SloturileMele({ panou, onActualizat }) {
   }
 
   // funcție simplă (nu componentă), ca editorul de link să nu se remonteze la fiecare randare
-  const rand = (s, poateAnula) => (
-    <li key={s.slot.id} className="tv-rand tv-rand-sedinta">
-      <div>
-        <b>{s.slot.titlu}</b>
-        <small>
-          {dataOra(s.slot.inceputLa)} · {s.slot.materie} · {s.slot.capacitate - s.slot.locuriLibere}/{s.slot.capacitate} înscriși
-          {s.elevi.filter((e) => e.status === 'confirmata').length > 0 && ` · ${s.elevi.filter((e) => e.status === 'confirmata').map((e) => e.nume).join(', ')}`}
-        </small>
-      </div>
-      {s.slot.proBono && <span className="tv-pastila tv-pastila-verde">Pro bono</span>}
-      {s.slot.status === 'anulata' && <span className="tv-pastila tv-pastila-rosu">Anulată</span>}
-      {poateAnula && <LinkSedinta key={`${s.slot.id}-${s.slot.linkIntalnire ?? ''}`} slot={s.slot} onActualizat={onActualizat} />}
-      {poateAnula &&
-        (anulare === s.slot.id ? (
-          <span className="tv-butoane">
-            <button className="tv-pastila tv-pastila-rosu" onClick={() => anuleaza(s.slot.id)}>Confirm anularea</button>
-            <button className="tv-pastila" onClick={() => setAnulare(null)}>Renunț</button>
-          </span>
-        ) : (
-          <button className="tv-pastila" onClick={() => setAnulare(s.slot.id)}>Anulează</button>
-        ))}
-    </li>
-  )
+  const rand = (s, poateAnula) => {
+    const inscrisi = s.elevi.filter((e) => e.status === 'confirmata')
+    return (
+      <li key={s.slot.id} className="tv-rand tv-rand-sedinta">
+        <div>
+          <b>{s.slot.titlu}</b>
+          <small>
+            {dataOra(s.slot.inceputLa)} · {s.slot.materie} · {TIPURI_SEDINTA[s.slot.tip]}
+            {s.slot.loc && ` · ${textLoc(s.slot.loc)}`}
+            {s.slot.notaLoc && ` (${s.slot.notaLoc})`} · {s.slot.capacitate - s.slot.locuriLibere}/{s.slot.capacitate} înscriși
+            {inscrisi.length > 0 && ` · ${inscrisi.map((e) => (s.slot.tip === 'hibrid' ? `${e.nume} (${PARTICIPARE[e.participare]})` : e.nume)).join(', ')}`}
+          </small>
+        </div>
+        {s.slot.proBono && <span className="tv-pastila tv-pastila-verde">Pro bono</span>}
+        {s.slot.status === 'anulata' && <span className="tv-pastila tv-pastila-rosu">Anulată</span>}
+        {poateAnula && s.slot.tip !== 'fata_in_fata' && <LinkSedinta key={`${s.slot.id}-${s.slot.linkIntalnire ?? ''}`} slot={s.slot} onActualizat={onActualizat} />}
+        {poateAnula && s.slot.tip !== 'online' && <NotaLoc key={`n-${s.slot.id}-${s.slot.notaLoc ?? ''}`} slot={s.slot} onActualizat={onActualizat} />}
+        {poateAnula &&
+          (anulare === s.slot.id ? (
+            <span className="tv-butoane">
+              <button className="tv-pastila tv-pastila-rosu" onClick={() => anuleaza(s.slot.id)}>Confirm anularea</button>
+              <button className="tv-pastila" onClick={() => setAnulare(null)}>Renunț</button>
+            </span>
+          ) : (
+            <button className="tv-pastila" onClick={() => setAnulare(s.slot.id)}>Anulează</button>
+          ))}
+      </li>
+    )
+  }
 
   return (
     <div className="tv-panou">

@@ -21,6 +21,11 @@ public partial class Rezervare
 
     public DateTime? FinalizataLa { get; set; }
 
+    public const string Online = "online", LaSala = "la_sala";
+
+    /// <summary>How the student attends: online or la_sala (in the room); chosen by the student for a hybrid session.</summary>
+    public string Participare { get; set; } = Online;
+
     public virtual CameraTutoring Camera { get; set; } = null!;
 
     public virtual ComisionMentor? ComisionMentor { get; set; }

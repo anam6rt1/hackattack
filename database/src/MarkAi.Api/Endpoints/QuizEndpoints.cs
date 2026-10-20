@@ -31,9 +31,10 @@ public static class QuizEndpoints
     {
         var g = app.MapGroup("/cursuri/{id:int}/quiz").WithTags("Quiz").RequireAuthorization(Politici.Elev);
 
-        g.MapPost("", async (int id, HttpContext h, MarkAiDbContext db, IConfiguration cfg, TimeProvider ceas, CancellationToken ct) =>
+        g.MapPost("", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, IConfiguration cfg, TimeProvider ceas, CancellationToken ct) =>
         {
-            if (!await db.Curs.AnyAsync(c => c.Id == id && c.Publicat, ct)) throw new KeyNotFoundException("Lecția nu există.");
+            await acces.AsiguraCapitolVizibilAsync(h.User, id, ct);
+            if (!await db.Curs.AnyAsync(c => c.Id == id && c.Publicat && c.Parcurs.Publicat, ct)) throw new KeyNotFoundException("Lecția nu există.");
             var uid = h.User.Id();
             var acum = ceas.GetUtcNow().UtcDateTime;
 
@@ -55,8 +56,10 @@ public static class QuizEndpoints
         });
 
         g.MapPost("/{incercareId:int}/raspuns", async (int id, int incercareId, RaspunsQuiz c, HttpContext h, MarkAiDbContext db,
-            ProgresService progres, TimeProvider ceas, CancellationToken ct) =>
+            AccesContinut acces, ProgresService progres, TimeProvider ceas, CancellationToken ct) =>
         {
+            // Access is checked again: the student may have left the organisation since the attempt started.
+            await acces.AsiguraCapitolVizibilAsync(h.User, id, ct);
             var incercare = await db.Set<IncercareQuiz>()
                 .SingleOrDefaultAsync(i => i.Id == incercareId && i.CursId == id && i.UtilizatorId == h.User.Id(), ct)
                 ?? throw new KeyNotFoundException("Testul nu există.");

@@ -17,7 +17,8 @@ public sealed class RezervareService(MarkAiDbContext db)
     public const string RezervareAnulata = "anulata";
     public const string MentorAprobat = "aprobat";
 
-    public async Task<Rezervare> RezervaAsync(int elevId, int slotId, CancellationToken ct = default)
+    /// <param name="participare">How the student attends a hybrid session (online or la_sala); other sessions decide it themselves.</param>
+    public async Task<Rezervare> RezervaAsync(int elevId, int slotId, string? participare = null, CancellationToken ct = default)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM mark_ai.camera_tutoring WHERE id = {slotId} FOR UPDATE", ct);
@@ -32,11 +33,18 @@ public sealed class RezervareService(MarkAiDbContext db)
         if (await active.AnyAsync(r => r.ElevId == elevId, ct)) throw new Conflict("Ai rezervat deja această ședință.");
         if (await active.CountAsync(ct) >= slot.Capacitate) throw new LocuriEpuizateException();
 
+        var cum = slot.Tip switch
+        {
+            CameraTutoring.Online => Rezervare.Online,
+            CameraTutoring.FataInFata => Rezervare.LaSala,
+            _ => participare is Rezervare.Online or Rezervare.LaSala ? participare
+                : throw new Conflict("Ședința e hibridă: alege dacă participi online sau la sală."),
+        };
         var pret = slot.ProBono ? 0m : slot.Tarif!.Suma;
         var moneda = slot.Tarif?.Moneda ?? slot.Mentor.Moneda;
         var rezervare = new Rezervare
         {
-            CameraId = slotId, ElevId = elevId, Status = RezervareConfirmata, TarifAchitat = pret, Moneda = moneda,
+            CameraId = slotId, ElevId = elevId, Status = RezervareConfirmata, TarifAchitat = pret, Moneda = moneda, Participare = cum,
         };
         db.Rezervari.Add(rezervare);
         if (!slot.ProBono)

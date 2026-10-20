@@ -1,16 +1,17 @@
 "use client";
-// components/TabNivel.jsx — fereastra care se deschide când apeși o lecție pe hartă:
-// Videoclip, Materiale, Întrebări. Conținutul vine din API (GET /cursuri/{id}); culorile din lib/tema.js.
+// components/TabNivel.jsx — fereastra care se deschide când apeși un capitol pe hartă:
+// Videoclip, Materiale (notițe + fișierele capitolului), Întrebări. Conținutul vine din API (GET /cursuri/{id},
+// GET /cursuri/{id}/fisiere); culorile din lib/tema.js.
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { api, idYoutube } from "@/lib/api";
+import { api, idYoutube, marime, urlApi } from "@/lib/api";
 import { ACTIVITATI } from "@/components/Iconite";
 import { T } from "@/lib/tema";
 
 const DESCRIERI = {
-  video: "Urmărește lecția explicată pe scurt",
-  materiale: "Citește notițele lecției",
+  video: "Urmărește capitolul explicat pe scurt",
+  materiale: "Citește notițele capitolului",
   play: "Răspunde la întrebare și câștigă XP",
 };
 
@@ -20,11 +21,13 @@ const CERC_NEFACUT = "border-white/30 bg-slate-500 text-white/80";
 
 export default function TabNivel({ insula, nivel, activitati = {}, onInchide, onActualizare }) {
   const [continut, setContinut] = useState({});
+  const [fisiere, setFisiere] = useState([]);
   const [eroare, setEroare] = useState("");
   const [vedere, setVedere] = useState("meniu"); // "meniu" | "video" | "materiale"
 
   useEffect(() => {
     api(`/cursuri/${nivel.id}`).then(setContinut).catch((e) => setEroare(e.message));
+    api(`/cursuri/${nivel.id}/fisiere`).then((r) => setFisiere(r.elemente)).catch(() => setFisiere([]));
   }, [nivel.id]);
   const youtube = idYoutube(continut.videoUrl);
 
@@ -119,7 +122,7 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
               })}
             </div>
             <p className={`mt-4 text-center text-sm ${T.textSlab}`}>
-              {parcurse} din 3 parcurse · lecția se termină când răspunzi corect la întrebare
+              {parcurse} din 3 parcurse · capitolul e terminat când treci testul de la final
             </p>
           </>
         )}
@@ -130,7 +133,7 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
               <iframe
                 className="aspect-video w-full rounded-2xl bg-black"
                 src={`https://www.youtube-nocookie.com/embed/${youtube}`}
-                title={continut.titlu ?? "Videoclipul lecției"}
+                title={continut.titlu ?? "Videoclipul capitolului"}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
@@ -141,7 +144,7 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
                     const Icon = ACTIVITATI[0].Icon;
                     return <Icon className="mx-auto mb-2 h-10 w-10" />;
                   })()}
-                  <p className="font-bold">{continut.titlu ?? "Videoclipul lecției"}</p>
+                  <p className="font-bold">{continut.titlu ?? "Videoclipul capitolului"}</p>
                   <p className="text-sm">{continut.videoUrl ? "Videoclipul se deschide pe site-ul sursei." : "Videoclipul va apărea aici."}</p>
                   {continut.videoUrl && (
                     <a className="mt-2 inline-block font-bold underline" href={continut.videoUrl} target="_blank" rel="noreferrer">
@@ -166,7 +169,30 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
                   <p className={`text-sm leading-relaxed ${T.textSecundar}`}>{m.text}</p>
                 </section>
               ))}
-              {!continut.materiale?.length && <p className={T.textSecundar}>Materialele vor apărea aici.</p>}
+              {!continut.materiale?.length && !fisiere.length && <p className={T.textSecundar}>Materialele vor apărea aici.</p>}
+              {fisiere.length > 0 && (
+                <section className={`rounded-2xl p-4 ring-1 ${T.suprafataSlaba} ${T.conturSlab}`}>
+                  <h3 className={`mb-2 font-extrabold ${T.accentText}`}>Fișiere</h3>
+                  <ul className="grid gap-2">
+                    {fisiere.map((f) => (
+                      <li key={f.id}>
+                        {/* PDF-ul se deschide în browser, într-un tab nou; Word și PowerPoint se descarcă. */}
+                        <a
+                          href={urlApi(`/fisiere/${f.id}`)}
+                          {...(f.tip === "pdf" ? { target: "_blank", rel: "noreferrer" } : { download: f.nume })}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2 ring-1 ${T.suprafata} ${T.conturSlab} ${T.suprafataHover}`}
+                        >
+                          <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-black ${T.accent}`}>{f.tip.toUpperCase()}</span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-bold">{f.nume}</span>
+                          <span className={`shrink-0 text-xs ${T.textSlab}`}>
+                            {marime(f.marimeOcteti)} · {f.tip === "pdf" ? "deschide" : "descarcă"}
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             </div>
             <button onClick={() => termina("materiale")} className={butonPrincipal}>
               Am citit ✓
