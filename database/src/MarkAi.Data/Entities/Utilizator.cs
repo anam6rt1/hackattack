@@ -19,6 +19,9 @@ public partial class Utilizator
 
     public string ParolaHash { get; set; } = "";
 
+    /// <summary>Part of every session token; raising it signs the account out everywhere.</summary>
+    public int VersiuneSesiune { get; set; }
+
     public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
     public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();

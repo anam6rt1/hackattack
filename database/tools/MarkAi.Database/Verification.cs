@@ -18,6 +18,7 @@ internal static class Verification
     {
         try { await operation(); return false; }
         catch (InvalidOperationException) { return true; }
+        catch (Conflict) { return true; }
         catch (UnauthorizedAccessException) { return true; }
         catch (DbUpdateException) { return true; }
         catch (PostgresException) { return true; }

@@ -1,6 +1,7 @@
 "use client";
-// components/IntrebareNivel.jsx — o întrebare aleasă aleator dintre cele ale lecției.
-// Răspunsul corect nu ajunge în browser înainte să alegi: serverul verifică varianta și acordă XP-ul.
+// components/IntrebareNivel.jsx — testul lecției: câteva întrebări alese aleator de server.
+// După fiecare răspuns afli doar dacă a fost corect; răspunsurile corecte apar la final, iar XP-ul se primește
+// doar dacă treci testul (de ex. 4 din 5). Între două teste e o pauză scurtă.
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -10,56 +11,66 @@ const LITERE = ["A", "B", "C", "D", "E", "F"];
 
 export default function IntrebareNivel({ cursId }) {
   const [curs, setCurs] = useState(null);
-  const [intrebari, setIntrebari] = useState(null);
-  const [intrebare, setIntrebare] = useState(null);
+  const [test, setTest] = useState(null); // { id, total, necesare, raspunse, intrebari }
+  const [pas, setPas] = useState(0); // indexul întrebării curente în test.intrebari
   const [ales, setAles] = useState(null); // id-ul variantei apăsate
-  const [rezultat, setRezultat] = useState(null); // { corect, variantaCorectaId, explicatie, xpCastigat }
+  const [rezultat, setRezultat] = useState(null); // { corect, ramase, final }
+  const [texte, setTexte] = useState({}); // intrebareId → întrebarea afișată, pentru rezumatul de la final
   const [eroare, setEroare] = useState("");
+  const [seIncarca, setSeIncarca] = useState(true);
 
-  const alegeAlta = useCallback((lista, anterioara) => {
-    // altă întrebare decât cea anterioară, dacă există
-    const posibile = lista.length > 1 ? lista.filter((q) => q.id !== anterioara?.id) : lista;
-    setIntrebare(posibile[Math.floor(Math.random() * posibile.length)] ?? null);
-    setAles(null);
-    setRezultat(null);
-  }, []);
+  // Pornește un test nou (sau îl reia pe cel neterminat); starea se schimbă doar după răspunsul serverului.
+  const incepe = useCallback(
+    () =>
+      api(`/cursuri/${cursId}/quiz`, { metoda: "POST" })
+        .then((t) => {
+          setTest(t);
+          setTexte((v) => ({ ...v, ...Object.fromEntries(t.intrebari.map((q) => [q.id, q])) }));
+          setPas(0);
+          setAles(null);
+          setRezultat(null);
+          setEroare("");
+        })
+        .catch((e) => {
+          setTest(null);
+          setEroare(e.message);
+        })
+        .finally(() => setSeIncarca(false)),
+    [cursId],
+  );
 
   useEffect(() => {
-    Promise.all([api(`/cursuri/${cursId}`), api(`/cursuri/${cursId}/intrebari`)])
-      .then(([c, q]) => {
-        setCurs(c);
-        setIntrebari(q.elemente);
-        alegeAlta(q.elemente, null);
-      })
-      .catch((e) => setEroare(e.message));
-  }, [cursId, alegeAlta]);
+    api(`/cursuri/${cursId}`).then(setCurs).catch((e) => setEroare(e.message));
+    incepe();
+  }, [cursId, incepe]);
+
+  function reia() {
+    setSeIncarca(true);
+    incepe();
+  }
 
   async function alege(variantaId) {
     if (ales !== null) return;
     setAles(variantaId);
     try {
-      setRezultat(await api(`/cursuri/${cursId}/raspuns`, { metoda: "POST", corp: { intrebareId: intrebare.id, variantaId } }));
+      const intrebare = test.intrebari[pas];
+      setRezultat(await api(`/cursuri/${cursId}/quiz/${test.id}/raspuns`, { metoda: "POST", corp: { intrebareId: intrebare.id, variantaId } }));
     } catch (e) {
       setAles(null);
       setEroare(e.message);
     }
   }
 
-  const inapoi = curs ? `/materiale/${curs.materieId}` : "/materiale";
-
-  if (eroare && !curs) {
-    return (
-      <Ecran>
-        <p className="text-lg font-bold">{eroare}</p>
-        <Link href="/materiale" className={`mt-4 inline-block rounded-xl px-4 py-2 font-black ${T.accent}`}>
-          Înapoi la materiale
-        </Link>
-      </Ecran>
-    );
+  function urmatoarea() {
+    setPas((p) => p + 1);
+    setAles(null);
+    setRezultat(null);
   }
 
-  const corect = rezultat?.corect;
-  const dejaTerminat = curs?.progres?.quizPromovat;
+  const inapoi = curs ? `/materiale/${curs.materieId}` : "/materiale";
+  const final = rezultat?.final;
+  const intrebare = test?.intrebari[pas];
+  const numar = test ? test.raspunse + pas + 1 : 0;
 
   return (
     <Ecran>
@@ -75,25 +86,35 @@ export default function IntrebareNivel({ cursId }) {
             </p>
             <h1 className="text-2xl font-extrabold">{curs?.titlu ?? "Se încarcă..."}</h1>
           </div>
-          <span className={`rounded-full px-3 py-1 text-sm font-black ${T.accent}`}>{dejaTerminat ? "Recapitulare" : "+100 XP"}</span>
+          <span className={`rounded-full px-3 py-1 text-sm font-black ${T.accent}`}>{curs?.progres?.quizPromovat ? "Recapitulare" : "+100 XP"}</span>
         </div>
 
-        {!intrebari ? (
-          <p className={`py-10 text-center ${T.textSecundar}`}>Se încarcă întrebarea…</p>
-        ) : !intrebare ? (
-          <p className={`py-10 text-center ${T.textSecundar}`}>Nu există încă întrebări pentru această lecție.</p>
-        ) : (
+        {seIncarca ? (
+          <p className={`py-10 text-center ${T.textSecundar}`}>Se pregătește testul…</p>
+        ) : !test ? (
+          <div className="py-6 text-center">
+            <p className="text-lg font-bold">{eroare || "Testul nu poate fi început acum."}</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button onClick={reia} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>Încearcă din nou</button>
+              <Link href={inapoi} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>Înapoi la hartă</Link>
+            </div>
+          </div>
+        ) : final ? (
+          <Rezumat final={final} texte={texte} inapoi={inapoi} onReia={reia} />
+        ) : intrebare ? (
           <>
+            <p className={`mb-2 text-sm font-bold ${T.textSecundar}`}>
+              Întrebarea {numar} din {test.total} · ai nevoie de {test.necesare} răspunsuri corecte
+            </p>
             <p className="mb-5 text-lg font-bold leading-snug sm:text-xl">{intrebare.text}</p>
 
             <div className="grid gap-3">
               {intrebare.variante.map((varianta, i) => {
                 let stil = `${T.suprafata} ${T.contur} ${T.suprafataHover}`;
-                if (rezultat) {
-                  if (varianta.id === rezultat.variantaCorectaId) stil = "bg-emerald-500 ring-emerald-300 text-white";
-                  else if (varianta.id === ales) stil = "bg-rose-500 ring-rose-300 text-white";
-                  else stil = `${T.suprafataSlaba} ${T.conturSlab} opacity-50`;
-                } else if (varianta.id === ales) stil = `${T.suprafata} ring-amber-300`;
+                // Doar varianta ta e colorată: răspunsul corect se vede abia la finalul testului.
+                if (rezultat && varianta.id === ales) stil = rezultat.corect ? "bg-emerald-500 ring-emerald-300 text-white" : "bg-rose-500 ring-rose-300 text-white";
+                else if (rezultat) stil = `${T.suprafataSlaba} ${T.conturSlab} opacity-50`;
+                else if (varianta.id === ales) stil = `${T.suprafata} ring-amber-300`;
                 return (
                   <button
                     key={varianta.id}
@@ -111,40 +132,56 @@ export default function IntrebareNivel({ cursId }) {
             {eroare && <p className="mt-4 rounded-xl bg-rose-500/20 px-3 py-2 text-sm font-bold">{eroare}</p>}
 
             {rezultat && (
-              <div className={`mt-5 rounded-2xl p-4 ring-1 ${corect ? "bg-emerald-500/15 ring-emerald-400/40" : "bg-rose-500/15 ring-rose-400/40"}`}>
-                <p className="text-lg font-extrabold">
-                  {corect ? (rezultat.xpCastigat ? `Corect! Ai câștigat ${rezultat.xpCastigat} XP.` : "Corect!") : "Greșit, mai încearcă."}
-                </p>
-                {rezultat.explicatie && <p className={`mt-1 text-sm ${T.textSecundar}`}>{rezultat.explicatie}</p>}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {corect ? (
-                    <>
-                      <Link href={inapoi} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>
-                        Continuă pe hartă →
-                      </Link>
-                      {intrebari.length > 1 && (
-                        <button onClick={() => alegeAlta(intrebari, intrebare)} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>
-                          Altă întrebare
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => alegeAlta(intrebari, intrebare)} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>
-                        Încearcă din nou
-                      </button>
-                      <Link href={inapoi} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>
-                        Înapoi la hartă
-                      </Link>
-                    </>
-                  )}
-                </div>
+              <div className={`mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 ring-1 ${rezultat.corect ? "bg-emerald-500/15 ring-emerald-400/40" : "bg-rose-500/15 ring-rose-400/40"}`}>
+                <p className="text-lg font-extrabold">{rezultat.corect ? "Corect!" : "Greșit. Vezi răspunsul corect la final."}</p>
+                <button onClick={urmatoarea} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>Următoarea →</button>
               </div>
             )}
           </>
+        ) : (
+          <p className={`py-10 text-center ${T.textSecundar}`}>Nu mai sunt întrebări în acest test.</p>
         )}
       </div>
     </Ecran>
+  );
+}
+
+function Rezumat({ final, texte, inapoi, onReia }) {
+  return (
+    <>
+      <div className={`rounded-2xl p-4 ring-1 ${final.promovat ? "bg-emerald-500/15 ring-emerald-400/40" : "bg-rose-500/15 ring-rose-400/40"}`}>
+        <p className="text-lg font-extrabold">
+          {final.promovat
+            ? final.xpCastigat ? `Felicitări! ${final.corecte} din ${final.total} corecte. Ai câștigat ${final.xpCastigat} XP.` : `Felicitări! ${final.corecte} din ${final.total} corecte.`
+            : `${final.corecte} din ${final.total} corecte. Ai nevoie de ${final.necesare} ca să treci lecția.`}
+        </p>
+        {!final.promovat && <p className={`mt-1 text-sm ${T.textSecundar}`}>Recitește materialele și reia testul peste un minut.</p>}
+      </div>
+
+      <ol className="mt-5 grid gap-3">
+        {final.corectii.map((c, i) => {
+          const q = texte[c.intrebareId];
+          const text = (id) => q?.variante.find((v) => v.id === id)?.text;
+          const bine = c.variantaAleasaId === c.variantaCorectaId;
+          return (
+            <li key={c.intrebareId} className={`rounded-2xl p-4 ring-1 ${T.suprafata} ${T.contur}`}>
+              <p className="font-bold">{i + 1}. {q?.text ?? "Întrebare la care ai răspuns mai devreme"}</p>
+              {q && (
+                <p className={`mt-1 text-sm ${bine ? "text-emerald-400" : "text-rose-400"}`}>
+                  {bine ? `✓ ${text(c.variantaCorectaId)}` : `✗ Ai ales: ${text(c.variantaAleasaId)} · Corect: ${text(c.variantaCorectaId)}`}
+                </p>
+              )}
+              {c.explicatie && <p className={`mt-1 text-sm ${T.textSecundar}`}>{c.explicatie}</p>}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Link href={inapoi} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>Continuă pe hartă →</Link>
+        <button onClick={onReia} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>Test nou</button>
+      </div>
+    </>
   );
 }
 

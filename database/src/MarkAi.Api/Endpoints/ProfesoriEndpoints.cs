@@ -53,8 +53,14 @@ public static class ProfesoriEndpoints
             (await Profesori(db, db.ProfiluriMentor.AsNoTracking().Where(m => m.UtilizatorId == id && m.StareVerificare == RezervareService.MentorAprobat),
                 Utilizator(h), ct)).SingleOrDefault() ?? throw new KeyNotFoundException("Profesorul nu există."));
 
-        g.MapGet("/profesori/{id:int}/poza", async (int id, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
-            stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.PozaUrl).SingleOrDefaultAsync(ct)));
+        // Public only for approved professors; applicants see their own photo and admins review it.
+        g.MapGet("/profesori/{id:int}/poza", async (int id, HttpContext h, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
+        {
+            var poateVedea = h.User.Identity?.IsAuthenticated == true && (h.User.IsInRole(Roluri.Admin) || h.User.Id() == id);
+            return stocare.Serveste(await db.ProfiluriMentor
+                .Where(m => m.UtilizatorId == id && (poateVedea || m.StareVerificare == RezervareService.MentorAprobat))
+                .Select(m => m.PozaUrl).SingleOrDefaultAsync(ct));
+        });
 
         var elev = app.MapGroup("/rezervari").WithTags("Profesori").RequireAuthorization(Politici.Elev);
         elev.MapPost("", async (RezervareNoua c, HttpContext h, MarkAiDbContext db, RezervareService rezervari, CancellationToken ct) =>
@@ -80,7 +86,7 @@ public static class ProfesoriEndpoints
             if (c.InceputLa <= DateTime.UtcNow.AddMinutes(30)) throw new CerereInvalida("Ședința trebuie programată cu cel puțin 30 de minute înainte.");
             if (c.Capacitate is < 1 or > 30) throw new CerereInvalida("Numărul de locuri trebuie să fie între 1 și 30.");
             var pret = await db.TarifeFixe.Where(t => t.Activ).OrderBy(t => t.Id).FirstOrDefaultAsync(ct);
-            if (!c.ProBono && pret is null) throw new InvalidOperationException("Platforma nu are încă un tarif configurat.");
+            if (!c.ProBono && pret is null) throw new Conflict("Platforma nu are încă un tarif configurat.");
             var inceput = DateTime.SpecifyKind(c.InceputLa, DateTimeKind.Utc);
             var slot = new CameraTutoring
             {
@@ -129,7 +135,8 @@ public static class ProfesoriEndpoints
             return Lista<CerereProfesor>.Din(cereri);
         });
         admin.MapGet("/profesori/{id:int}/dovada", async (int id, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
-            stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.DovadaCalificareUrl).SingleOrDefaultAsync(ct)));
+            stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.DovadaCalificareUrl).SingleOrDefaultAsync(ct),
+                $"dovada-calificare-{id}"));
         admin.MapPost("/profesori/{id:int}/aprobare", async (int id, Aprobare c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var m = await Profil(db, id, ct);

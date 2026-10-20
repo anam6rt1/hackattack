@@ -26,7 +26,8 @@ setsid cloudflared tunnel --no-autoupdate --url http://localhost:3000 < /dev/nul
 for _ in $(seq 1 40); do URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$LOG/tunel.log" | head -1 || true); [[ -n "$URL" ]] && break; sleep 1; done
 [[ -n "${URL:-}" ]] || { echo "Tunelul nu a pornit; vezi $LOG/tunel.log"; exit 1; }
 
-(cd database && Twilio__UrlPublic="$URL/api" ASPNETCORE_URLS=http://127.0.0.1:5080 \
+# Site-ul public e servit prin HTTPS (tunelul), deci cookie-ul de sesiune poate fi marcat Secure.
+(cd database && Twilio__UrlPublic="$URL/api" Autentificare__CookieSecure=true ASPNETCORE_URLS=http://127.0.0.1:5080 \
   setsid dotnet run --project src/MarkAi.Api --no-launch-profile < /dev/null > "$LOG/api.log" 2>&1 &) < /dev/null > /dev/null 2>&1
 (cd frontend && NEXT_PUBLIC_API_URL=/api npm run build < /dev/null > "$LOG/build.log" 2>&1 \
   && setsid npm run start -- -p 3000 < /dev/null > "$LOG/site.log" 2>&1 &) < /dev/null > /dev/null 2>&1

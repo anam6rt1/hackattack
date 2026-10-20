@@ -2,6 +2,7 @@
 // Adresa vine din .env.local: NEXT_PUBLIC_API_URL=/api (prin redirecționarea din next.config.ts)
 // sau direct, de ex. NEXT_PUBLIC_API_URL=http://localhost:5080
 // Sesiunea e un cookie httpOnly pus de API, de aceea fiecare cerere trimite `credentials: 'include'`.
+// Antetul X-MarkAi: 1 dovedește API-ului că cererea vine din site (un formular de pe alt site nu îl poate adăuga).
 
 export const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5080').replace(/\/$/, '')
 
@@ -19,7 +20,7 @@ export async function api(cale, { metoda = 'GET', corp, formular } = {}) {
     raspuns = await fetch(API + cale, {
       method: metoda,
       credentials: 'include',
-      headers: corp !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { 'X-MarkAi': '1', ...(corp !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       body: formular ?? (corp !== undefined ? JSON.stringify(corp) : undefined),
     })
   } catch {

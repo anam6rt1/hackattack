@@ -38,17 +38,4 @@ static class VerificariInfrastructura
         var intrebari = await admin.GetFromJsonAsync<JsonElement>($"/cursuri/{cursId}/intrebari/toate");
         h.Check(intrebari.GetProperty("elemente").GetArrayLength() == 2, "generated multiple-choice and estimate questions saved");
     }
-
-    /// <summary>Runs with fake Twilio credentials: "Sună-mă" reaches the fake REST API, never Twilio.</summary>
-    public static async Task RuleazaTwilio(Harness h)
-    {
-        using var elev = await h.Login("george");
-        var salvat = await elev.PatchAsJsonAsync("/utilizatori/me/setari", new { nume = "George Pavel", username = "george", telefon = "0722111222" });
-        h.Check(salvat.IsSuccessStatusCode, "student phone saved");
-        var r = await elev.PostAsync("/linia-ai/suna-ma", null);
-        h.Check(r.IsSuccessStatusCode, "call request accepted");
-        h.Check(h.Twilio.Apeluri.TryPeek(out var apel) && apel["To"] == "+40722111222" && apel["Url"].StartsWith("https://markai.test/api/twilio/voce"),
-            "outbound call sent to the fake Twilio API with the student's number");
-        h.Check(h.Twilio.Apeluri.Count == 1, "exactly one call recorded");
-    }
 }

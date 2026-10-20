@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
 
@@ -36,16 +37,29 @@ public sealed class Harness : IAsyncDisposable
     public FakeTimeProvider Ceas { get; }
     public FakeAi Ai { get; }
     public FakeTwilio Twilio { get; }
+    /// <summary>Every log line the app wrote (Information and above), to check what is never logged.</summary>
+    public JurnalCapturat Jurnal { get; }
     public int Numar { get; private set; }
 
     private readonly string adminConexiune, numeBaza, dirStocare;
 
-    private Harness(WebApplication app, FakeMail mail, FakeTimeProvider ceas, FakeAi ai, FakeTwilio twilio,
+    private Harness(WebApplication app, FakeMail mail, FakeTimeProvider ceas, FakeAi ai, FakeTwilio twilio, JurnalCapturat jurnal,
         string adminConexiune, string numeBaza, string dirStocare)
-        => (App, Mail, Ceas, Ai, Twilio, this.adminConexiune, this.numeBaza, this.dirStocare)
-            = (app, mail, ceas, ai, twilio, adminConexiune, numeBaza, dirStocare);
+        => (App, Mail, Ceas, Ai, Twilio, Jurnal, this.adminConexiune, this.numeBaza, this.dirStocare)
+            = (app, mail, ceas, ai, twilio, jurnal, adminConexiune, numeBaza, dirStocare);
 
     public T Serviciu<T>() where T : notnull => App.Services.GetRequiredService<T>();
+
+    /// <summary>Runs a query or change directly on the test database.</summary>
+    public async Task<T> Db<T>(Func<MarkAiDbContext, Task<T>> f)
+    {
+        using var scope = App.Services.CreateScope();
+        return await f(scope.ServiceProvider.GetRequiredService<MarkAiDbContext>());
+    }
+
+    /// <summary>A test-only endpoint that fails with an internal message, to check that clients never see it.</summary>
+    public const string RutaEroareInterna = "/__fals/eroare-interna";
+    public const string MesajIntern = "Sequence contains no elements (detaliu intern)";
 
     // Settings the API reads from the environment; markai.env may be loaded in the shell that runs the checks.
     private static readonly string[] VariabileReale =
@@ -54,7 +68,8 @@ public sealed class Harness : IAsyncDisposable
 
     /// <param name="ceasReal">Use the system clock (manual preview) instead of the fake one.</param>
     /// <param name="cuTwilio">Configure Twilio with fake credentials, so outbound calls reach <see cref="FakeTwilio"/>.</param>
-    public static async Task<Harness> Porneste(bool ceasReal = false, bool cuTwilio = false)
+    /// <param name="setari">Extra configuration for this run (e.g. relaxed limits), applied last.</param>
+    public static async Task<Harness> Porneste(bool ceasReal = false, bool cuTwilio = false, IReadOnlyDictionary<string, string?>? setari = null)
     {
         var adminConexiune = Environment.GetEnvironmentVariable("MARKAI_TEST_CONNECTION")
             ?? throw new Exception("Set MARKAI_TEST_CONNECTION to a test PostgreSQL server with CREATEDB permission.");
@@ -84,23 +99,31 @@ public sealed class Harness : IAsyncDisposable
             builder.WebHost.UseUrls(Adresa);
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Logging:LogLevel:Default"] = "Warning",
+                // Information for every logger, as in production; only the console stays quiet (below).
+                ["Logging:LogLevel:Default"] = "Information",
                 ["Stocare:Director"] = dirStocare,
                 ["Twilio:ApiUrl"] = Adresa + FakeTwilio.Cale,
                 ["Twilio:Numar"] = cuTwilio ? "+15005550006" : "",
-                ["Twilio:UrlPublic"] = cuTwilio ? "https://markai.test/api" : "",
+                ["Twilio:UrlPublic"] = cuTwilio ? FakeTwilio.UrlPublic : "",
             });
+            if (setari is not null) builder.Configuration.AddInMemoryCollection(setari);
+            var jurnal = new JurnalCapturat();
+            builder.Logging.AddProvider(jurnal);
+            builder.Logging.AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(null, LogLevel.Warning);
             AplicatieMarkAi.AdaugaServicii(builder, conexiune);
             var mail = new FakeMail(); var ceas = new FakeTimeProvider(DateTimeOffset.UtcNow); var ai = new FakeAi(); var twilio = new FakeTwilio();
             builder.Services.AddSingleton<IEmailConfirmare>(mail);
             builder.Services.AddSingleton<TimeProvider>(ceasReal ? TimeProvider.System : ceas);
             builder.Services.AddSingleton(new ModelAi(ai));
             builder.Services.RemoveAll<IHostedService>();
+            // The fake Twilio API is served by this same app, behind its CSRF check, which the real Twilio API does not have.
+            builder.Services.AddHttpClient("twilio").AddHttpMessageHandler(() => new AntetCsrf());
             var app = builder.Build();
             AplicatieMarkAi.Configureaza(app);
             twilio.Mapeaza(app);
+            app.MapGet(RutaEroareInterna, () => { throw new InvalidOperationException(MesajIntern); });
             await app.StartAsync();
-            return new Harness(app, mail, ceas, ai, twilio, adminConexiune, numeBaza, dirStocare);
+            return new Harness(app, mail, ceas, ai, twilio, jurnal, adminConexiune, numeBaza, dirStocare);
         }
         catch
         {
@@ -137,14 +160,20 @@ public sealed class Harness : IAsyncDisposable
         Console.WriteLine("PASS: " + label); Numar++;
     }
 
-    public HttpClient Anonim() => new() { BaseAddress = new Uri(Adresa) };
-
-    /// <summary>A client holding the session cookie of <paramref name="username"/>, sending the settings CSRF header.</summary>
-    public async Task<HttpClient> Login(string username, string parola = ParolaTest)
+    /// <summary>A signed-out browser: keeps cookies and sends the X-MarkAi header like the site does.</summary>
+    public HttpClient Anonim()
     {
         var client = new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer() }) { BaseAddress = new Uri(Adresa) };
+        client.DefaultRequestHeaders.Add(Securitate.AntetCsrf, "1");
+        return client;
+    }
+
+    /// <summary>A client holding the session cookie of <paramref name="username"/>.</summary>
+    public async Task<HttpClient> Login(string username, string parola = ParolaTest)
+    {
+        var client = Anonim();
         var r = await client.PostAsJsonAsync("/autentificare", new { identificator = username, parola });
-        r.EnsureSuccessStatusCode(); client.DefaultRequestHeaders.Add("X-MarkAi-Settings", "1"); return client;
+        r.EnsureSuccessStatusCode(); return client;
     }
 
     public async ValueTask DisposeAsync()
@@ -193,6 +222,16 @@ public sealed class FakeTwilio
     public const string Cale = "/__fals/twilio";
     public const string Sid = "ACfa4e000000000000000000000000000";
     public const string Token = "fake-twilio-auth-token";
+    public const string UrlPublic = "https://markai.test/api";
+
+    /// <summary>X-Twilio-Signature for a POST to <paramref name="cale"/> (path + query) with this form, as Twilio computes it.</summary>
+    public static string Semnatura(string cale, IReadOnlyDictionary<string, string> form)
+    {
+        var sb = new System.Text.StringBuilder(UrlPublic + cale);
+        foreach (var kv in form.OrderBy(k => k.Key, StringComparer.Ordinal)) sb.Append(kv.Key).Append(kv.Value);
+        return Convert.ToBase64String(System.Security.Cryptography.HMACSHA1.HashData(
+            System.Text.Encoding.UTF8.GetBytes(Token), System.Text.Encoding.UTF8.GetBytes(sb.ToString())));
+    }
 
     public ConcurrentQueue<Dictionary<string, string>> Apeluri { get; } = new();
     public (int Status, int Cod, string Mesaj)? Eroare { get; set; }
@@ -205,4 +244,29 @@ public sealed class FakeTwilio
             if (Eroare is var (status, cod, mesaj)) return Results.Json(new { code = cod, message = mesaj, status }, statusCode: status);
             return Results.Json(new { sid = "CA" + Guid.NewGuid().ToString("N"), status = "queued" }, statusCode: 201);
         }).AllowAnonymous();
+}
+
+/// <summary>Keeps every formatted log line in memory.</summary>
+public sealed class JurnalCapturat : ILoggerProvider
+{
+    public ConcurrentQueue<string> Linii { get; } = new();
+    public ILogger CreateLogger(string categorie) => new Logger(this);
+    public void Dispose() { }
+
+    private sealed class Logger(JurnalCapturat jurnal) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel nivel) => true;
+        public void Log<TState>(LogLevel nivel, EventId id, TState state, Exception? ex, Func<TState, Exception?, string> format) =>
+            jurnal.Linii.Enqueue(format(state, ex) + (ex is null ? "" : " " + ex));
+    }
+}
+
+sealed class AntetCsrf : DelegatingHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage cerere, CancellationToken ct)
+    {
+        cerere.Headers.Add(Securitate.AntetCsrf, "1");
+        return base.SendAsync(cerere, ct);
+    }
 }

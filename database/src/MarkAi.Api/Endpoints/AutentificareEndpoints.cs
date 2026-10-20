@@ -11,7 +11,7 @@ namespace MarkAi.Api.Endpoints;
 
 public record InregistrareElev(string Nume, string Username, string Email, string Parola, string? Telefon);
 public record Autentificare(string Identificator, string Parola);
-public record ActualizareProfil(string? Nume, string? Telefon);
+public record ActualizareProfil(string? Nume);
 public record UtilizatorCurent(int Id, string Nume, string Username, string Email, string? Telefon, string Rol,
     string? StareProfesor, string? MotivRespingere);
 
@@ -30,7 +30,7 @@ public static class AutentificareEndpoints
             await db.SaveChangesAsync(ct);
             t.SeteazaCookie(r, t.Emite(u, Roluri.Elev));
             return Results.Created("/utilizatori/me", await Curent(db, u.Id, ct));
-        });
+        }).RequireRateLimiting(LimiteCereri.Inregistrare);
 
         // Multipart because the application includes a photo and a qualification document.
         g.MapPost("/autentificare/inregistrare-profesor", async ([FromForm] InregistrareProfesor c, MarkAiDbContext db, Stocare stocare,
@@ -50,10 +50,16 @@ public static class AutentificareEndpoints
                 PozaUrl = await stocare.SalveazaPozaAsync(c.Poza, ct), DovadaCalificareUrl = await stocare.SalveazaDovadaAsync(c.Dovada, ct),
                 Materii = materii.Select(id => new MentorMaterie { MaterieId = id }).ToList(),
             };
-            await db.SaveChangesAsync(ct);
+            try { await db.SaveChangesAsync(ct); }
+            catch
+            {
+                stocare.Sterge(u.ProfilMentor.PozaUrl); stocare.Sterge(u.ProfilMentor.DovadaCalificareUrl);
+                throw;
+            }
             t.SeteazaCookie(r, t.Emite(u, Roluri.Profesor));
             return Results.Created("/utilizatori/me", await Curent(db, u.Id, ct));
-        }).DisableAntiforgery();
+        }).DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(Stocare.MaxCerereMb * 1024 * 1024))
+            .RequireRateLimiting(LimiteCereri.Inregistrare);
 
         g.MapPost("/autentificare", async (Autentificare c, MarkAiDbContext db, Tokenuri t, HttpResponse r, CancellationToken ct) =>
         {
@@ -64,17 +70,25 @@ public static class AutentificareEndpoints
                 return Results.Json(new { status = 401, mesaj = "Email/utilizator sau parolă greșită." }, statusCode: 401);
             t.SeteazaCookie(r, t.Emite(u, Roluri.Principal(u.Roluri.Select(x => x.Rol.Nume))));
             return Results.Ok(await Curent(db, u.Id, ct));
-        });
+        }).RequireRateLimiting(LimiteCereri.Autentificare);
 
         g.MapPost("/autentificare/iesire", (Tokenuri t, HttpResponse r) => { t.StergeCookie(r); return Results.NoContent(); });
+
+        // Ends every session of the account, on all devices (e.g. after a lost phone).
+        g.MapPost("/autentificare/iesire-peste-tot", async (HttpContext h, MarkAiDbContext db, VersiuniSesiune versiuni, Tokenuri t, CancellationToken ct) =>
+        {
+            await versiuni.CresteAsync(db, h.User.Id(), ct);
+            t.StergeCookie(h.Response);
+            return Results.NoContent();
+        }).RequireAuthorization();
 
         var me = app.MapGroup("/utilizatori/me").WithTags("Autentificare").RequireAuthorization();
         me.MapGet("", async (HttpContext h, MarkAiDbContext db, CancellationToken ct) => await Curent(db, h.User.Id(), ct));
         me.MapPatch("", async (ActualizareProfil c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var u = await db.Utilizatori.SingleAsync(x => x.Id == h.User.Id(), ct);
+            // The phone number changes only through the account settings, which check that it is not someone else's.
             if (c.Nume is not null) u.Nume = Validare.Obligatoriu(c.Nume, "Nume", 120);
-            if (c.Telefon is not null) u.Telefon = Validare.Telefon(c.Telefon);
             await db.SaveChangesAsync(ct);
             return await Curent(db, u.Id, ct);
         });
@@ -105,10 +119,10 @@ public static class AutentificareEndpoints
         if ((parola ?? "").Length < 8) throw new CerereInvalida("Parola trebuie să aibă cel puțin 8 caractere.");
         var e = email.ToLower();
         var un = username.ToLower();
-        if (await db.Utilizatori.AnyAsync(x => x.Email.ToLower() == e, ct)) throw new InvalidOperationException("Există deja un cont cu acest email.");
-        if (await db.Utilizatori.AnyAsync(x => x.Username.ToLower() == un, ct)) throw new InvalidOperationException("Numele de utilizator este deja folosit.");
+        if (await db.Utilizatori.AnyAsync(x => x.Email.ToLower() == e, ct)) throw new Conflict("Există deja un cont cu acest email.");
+        if (await db.Utilizatori.AnyAsync(x => x.Username.ToLower() == un, ct)) throw new Conflict("Numele de utilizator este deja folosit.");
         if (telefon is not null && await db.Utilizatori.AnyAsync(x => x.Telefon == telefon, ct))
-            throw new InvalidOperationException("Numărul de telefon este deja asociat altui cont.");
+            throw new Conflict("Numărul de telefon este deja asociat altui cont.");
 
         var u = new Utilizator { Nume = nume, Username = username, Email = email, Telefon = telefon };
         u.ParolaHash = Parole.Hash(u, parola!);

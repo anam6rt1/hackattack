@@ -114,7 +114,7 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
     public async Task<string> IndiciiVorbire(CancellationToken ct)
     {
         var titluri = await db.Curs.AsNoTracking().Where(c => c.Publicat)
-            .Select(c => c.Capitol ?? c.Titlu).Distinct().Take(50).ToListAsync(ct);
+            .Select(c => c.Capitol ?? c.Titlu).Distinct().OrderBy(t => t).Take(50).ToListAsync(ct);
         return string.Join(", ", titluri);
     }
 

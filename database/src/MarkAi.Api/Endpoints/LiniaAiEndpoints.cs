@@ -6,6 +6,7 @@ using MarkAi.Api.Servicii;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using MarkAi.Data.Servicii;
 
 namespace MarkAi.Api.Endpoints;
 
@@ -26,18 +27,37 @@ public static class LiniaAiEndpoints
                 await VociTutor.CitesteAsync(db, h.User.Id(), ct), VociTutor.Toate, apeluri.Configurat && tutor.Configurat));
 
         // "Sună-mă": Twilio calls the student's saved number; the conversation then runs through the voice webhooks below.
-        g.MapPost("/linia-ai/suna-ma", async (HttpContext h, MarkAiDbContext db, TwilioApeluri apeluri, TutorTelefon tutor, CancellationToken ct) =>
+        // The session exists before Twilio dials, with a random key for this call's webhooks (only its hash is stored).
+        g.MapPost("/linia-ai/suna-ma", async (HttpContext h, IConfiguration cfg, MarkAiDbContext db, TwilioApeluri apeluri, TutorTelefon tutor, CancellationToken ct) =>
         {
-            if (!tutor.Configurat) throw new InvalidOperationException("Tutorele nu este încă pornit pe server.");
+            if (!tutor.Configurat) throw new Conflict("Tutorele nu este încă pornit pe server.");
             var uid = h.User.Id();
             var telefon = await db.Utilizatori.Where(u => u.Id == uid).Select(u => u.Telefon).SingleAsync(ct)
                 ?? throw new CerereInvalida("Salvează mai întâi numărul tău de telefon.");
-            var recent = DateTime.UtcNow.AddMinutes(-11);
+            var acum = DateTime.UtcNow;
+            var recent = acum.AddMinutes(-11);
             if (await db.Sesiuni.AnyAsync(s => s.UtilizatorId == uid && s.Canal == CanalTelefon && s.FinalizatLa == null && s.InceputLa > recent, ct))
-                throw new InvalidOperationException("Ai deja un apel în curs.");
-            await apeluri.SunaAsync(uid, telefon, ct);
+                throw new Conflict("Ai deja un apel în curs.");
+            if (await LimitaAtinsa(db, cfg, uid, acum, ct) is { } motiv) throw new Conflict(motiv);
+
+            var (cheie, sesiune) = SesiuneNoua(cfg, uid, acum, StareInitiat);
+            db.Sesiuni.Add(sesiune);
+            await db.SaveChangesAsync(ct);
+            try
+            {
+                var sid = await apeluri.SunaAsync(uid, telefon, sesiune.Id, cheie, ct);
+                // The first webhook may already have recorded it; it is the same CallSid either way.
+                await db.Sesiuni.Where(s => s.Id == sesiune.Id && s.TwilioCallSid == null)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.TwilioCallSid, sid), ct);
+            }
+            catch
+            {
+                await db.Sesiuni.Where(s => s.Id == sesiune.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, StareEsuat).SetProperty(x => x.FinalizatLa, DateTime.UtcNow), CancellationToken.None);
+                throw;
+            }
             return new { mesaj = $"Te sunăm acum pe {telefon}. Răspunde la telefon!" };
-        }).RequireAuthorization(Politici.Elev);
+        }).RequireAuthorization(Politici.Elev).RequireRateLimiting(LimiteCereri.Telefon);
 
         // The same settings the student can change by voice during a call.
         g.MapPut("/utilizatori/me/voce-tutor", async (SetariVoce c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
@@ -50,7 +70,7 @@ public static class LiniaAiEndpoints
         g.MapGet("/sesiuni", async (string? canal, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var uid = h.User.Id();
-            var q = db.Sesiuni.AsNoTracking().Where(s => s.UtilizatorId == uid);
+            var q = db.Sesiuni.AsNoTracking().Where(s => s.UtilizatorId == uid && s.Status != StareEsuat);
             if (!string.IsNullOrEmpty(canal)) q = q.Where(s => s.Canal == canal);
             var apeluri = await q.OrderByDescending(s => s.InceputLa)
                 .Select(s => new ApelDto(s.Id, s.InceputLa, s.FinalizatLa, s.Status, s.Curs == null ? null : s.Curs.Titlu, s.Mesaje.Count,
@@ -70,7 +90,9 @@ public static class LiniaAiEndpoints
 
         // Twilio voice webhooks. A call is a loop: the tutor speaks inside a <Gather> that listens for the
         // student's answer; Twilio posts the transcribed speech to /raspuns, which replies with the next turn.
-        // Every request must carry a valid Twilio signature.
+        // Every request is tied to one session (?s=) and authenticated by Twilio's signature or by that session's key (?k=),
+        // and must come from the session's own call (CallSid). A trial account fetches TwiML through a proxy whose
+        // signature cannot match our URL, so the key is what authenticates those requests.
         var twilio = app.MapGroup("/twilio/voce").WithTags("Linia AI").DisableAntiforgery();
         var urlPublic = (app.Configuration["Twilio:UrlPublic"] ?? "").TrimEnd('/');
         if (urlPublic.StartsWith("https://")) UrlRaspuns = urlPublic + "/twilio/voce/raspuns";
@@ -79,36 +101,52 @@ public static class LiniaAiEndpoints
         twilio.MapMethods("", ["GET", "POST"], async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, CancellationToken ct) =>
         {
             var form = await ParametriAsync(req, ct);
-            var numar = NumarElev(form);
-            if (!CerereValida(req, form, numar, cfg)) return Results.StatusCode(403);
-            var callSid = form["CallSid"].ToString();
-            var elev = await db.Utilizatori.SingleOrDefaultAsync(u => u.Telefon == numar, ct);
-            if (elev is null)
-                return Twiml(cfg, Spune("Bună! Acest număr nu este asociat unui cont. Adaugă-ți numărul de telefon pe pagina Linia AI de pe site și sună din nou.", VociTutor.Implicit), new XElement("Hangup"));
-            if (!tutor.Configurat)
-                return Twiml(cfg, Spune($"Bună, {elev.Nume.Split(' ')[0]}! Tutorele nu este încă pornit pe server. Te rugăm să revii mai târziu.", await VociTutor.CitesteAsync(db, elev.Id, ct)), new XElement("Hangup"));
-
-            var sesiune = await db.Sesiuni.SingleOrDefaultAsync(s => s.TwilioCallSid == callSid, ct);
-            if (sesiune is null)
+            Sesiune? sesiune;
+            string cheie;
+            if (req.Query.ContainsKey("s"))
             {
-                sesiune = new Sesiune { UtilizatorId = elev.Id, Canal = CanalTelefon, Status = "in_curs", TwilioCallSid = callSid, InceputLa = DateTime.UtcNow };
+                // "Sună-mă": the session was created before dialling.
+                sesiune = await SesiuneAutentica(req, form, db, cfg, ct);
+                if (sesiune is null) return Results.StatusCode(403);
+                cheie = req.Query["k"].ToString();
+                if (sesiune.Status == StareInitiat)
+                    await db.Sesiuni.Where(s => s.Id == sesiune.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, StareInCurs), ct);
+            }
+            else
+            {
+                // The student calls the number: only Twilio's own signature is accepted, and the caller must be a known student.
+                if (!SemnaturaValida(req, form, cfg)) return Results.StatusCode(403);
+                var callSid = form["CallSid"].ToString();
+                if (callSid.Length == 0) return Results.StatusCode(403);
+                var elevApelant = await db.Utilizatori.SingleOrDefaultAsync(u => u.Telefon == form["From"].ToString(), ct);
+                if (elevApelant is null)
+                    return Twiml(cfg, Spune("Bună! Acest număr nu este asociat unui cont. Adaugă-ți numărul de telefon pe pagina Linia AI de pe site și sună din nou.", VociTutor.Implicit), new XElement("Hangup"));
+                if (await LimitaAtinsa(db, cfg, elevApelant.Id, DateTime.UtcNow, ct) is { } motiv)
+                    return Twiml(cfg, Spune(motiv, await VociTutor.CitesteAsync(db, elevApelant.Id, ct)), new XElement("Hangup"));
+                sesiune = await db.Sesiuni.SingleOrDefaultAsync(s => s.TwilioCallSid == callSid, ct);
+                if (sesiune is not null) return Results.StatusCode(403); // a replay of a call that already started
+                (cheie, sesiune) = SesiuneNoua(cfg, elevApelant.Id, DateTime.UtcNow, StareInCurs);
+                sesiune.TwilioCallSid = callSid;
                 db.Sesiuni.Add(sesiune);
                 await db.SaveChangesAsync(ct);
             }
-            var salut = await tutor.SalutAsync(elev, ct);
+
+            var elev = await db.Utilizatori.SingleAsync(u => u.Id == sesiune.UtilizatorId, ct);
             var voce = await VociTutor.CitesteAsync(db, elev.Id, ct);
+            if (!tutor.Configurat)
+                return Twiml(cfg, Spune($"Bună, {elev.Nume.Split(' ')[0]}! Tutorele nu este încă pornit pe server. Te rugăm să revii mai târziu.", voce), new XElement("Hangup"));
+            var salut = await tutor.SalutAsync(elev, ct);
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, salut, ct);
-            return Twiml(cfg, Asculta(salut, voce, await tutor.IndiciiVorbire(ct), numar),
+            return Twiml(cfg, Asculta(salut, voce, await tutor.IndiciiVorbire(ct), sesiune.Id, cheie),
                 Spune("Nu te-am auzit. Sună din nou oricând!", voce), new XElement("Hangup"));
         });
 
         twilio.MapMethods("/raspuns", ["GET", "POST"], async (HttpRequest req, IConfiguration cfg, MarkAiDbContext db, TutorTelefon tutor, ILogger<TutorTelefon> log, CancellationToken ct) =>
         {
             var form = await ParametriAsync(req, ct);
-            var numar = NumarElev(form);
-            if (!CerereValida(req, form, numar, cfg)) return Results.StatusCode(403);
-            var sesiune = await db.Sesiuni.SingleOrDefaultAsync(s => s.TwilioCallSid == form["CallSid"].ToString(), ct);
-            if (sesiune is null) return Twiml(cfg, new XElement("Hangup"));
+            var sesiune = await SesiuneAutentica(req, form, db, cfg, ct);
+            if (sesiune is null) return Results.StatusCode(403);
+            var cheie = req.Query["k"].ToString();
             var indicii = await tutor.IndiciiVorbire(ct);
             var voce = await VociTutor.CitesteAsync(db, sesiune.UtilizatorId, ct);
 
@@ -131,7 +169,7 @@ public static class LiniaAiEndpoints
                 if (ultimulPas) return await Inchide(TutorTelefon.Incheiere, voce);
                 const string repeta = "Nu te-am auzit bine. Poți să repeți?";
                 await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, repeta, ct);
-                return Twiml(cfg, Asculta(repeta, voce, indicii, numar), Spune("Pe curând!", voce), new XElement("Hangup"));
+                return Twiml(cfg, Asculta(repeta, voce, indicii, sesiune.Id, cheie), Spune("Pe curând!", voce), new XElement("Hangup"));
             }
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorElev, vorbit, ct);
 
@@ -146,13 +184,13 @@ public static class LiniaAiEndpoints
                 if (ultimulPas) return await Inchide(TutorTelefon.Incheiere, voce);
                 const string scuze = "Îmi pare rău, am avut o problemă de conexiune. Poți să repeți ultima întrebare?";
                 await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, scuze, ct);
-                return Twiml(cfg, Asculta(scuze, voce, indicii, numar));
+                return Twiml(cfg, Asculta(scuze, voce, indicii, sesiune.Id, cheie));
             }
 
             await SalveazaMesaj(db, sesiune.Id, TutorTelefon.ExpeditorTutor, raspuns.Text, ct);
             // A voice change requested by the student is heard right away and remembered for the next calls.
             if (raspuns.Voce != voce) await VociTutor.SalveazaAsync(db, sesiune.UtilizatorId, raspuns.Voce, ct);
-            if (!raspuns.Final) return Twiml(cfg, Asculta(raspuns.Text, raspuns.Voce, indicii, numar), Spune("Pe curând!", raspuns.Voce), new XElement("Hangup"));
+            if (!raspuns.Final) return Twiml(cfg, Asculta(raspuns.Text, raspuns.Voce, indicii, sesiune.Id, cheie), Spune("Pe curând!", raspuns.Voce), new XElement("Hangup"));
             await Incheie(db, sesiune.Id, ct);
             return Twiml(cfg, Spune(raspuns.Text, raspuns.Voce), new XElement("Hangup"));
         });
@@ -165,8 +203,15 @@ public static class LiniaAiEndpoints
             if (!SemnaturaValida(req, form, cfg)) return Results.StatusCode(403);
             if (form["CallStatus"].ToString() is "completed" or "busy" or "failed" or "no-answer" or "canceled")
             {
-                var id = await db.Sesiuni.Where(s => s.TwilioCallSid == form["CallSid"].ToString()).Select(s => (int?)s.Id).SingleOrDefaultAsync(ct);
-                if (id is not null) await Incheie(db, id.Value, ct);
+                var callSid = form["CallSid"].ToString();
+                var id = await db.Sesiuni.Where(s => s.TwilioCallSid == callSid).Select(s => (int?)s.Id).SingleOrDefaultAsync(ct);
+                if (id is not null)
+                {
+                    await Incheie(db, id.Value, ct);
+                    // The call length counts toward the daily minute cap.
+                    if (int.TryParse(form["CallDuration"], out var secunde))
+                        await db.Sesiuni.Where(s => s.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.DurataSecunde, secunde), ct);
+                }
             }
             return Results.NoContent();
         });
@@ -191,9 +236,9 @@ public static class LiniaAiEndpoints
         return new("Say", new XAttribute("language", "ro-RO"), new XAttribute("voice", VociTutor.Gaseste(voce.Voce).Twilio), continut);
     }
 
-    private static XElement Asculta(string text, SetariVoce voce, string indicii, string numar) =>
+    private static XElement Asculta(string text, SetariVoce voce, string indicii, int sesiuneId, string cheie) =>
         new("Gather", new XAttribute("input", "speech"), new XAttribute("language", "ro-RO"), new XAttribute("speechTimeout", "auto"),
-            new XAttribute("action", $"{UrlRaspuns}?k={Uri.EscapeDataString(CheieApel(numar) ?? "")}"), new XAttribute("method", "POST"), new XAttribute("hints", indicii),
+            new XAttribute("action", $"{UrlRaspuns}?{ParametriApel(sesiuneId, cheie)}"), new XAttribute("method", "POST"), new XAttribute("hints", indicii),
             Spune(text, voce));
 
     // Absolute when the API sits behind a prefix (e.g. https://site/api via the website's proxy), else root-relative.
@@ -206,29 +251,66 @@ public static class LiniaAiEndpoints
     private static async Task<IFormCollection> ParametriAsync(HttpRequest req, CancellationToken ct) =>
         req.HasFormContentType ? await req.ReadFormAsync(ct) : new FormCollection(req.Query.ToDictionary(q => q.Key, q => q.Value));
 
-    // Incoming call: the student is the caller. "Sună-mă" (outbound-api): the student is the one being called.
-    private static string NumarElev(IFormCollection form) =>
-        form["Direction"].ToString().StartsWith("outbound") ? form["To"].ToString() : form["From"].ToString();
+    public const string StareInitiat = "initiat";
+    public const string StareInCurs = "in_curs";
+    public const string StareEsuat = "esuat";
 
-    /// <summary>
-    /// A secret for one student's calls, put in the TwiML URLs (?k=...). It authenticates requests that reach us through the
-    /// trial account's proxy, whose X-Twilio-Signature cannot match our URL; it is tied to the number, so it cannot start a call as someone else.
-    /// </summary>
-    public static string? CheieApel(string numar)
+    /// <summary>The query string of every webhook URL of one call.</summary>
+    public static string ParametriApel(int sesiuneId, string cheie) => $"s={sesiuneId}&k={Uri.EscapeDataString(cheie)}";
+
+    /// <summary>A phone session with a fresh random key; the key is valid until the longest allowed call would be over.</summary>
+    private static (string Cheie, Sesiune Sesiune) SesiuneNoua(IConfiguration cfg, int utilizatorId, DateTime acum, string stare)
     {
-        var token = Environment.GetEnvironmentVariable("TWILIO_AUTH_TOKEN");
-        if (string.IsNullOrEmpty(token)) return null;
-        return Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes("markai-voce:" + numar)))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var cheie = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return (cheie, new Sesiune
+        {
+            UtilizatorId = utilizatorId, Canal = CanalTelefon, Status = stare, InceputLa = acum,
+            CheieHash = HashCheie(cheie), CheieExpiraLa = acum + LimiteApel.Din(cfg).Durata + TimeSpan.FromMinutes(5),
+        });
     }
 
-    private static bool CerereValida(HttpRequest req, IFormCollection form, string numar, IConfiguration cfg)
+    private static string HashCheie(string cheie) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cheie)));
+
+    /// <summary>
+    /// The open session named by ?s=, if this request is authentic for it: Twilio's signature or the session's unexpired key,
+    /// and the CallSid of the session's own call. The first webhook of a "Sună-mă" call may arrive before Twilio's API
+    /// answer, so it records the CallSid.
+    /// </summary>
+    private static async Task<Sesiune?> SesiuneAutentica(HttpRequest req, IFormCollection form, MarkAiDbContext db, IConfiguration cfg, CancellationToken ct)
     {
-        if (SemnaturaValida(req, form, cfg)) return true;
-        var cheie = CheieApel(numar);
-        var primita = req.Query["k"].ToString();
-        return cheie is not null && numar.Length > 0 && primita.Length > 0
-            && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(cheie), Encoding.UTF8.GetBytes(primita));
+        if (!int.TryParse(req.Query["s"], out var id)) return null;
+        var sesiune = await db.Sesiuni.SingleOrDefaultAsync(s => s.Id == id && s.Canal == CanalTelefon, ct);
+        var callSid = form["CallSid"].ToString();
+        if (sesiune is null || sesiune.FinalizatLa is not null || callSid.Length == 0) return null;
+        if (sesiune.TwilioCallSid is not null && sesiune.TwilioCallSid != callSid) return null;
+        var cheie = req.Query["k"].ToString();
+        var cheieValida = sesiune.CheieHash is not null && sesiune.CheieExpiraLa > DateTime.UtcNow && cheie.Length > 0
+            && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(HashCheie(cheie)), Encoding.ASCII.GetBytes(sesiune.CheieHash));
+        if (!cheieValida && !SemnaturaValida(req, form, cfg)) return null;
+        if (sesiune.TwilioCallSid is null)
+        {
+            sesiune.TwilioCallSid = callSid;
+            await db.SaveChangesAsync(ct);
+        }
+        return sesiune;
+    }
+
+    /// <summary>Why a student may not get another call right now (daily calls per student, daily minutes in total), or null.</summary>
+    private static async Task<string?> LimitaAtinsa(MarkAiDbContext db, IConfiguration cfg, int utilizatorId, DateTime acum, CancellationToken ct)
+    {
+        var deLa = acum.AddHours(-24);
+        var apeluriPeZi = cfg.GetValue("Twilio:ApeluriPeZi", 3);
+        var aleElevului = await db.Sesiuni.CountAsync(s => s.UtilizatorId == utilizatorId && s.Canal == CanalTelefon
+            && s.InceputLa >= deLa && s.Status != StareEsuat, ct);
+        if (aleElevului >= apeluriPeZi)
+            return $"Ai folosit toate cele {apeluriPeZi} apeluri din ultimele 24 de ore. Încearcă din nou mai târziu.";
+        // Finished calls count with Twilio's reported length; calls in progress with the time elapsed so far.
+        var apeluri = await db.Sesiuni.AsNoTracking().Where(s => s.Canal == CanalTelefon && s.InceputLa >= deLa && s.Status != StareEsuat)
+            .Select(s => new { s.InceputLa, s.FinalizatLa, s.DurataSecunde }).ToListAsync(ct);
+        var secunde = apeluri.Sum(s => s.DurataSecunde ?? ((s.FinalizatLa ?? acum) - s.InceputLa).TotalSeconds);
+        return secunde >= cfg.GetValue("Twilio:MinutePeZi", 20) * 60
+            ? "Linia AI și-a atins limita de minute pentru azi. Încearcă din nou mâine."
+            : null;
     }
 
     /// <summary>

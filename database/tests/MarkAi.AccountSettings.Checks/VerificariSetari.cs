@@ -18,9 +18,9 @@ static class VerificariSetari
         profile = await student.GetFromJsonAsync<JsonElement>("/utilizatori/me/setari");
         h.Check(profile.GetProperty("utilizator").GetProperty("telefon").GetString() == "+40722111222", "phone normalized and persisted");
         h.Check((await student.PatchAsJsonAsync("/utilizatori/me/setari", new { nume="George", username="irina", telefon="" })).StatusCode == HttpStatusCode.BadRequest, "duplicate username rejected");
-        student.DefaultRequestHeaders.Remove("X-MarkAi-Settings");
+        student.DefaultRequestHeaders.Remove("X-MarkAi");
         h.Check((await student.PatchAsJsonAsync("/utilizatori/me/setari", new { nume="George", username="george_nou", telefon="" })).StatusCode == HttpStatusCode.Forbidden, "cross-site simple mutation rejected");
-        student.DefaultRequestHeaders.Add("X-MarkAi-Settings", "1");
+        student.DefaultRequestHeaders.Add("X-MarkAi", "1");
         h.Check((await adminUser.GetAsync("/utilizatori/me/setari")).IsSuccessStatusCode, "administrator can edit own account");
         var mentor = await teacher.GetFromJsonAsync<JsonElement>("/utilizatori/me/setari");
         h.Check(mentor.GetProperty("profesor").GetProperty("areDovada").GetBoolean(), "teacher current qualification state returned");
@@ -39,7 +39,7 @@ static class VerificariSetari
         h.Check((await student.PostAsJsonAsync("/utilizatori/me/setari/confirmari/finalizeaza", new {id,cod="bad"})).StatusCode == HttpStatusCode.BadRequest, "incorrect OTP rejected");
         h.Check((await student.PostAsJsonAsync("/utilizatori/me/setari/confirmari/finalizeaza", new {id,cod=code})).IsSuccessStatusCode, "password changed only after correct OTP");
         h.Check((await student.PostAsJsonAsync("/utilizatori/me/setari/confirmari/finalizeaza", new {id,cod=code})).StatusCode == HttpStatusCode.BadRequest, "used OTP cannot be replayed");
-        using var verifyLogin = new HttpClient { BaseAddress=student.BaseAddress };
+        using var verifyLogin = h.Anonim();
         h.Check((await verifyLogin.PostAsJsonAsync("/autentificare",new {identificator="george_nou",parola="New-test-password-2026!"})).IsSuccessStatusCode, "new password works for login");
         h.Check((await verifyLogin.PostAsJsonAsync("/autentificare",new {identificator="george_nou",parola=Harness.ParolaTest})).StatusCode == HttpStatusCode.Unauthorized, "old password no longer works");
         h.Check((await student.PostAsJsonAsync("/utilizatori/me/setari/confirmari",new {scop="email",parolaActuala="New-test-password-2026!",valoreNoua="new@example.invalid"})).StatusCode == HttpStatusCode.BadRequest, "challenge resend throttled");

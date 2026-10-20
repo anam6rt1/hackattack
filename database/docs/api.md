@@ -33,9 +33,28 @@ lista completă, cu valori de exemplu, e în [markai.env.example](../../markai.e
 Setări din `appsettings.json`: `Frontend:Origini` (CORS), `Autentificare:CookieSecure` (`true` când frontendul e pe alt domeniu, cu HTTPS),
 `Claude:Model`, `Claude:ModelTelefon`, `Gemini:Model`, `Gemini:ModelTelefon` (implicit `gemini-flash-latest`), `LiniaAi:Numar` (numărul afișat elevilor), `Twilio:UrlPublic` (adresa publică folosită la semnătură), `Stocare:Director` (poze și diplome).
 
+## Securitate (pentru clienți)
+
+- **Antetul `X-MarkAi: 1`** e obligatoriu pe orice cerere care modifică ceva (POST/PUT/PATCH/DELETE), altfel 403.
+  `frontend/lib/api.js` îl trimite mereu; un formular de pe alt site nu îl poate adăuga. Excepții: `/twilio/*` (semnat) și `/hub/*`.
+- **Sesiunea** e cookie-ul `markai_sesiune` (httpOnly, SameSite=Lax, Secure în modul public). Tokenul conține versiunea sesiunii
+  contului; `POST /autentificare/iesire-peste-tot`, schimbarea parolei sau a emailului o cresc și închid sesiunile de pe celelalte dispozitive.
+- **Limite**: intrare în cont 10/min per IP, conturi noi 5/oră per IP, coduri email 6/oră, regenerări AI 10/min, „Sună-mă” 2/min,
+  orice cerere 600/min; peste limită → 429 cu `Retry-After`. Valori în `Limite:*` (vezi `markai.env.example`). IP-ul real vine
+  din `X-Forwarded-For` (un singur proxy de încredere: Next.js pe localhost).
+- **Erori**: 400 (`CerereInvalida`), 404, 409 (`Conflict`) au mesaje pentru utilizator; orice altă eroare devine 500 cu un mesaj
+  generic, iar detaliile rămân în jurnal. Cererile au cel mult 2 MB (încărcările de fișiere, 16 MB).
+- **Fișiere**: tipul e verificat după primii octeți, nu doar după extensie; documentele se descarcă (`attachment`), nu se afișează.
+  Poza unui profesor e publică doar după aprobare (în rest o vede doar el și adminul).
+- **Telefonul** se schimbă doar prin `PUT /utilizatori/me/setari/telefon` (verifică să nu fie al altui cont).
+
 ## Roluri
 
 - **elev**: învață (progres, XP, quiz), Triviador, rezervări.
+
+Testul unei lecții: `POST /cursuri/{id}/quiz` pornește (sau reia) o încercare cu 5 întrebări alese aleator, fără răspunsuri;
+`POST /cursuri/{id}/quiz/{incercareId}/raspuns` spune doar dacă răspunsul e corect. După ultimul răspuns vin corecturile și
+explicațiile; lecția e trecută (100 XP, o singură dată) cu 4 din 5 (80%). Între două încercări e o pauză (`Limite:PauzaQuizSecunde`, 60 s).
 - **profesor**: se înscrie cu materii, bio, poză și dovada calificării; până la aprobare primește 403 la toate rutele de profesor
   (frontendul îl trimite la `/in-asteptare`). Aprobat: programează ședințe (plătite la tariful fix sau pro bono) și editează lecțiile materiilor predate.
 - **admin**: aprobă/respinge profesori, stabilește onorariul negociat (≤ tariful elevului), editează orice conținut.
@@ -61,7 +80,8 @@ altfel Gemini dacă există `GEMINI_API_KEY`. Promptul și schema JSON sunt acel
 `POST /cursuri` și `PUT /cursuri/{id}` (când se schimbă materialul) pun lecția într-o coadă în memorie; un `BackgroundService`
 cere lui Claude întrebări grilă + estimări (ieșire JSON structurată, cu fallback pe server la refuz) și le salvează cu `sursa = 'ai'`.
 Întrebările AI anterioare sunt dezactivate, nu șterse. O întrebare editată de om devine `manual` și nu mai e înlocuită.
-Starea: `GET /cursuri/{id}/generare`.
+Starea: `GET /cursuri/{id}/generare`. Un profesor poate porni cel mult `Limite:GenerariAiPeZi` (10) generări în 24 de ore
+(adminii nu au limită); peste limită, regenerarea cerută primește 409, iar cea automată după o editare nu pornește și starea spune de ce.
 
 ## Triviador
 
@@ -94,6 +114,13 @@ Pe un cont Twilio trial elevii nu pot suna la un număr; în schimb apasă **Sun
 cere Twilio să îi sune (`POST /linia-ai/suna-ma` → Twilio REST `Calls.json`). Când elevul răspunde, Twilio cere
 `/twilio/voce` (cu `Direction=outbound-api`, elevul e `To`) și conversația continuă ca la un apel primit.
 Pe pagină apare mesajul că apelarea unui număr va fi disponibilă în curând.
+
+Fiecare apel are propria sesiune, creată înainte ca Twilio să sune, cu o cheie aleatorie (în baza de date e doar hash-ul ei).
+Toate adresele webhook ale apelului au forma `/twilio/voce...?s={sesiune}&k={cheie}`; o cerere e acceptată doar cu cheia sesiunii
+(nexpirată) sau cu semnătura Twilio, și doar pentru `CallSid`-ul acelui apel. Contul trial cere TwiML printr-un proxy a cărui
+semnătură nu se potrivește cu adresa noastră, de aceea cheia din adresă e necesară. Cheia nu apare niciodată în jurnale.
+Un apel primit (elevul sună el) trebuie să aibă semnătura Twilio. Limite: `Twilio:ApeluriPeZi` (3 per elev în 24 de ore) și
+`Twilio:MinutePeZi` (20 de minute în total în 24 de ore, după durata raportată de Twilio la final).
 
 Limitele trial (`Twilio:Trial = true`, implicit): Twilio așteaptă răspunsul serverului doar 5 s (tutorele are 4 s,
 altfel elevul aude „poți să repeți?”), un apel poate urma cel mult 10 documente TwiML (`Twilio:LimitaPasi`) și durează

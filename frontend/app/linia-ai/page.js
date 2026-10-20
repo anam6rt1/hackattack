@@ -35,7 +35,7 @@ function Telefonul({ utilizator, linie, onSalvat }) {
   async function salveaza(e) {
     e.preventDefault()
     try {
-      await api('/utilizatori/me', { metoda: 'PATCH', corp: { telefon } })
+      await api('/utilizatori/me/setari/telefon', { metoda: 'PUT', corp: { telefon } })
       await reincarca()
       onSalvat()
       setMesaj({ ok: true, text: 'Numărul a fost salvat.' })

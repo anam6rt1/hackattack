@@ -23,6 +23,14 @@ public partial class Sesiune
 
     public DateTime? FinalizatLa { get; set; }
 
+    /// <summary>Hash of the random key in the webhook URLs of an outbound call; the key itself is never stored.</summary>
+    public string? CheieHash { get; set; }
+
+    public DateTime? CheieExpiraLa { get; set; }
+
+    /// <summary>Call length reported by Twilio when the call ends; counts toward the daily minute cap.</summary>
+    public int? DurataSecunde { get; set; }
+
     public virtual Curs? Curs { get; set; }
 
     public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
