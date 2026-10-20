@@ -28,7 +28,7 @@ export default function PaginaMateriale() {
         <section className="tv-erou">
           <span className="tv-erou-pill">Materiale</span>
           <h1>Alege o materie și pornește pe hartă.</h1>
-          <p>Fiecare capitol e o insulă. Termini lecțiile una câte una și se deschide podul spre următoarea.</p>
+          <p>Fiecare materie are lecții făcute de profesori. O lecție e o hartă cu insule, câte una pentru fiecare capitol, și poți începe cu oricare.</p>
           <svg className="tv-decor" viewBox="0 0 520 220" aria-hidden="true" dangerouslySetInnerHTML={{ __html: DECOR }} />
         </section>
         <div className="tv-coala">
@@ -40,7 +40,7 @@ export default function PaginaMateriale() {
                 <h3>{m.denumire}</h3>
                 {m.descriere && <p className="tv-indiciu">{m.descriere}</p>}
                 <div className="tv-bara tv-bara-verde"><i style={{ width: `${m.numarCursuri ? (m.cursuriCompletate / m.numarCursuri) * 100 : 0}%` }} /></div>
-                <span className="tv-cine">{m.cursuriCompletate} din {m.numarCursuri} lecții terminate</span>
+                <span className="tv-cine">{m.cursuriCompletate} din {m.numarCursuri} capitole terminate</span>
               </Link>
             ))}
             {materii?.length === 0 && <p className="tv-gol">Încă nu există materii.</p>}

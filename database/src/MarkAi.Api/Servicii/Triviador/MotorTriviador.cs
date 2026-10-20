@@ -2,13 +2,15 @@ using System.Collections.Concurrent;
 using MarkAi.Api.Hubs;
 using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
+using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Api.Servicii.Triviador;
 
-public sealed record SetariCamera(IReadOnlyList<int> MaterieIds, int Insule, int MaxJucatori);
+/// <summary>Clasa: only Lecții of this grade (IX–XII or Bac); null = all. Public/organisation visibility is ignored on purpose.</summary>
+public sealed record SetariCamera(IReadOnlyList<int> MaterieIds, int Insule, int MaxJucatori, string? Clasa = null);
 
 public sealed record InsulaPublica(string Id, string Nume, string Autor, int X, int Y, int Seed, string Semn);
 public sealed record HartaPublica(int Latime, int Inaltime, IReadOnlyList<InsulaPublica> Insule, IReadOnlyList<string[]> Poduri);
@@ -65,6 +67,8 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
         if (s.Insule is < GeneratorHarta.MinInsule or > GeneratorHarta.MaxInsule)
             throw new CerereInvalida($"Harta are între {GeneratorHarta.MinInsule} și {GeneratorHarta.MaxInsule} de insule.");
         if (s.MaxJucatori is < MinJucatori or > MaxJucatoriCamera) throw new CerereInvalida($"O cameră are între {MinJucatori} și {MaxJucatoriCamera} jucători.");
+        var clasa = string.IsNullOrWhiteSpace(s.Clasa) ? null : s.Clasa.Trim();
+        if (clasa is not null && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
         Curata();
         if (_camere.Count >= MaxCamere) throw new Conflict("Sunt prea multe camere deschise acum. Încearcă din nou în câteva minute.");
         if (_camere.Values.Count(c => c.GazdaId == gazdaId) >= MaxCamerePeGazda)
@@ -75,21 +79,23 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
         var materii = await db.Materii.AsNoTracking().Where(m => materieIds.Contains(m.Id)).OrderBy(m => m.Ordine)
             .Select(m => new { m.Id, m.Denumire }).ToListAsync(ct);
         if (materii.Count != materieIds.Count) throw new CerereInvalida("Materie inexistentă.");
-        // Islands are named after the chapters (or lessons) of the chosen subjects, as on the lesson map.
-        var cursuri = await db.Curs.AsNoTracking().Where(c => materieIds.Contains(c.MaterieId) && c.Publicat)
-            .OrderBy(c => c.MaterieId).ThenBy(c => c.Ordine).Select(c => new { c.Id, Nume = c.Capitol ?? c.Titlu, c.MaterieId }).ToListAsync(ct);
+        // Islands are named after the Lecții of the chosen subjects (and grade); their chapters' questions are asked there.
+        var cursuri = await db.Curs.AsNoTracking()
+            .Where(c => materieIds.Contains(c.MaterieId) && c.Publicat && c.Parcurs.Publicat && (clasa == null || c.Parcurs.Clasa == clasa))
+            .OrderBy(c => c.MaterieId).ThenBy(c => c.Parcurs.Ordine).ThenBy(c => c.Ordine)
+            .Select(c => new { c.Id, c.ParcursId, Nume = c.Parcurs.Titlu, c.MaterieId }).ToListAsync(ct);
         var rnd = new Random();
-        var capitole = cursuri.GroupBy(c => (c.MaterieId, c.Nume))
-            .Select(g => (g.Key.Nume, materii.Count > 1 ? materii.First(m => m.Id == g.Key.MaterieId).Denumire : $"{g.Count()} {(g.Count() == 1 ? "lecție" : "lecții")}",
+        var capitole = cursuri.GroupBy(c => (c.MaterieId, c.ParcursId, c.Nume))
+            .Select(g => (g.Key.Nume, materii.Count > 1 ? materii.First(m => m.Id == g.Key.MaterieId).Denumire : $"{g.Count()} {(g.Count() == 1 ? "capitol" : "capitole")}",
                 g.Select(c => c.Id).ToArray()))
             .OrderBy(_ => rnd.Next()).ToList();
-        var pachet = await PachetIntrebari.IncarcaAsync(db, materieIds, ct);
+        var pachet = await PachetIntrebari.IncarcaAsync(db, materieIds, clasa is null ? null : cursuri.Select(c => c.Id).ToList(), ct);
         var harta = GeneratorHarta.Genereaza(s.Insule, capitole, rnd);
 
         while (true)
         {
             var cod = new string(Enumerable.Range(0, 6).Select(_ => Alfabet[rnd.Next(Alfabet.Length)]).ToArray());
-            var camera = new Camera(cod, gazdaId, string.Join(", ", materii.Select(m => m.Denumire)), s.MaxJucatori, harta, pachet, rnd, Acum());
+            var camera = new Camera(cod, gazdaId, string.Join(", ", materii.Select(m => m.Denumire)) + (clasa switch { null => "", "Bac" => " · Bac", _ => $" · clasa a {clasa}-a" }), s.MaxJucatori, harta, pachet, rnd, Acum());
             if (_camere.TryAdd(cod, camera))
             {
                 // Closed if nobody ever joins.
@@ -270,6 +276,10 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
 
     /// <summary>Integration checks only: whether a room is still open, without joining it.</summary>
     internal bool Exista(string cod) => _camere.ContainsKey(cod);
+
+    /// <summary>For checks: the island names and room title of an open room.</summary>
+    internal (string Materie, string[] Insule)? Descriere(string cod) =>
+        _camere.TryGetValue(cod, out var c) ? (c.Materie, c.Harta.Insule.Select(i => i.Nume).ToArray()) : null;
 
     /// <summary>Integration checks only (InternalsVisibleTo): arranges the board, e.g. an island owner or the round, then publishes.</summary>
     internal Task PentruVerificariAsync(string cod, string? insula = null, string? proprietar = null, int? runda = null)

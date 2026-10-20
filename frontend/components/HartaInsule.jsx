@@ -1,20 +1,21 @@
 "use client";
-// components/HartaInsule.jsx — harta cu insule a unei materii (Next.js App Router + Tailwind).
-// Fiecare insulă = un capitol (ex. „Harap-Alb”), fiecare cerc de pe insulă = o lecție (Curs din API).
-// Harta are 3 locuri pentru insule; dacă materia are mai multe capitole, harta se răsfoiește pe pagini.
+// components/HartaInsule.jsx — harta unei Lecții (Next.js App Router + Tailwind).
+// Fiecare insulă = un capitol al Lecției (Curs din API), cu un singur buton care deschide videoclipul, notițele și testul.
+// Toate capitolele sunt deschise; ordinea e doar recomandată, iar următorul capitol recomandat e evidențiat.
+// Harta are 3 locuri pentru insule; dacă Lecția are mai multe capitole, harta se răsfoiește pe pagini.
 import { useCallback, useMemo, useState } from "react";
 import { ACTIVITATI } from "@/components/Iconite";
 import TabNivel from "@/components/TabNivel";
 
 // Harta e un singur SVG de 1000 x 625 unități (raport 16:10).
 // Fiecare insulă e desenată în coordonate proprii („locale”), apoi mutată cu tx, ty și micșorată cu scara.
-// Pozițiile lecțiilor, titlului și lacătului sunt tot în coordonate locale.
-// Ordinea lecțiilor (Curs.ordine) = ordinea de deblocare.
+// Pozițiile butonului și titlului sunt tot în coordonate locale.
+// Ordinea capitolelor (Curs.ordine) = ordinea recomandată.
 const L = 1000;
 const H = 625;
 const PE_PAGINA = 3;
 
-// Cele 3 locuri de pe hartă. `id` alege desenele (DECOR) când capitolul e chiar opera desenată.
+// Cele 3 locuri de pe hartă. `id` alege desenele (DECOR) când Lecția (sau eticheta capitolului) e chiar opera desenată.
 const LOCURI = [
   {
     id: "harap",
@@ -27,7 +28,6 @@ const LOCURI = [
     nisip:
       "M30,160 C25,100 90,60 160,70 C200,35 280,30 330,60 C400,60 455,105 445,165 C440,230 380,265 300,262 C250,290 170,295 120,265 C60,265 30,215 30,160 Z",
     titluPoz: [240, 42],
-    puncte: [[165, 228], [300, 215], [235, 255], [110, 190], [370, 175]],
   },
   {
     id: "moara",
@@ -40,8 +40,6 @@ const LOCURI = [
     nisip:
       "M40,170 C20,110 70,55 150,50 C200,20 270,30 320,55 C390,45 450,90 455,150 C470,215 420,270 350,280 C300,310 220,305 170,285 C100,295 35,250 40,170 Z",
     titluPoz: [245, 28],
-    lacatPoz: [245, 140],
-    puncte: [[255, 250], [160, 230], [350, 225], [205, 75], [400, 140]],
   },
   {
     id: "luceafarul",
@@ -54,44 +52,39 @@ const LOCURI = [
     nisip:
       "M50,150 C40,90 95,45 160,60 C190,40 230,30 270,45 C340,50 375,110 360,170 C350,235 290,280 210,272 C140,285 70,250 55,200 C45,185 45,165 50,150 Z",
     titluPoz: [205, 38],
-    lacatPoz: [180, 128],
     culori: { nisip: "#bfae92", iarba: "#2f5d57", halo: "#7d8cf0", halo2: "#a3b2ff" },
-    puncte: [[165, 222], [245, 250], [95, 175], [315, 215], [130, 110]],
   },
 ];
 
-// Poduri între locurile consecutive. a = punct pe insula „de”, b = punct pe insula „la” (coordonate locale, pe nisip).
-// Podul e întreg și din lemn doar când insula „la” e deblocată; altfel e gri și neterminat.
+// Poduri între locurile vecine. a = punct pe insula „de”, b = punct pe insula „la” (coordonate locale, pe nisip).
+// Insulele pot porni din orice loc (vezi construiesteInsule), deci există și podul 2 → 0, pe sus.
 const PODURI = [
   { de: 0, la: 1, a: [395, 245], b: [115, 78] },
   { de: 1, la: 2, a: [380, 72], b: [118, 252] },
+  { de: 2, la: 0, a: [55, 150], b: [442, 150] },
 ];
 
-// Lecțiile grupate pe capitole, în ordinea lor; fiecare capitol primește un loc de pe hartă.
-function construiesteInsule(cursuri) {
-  const capitole = [];
-  for (const c of cursuri) {
-    const nume = c.capitol || "Lecții";
-    let cap = capitole.find((x) => x.titlu === nume);
-    if (!cap) capitole.push((cap = { titlu: nume, cursuri: [] }));
-    cap.cursuri.push(c);
-  }
-  return capitole.map((cap, i) => {
-    const loc = LOCURI[i % PE_PAGINA];
-    const desenata = LOCURI.find((l) => l.titlu === cap.titlu);
-    const toate = cap.cursuri.map((c, j) => ({ id: c.id, titlu: `Lecția ${j + 1}`, curs: c, x: loc.puncte[j]?.[0], y: loc.puncte[j]?.[1] }));
-    const nivele = toate.slice(0, loc.puncte.length);
+// Un capitol = o insulă. Dacă Lecția e una dintre operele desenate, harta pornește din locul ei,
+// ca primul capitol să aibă desenele operei; restul capitolelor urmează în locurile de după.
+function construiesteInsule(lectie) {
+  const opera = LOCURI.findIndex((l) => l.titlu === lectie.titlu);
+  const start = Math.max(opera, 0);
+  return lectie.capitole.map((c, i) => {
+    const slot = (start + i) % PE_PAGINA;
+    const loc = LOCURI[slot];
+    const desenata = LOCURI.find((l) => l.titlu === lectie.titlu || l.titlu === c.capitol);
+    const eticheta = c.capitol && c.capitol !== lectie.titlu ? ` · ${c.capitol}` : "";
+    const nivel = { id: c.id, titlu: `Capitolul ${i + 1}`, curs: c, x: loc.centru[0], y: loc.centru[1] + 55 };
     return {
       ...loc,
-      id: `${i}-${cap.titlu}`,
+      id: `${c.id}`,
+      slot,
       // desenele speciale apar doar când opera e pe locul ei de pe hartă
       arta: desenata?.id === loc.id ? loc.id : null,
       culori: desenata?.id === loc.id ? loc.culori : undefined,
-      titlu: cap.titlu,
-      autor: desenata ? desenata.autor : `${cap.cursuri.length} ${cap.cursuri.length === 1 ? "lecție" : "lecții"}`,
-      nivele,
-      toate,
-      ascunse: toate.length - nivele.length,
+      titlu: c.titlu,
+      autor: `Capitolul ${i + 1}${eticheta}`,
+      nivel,
     };
   });
 }
@@ -695,7 +688,7 @@ function DecorSimplu({ insula }) {
   );
 }
 
-function Insula({ insula, blocata }) {
+function Insula({ insula }) {
   const Decor = DECOR[insula.arta] ?? DecorSimplu;
   const c = { ...CULORI_IMPLICITE, ...insula.culori };
   const [cx, cy] = insula.centru;
@@ -712,22 +705,11 @@ function Insula({ insula, blocata }) {
         <path d={insula.nisip} fill={c.iarba} transform={scalare([cx, cy], 0.86)} />
       </g>
       {Decor && <Decor insula={insula} />}
-      {/* cover gri translucent, pe forma exactă a insulei */}
-      {blocata && <path d={insula.nisip} fill="rgba(70,75,85,.62)" filter="url(#h-coasta)" />}
     </g>
   );
 }
 
 // ---------- Interfața peste hartă ----------
-function Lacat({ className = "" }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" className={className}>
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-      <rect x="4" y="10" width="16" height="11" rx="2.5" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 // Cele 3 cerculețe de sub nivel: cameră (video), carte (materiale), play (întrebări). Gri → galben după ce le parcurgi.
 function Cerculete({ activitati = {} }) {
   return (
@@ -747,68 +729,45 @@ function Cerculete({ activitati = {} }) {
   );
 }
 
-// stare: "terminat" | "disponibil" | "blocat"
+// stare: "terminat" | "recomandat" (următorul capitol sugerat) | "disponibil"
 function ButonNivel({ nivel, punct, index, stare, activitati, onDeschide }) {
   const baza =
-    "absolute z-[2] grid aspect-square w-[5.2%] min-w-[32px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 font-black text-[clamp(13px,2vw,22px)] shadow-[0_5px_0_rgba(0,0,0,0.25)] transition-transform";
-  const eticheta = (
-    <span className="absolute left-1/2 top-[108%] -translate-x-1/2 whitespace-nowrap rounded-full bg-black/45 px-2 py-0.5 text-[clamp(9px,1.1vw,12px)] font-bold text-white">
-      {nivel.titlu}
-    </span>
-  );
-
-  if (stare === "blocat") {
-    return (
-      <button disabled title="Termină nivelul anterior" style={poz(punct)} className={`${baza} cursor-not-allowed border-gray-300 bg-gray-500`}>
-        <span className="absolute -inset-1 rounded-full bg-slate-700/45" />
-        <Lacat className="relative z-[1] h-[45%] w-[45%] text-white" />
-        {eticheta}
-        <Cerculete activitati={activitati} />
-      </button>
-    );
-  }
-
+    "absolute z-[2] grid aspect-square w-[6%] min-w-[34px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 font-black text-[clamp(13px,2vw,22px)] shadow-[0_5px_0_rgba(0,0,0,0.25)] transition-transform";
   return (
     <button
       onClick={onDeschide}
       style={poz(punct)}
-      aria-label={`${nivel.titlu}: alege videoclip, materiale sau întrebări`}
+      aria-label={`${nivel.titlu}: ${nivel.curs.titlu}${stare === "terminat" ? " (terminat)" : stare === "recomandat" ? " (recomandat acum)" : ""}`}
       className={`${baza} cursor-pointer border-white hover:scale-110 ${
-        stare === "terminat" ? "bg-emerald-500 text-white" : "bg-amber-400 text-amber-950"
+        stare === "terminat" ? "bg-emerald-500 text-white" : stare === "recomandat" ? "bg-amber-400 text-amber-950" : "bg-sky-100 text-sky-900"
       }`}
     >
-      {stare === "disponibil" && <span className="absolute -inset-2 animate-ping rounded-full border-[3px] border-amber-200" />}
+      {stare === "recomandat" && <span className="absolute -inset-2 animate-ping rounded-full border-[3px] border-amber-200" />}
       {stare === "terminat" ? "✓" : index + 1}
-      {eticheta}
+      {stare === "recomandat" && (
+        <span className="absolute left-1/2 top-[108%] -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-2 py-0.5 text-[clamp(9px,1.1vw,12px)] font-black text-amber-950 shadow">
+          Recomandat acum
+        </span>
+      )}
       <Cerculete activitati={activitati} />
     </button>
   );
 }
 
-// cursuri = lecțiile publicate ale materiei, cu progresul elevului (GET /materii/{id}/cursuri)
-export default function HartaInsule({ cursuri, onActualizare }) {
-  const insule = useMemo(() => construiesteInsule(cursuri), [cursuri]);
-  // Harta se deschide la pagina cu prima insulă neterminată
-  const [pagina, setPagina] = useState(() => {
-    const prima = insule.findIndex((ins) => !ins.toate.every((n) => n.curs.progres?.quizPromovat));
-    return Math.floor(Math.max(prima, 0) / PE_PAGINA);
-  });
-  const [deschis, setDeschis] = useState(null); // { insula, nivel } pentru tabul lecției
+// lectie = GET /parcursuri/{id}: titlul și capitolele publicate, cu progresul elevului
+export default function HartaInsule({ lectie, onActualizare }) {
+  const insule = useMemo(() => construiesteInsule(lectie), [lectie]);
+  const terminat = (n) => !!n.curs.progres?.quizPromovat;
+  // Recomandat: primul capitol neterminat, în ordinea Lecției
+  const recomandat = insule.findIndex((ins) => !terminat(ins.nivel));
+  // Harta se deschide la pagina capitolului recomandat
+  const [pagina, setPagina] = useState(() => Math.floor(Math.max(recomandat, 0) / PE_PAGINA));
+  const [deschis, setDeschis] = useState(null); // { insula, nivel } pentru tabul capitolului
   const inchide = useCallback(() => setDeschis(null), []);
 
-  const terminat = (n) => !!n.curs.progres?.quizPromovat;
-  // „play” e parcurs când lecția e terminată (răspuns corect la întrebare)
+  // „play” e parcurs când testul capitolului e promovat
   const activitatiNivel = (n) => ({ video: !!n.curs.progres?.videoVazut, materiale: !!n.curs.progres?.materialeCitite, play: terminat(n) });
-
-  // O insulă e deschisă când cea dinainte e terminată sau când elevul a terminat deja ceva pe ea
-  // (lecțiile adăugate ulterior într-o insulă terminată nu blochează la loc ce urmează).
-  const insulaDeblocata = (i) => i === 0 || insule[i - 1].toate.every(terminat) || insule[i].toate.some(terminat);
-  const stareNivel = (insula, j) => {
-    const n = insula.toate[j];
-    if (terminat(n)) return "terminat";
-    if (j === 0 || terminat(insula.toate[j - 1])) return "disponibil";
-    return "blocat";
-  };
+  const stare = (i) => (terminat(insule[i].nivel) ? "terminat" : i === recomandat ? "recomandat" : "disponibil");
 
   const pagini = Math.max(1, Math.ceil(insule.length / PE_PAGINA));
   const start = pagina * PE_PAGINA;
@@ -824,63 +783,43 @@ export default function HartaInsule({ cursuri, onActualizare }) {
         <Apa />
         <Noapte />
         <DecorApa />
-        {vizibile.map((insula, k) => (
-          <Insula key={insula.id} insula={insula} blocata={!insulaDeblocata(start + k)} />
+        {vizibile.map((insula) => (
+          <Insula key={insula.id} insula={insula} />
         ))}
-        {PODURI.map((pod) => {
-          const de = vizibile[pod.de];
-          const la = vizibile[pod.la];
-          if (!de || !la) return null;
-          return <Pod key={`${pod.de}-${pod.la}`} a={peHarta(de, pod.a)} b={peHarta(la, pod.b)} deschis={insulaDeblocata(start + pod.la)} />;
+        {vizibile.slice(1).map((la, k) => {
+          const de = vizibile[k];
+          // podul care leagă locurile de pe hartă (0–2) a două capitole consecutive
+          const pod = PODURI.find((p) => p.de === de.slot && p.la === la.slot);
+          if (!pod) return null;
+          return <Pod key={`${de.id}-${la.id}`} a={peHarta(de, pod.a)} b={peHarta(la, pod.b)} deschis />;
         })}
         <Pescarusi />
       </svg>
 
-      {vizibile.map((insula, k) => {
-        const deblocata = insulaDeblocata(start + k);
-        return (
-          <div key={insula.id}>
-            {insula.nivele.map((n, j) => (
-              <ButonNivel
-                key={n.id}
-                nivel={n}
-                punct={peHarta(insula, [n.x, n.y])}
-                index={j}
-                stare={deblocata ? stareNivel(insula, j) : "blocat"}
-                activitati={activitatiNivel(n)}
-                onDeschide={() => setDeschis({ insula, nivel: n })}
-              />
-            ))}
-
-            {!deblocata && (
-              <div
-                style={poz(peHarta(insula, insula.lacatPoz ?? insula.centru))}
-                className="absolute z-[4] grid aspect-square w-[7%] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-slate-900/75 text-white shadow-lg ring-2 ring-white/30"
-              >
-                <Lacat className="h-[55%] w-[55%]" />
-              </div>
-            )}
-
-            <div
-              style={poz(peHarta(insula, insula.titluPoz))}
-              className={`absolute z-[5] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center whitespace-nowrap rounded-2xl px-3.5 py-1 leading-tight shadow-md ${
-                deblocata ? "bg-white text-amber-900" : "bg-slate-600 text-slate-100"
-              }`}
-            >
-              <span className="text-[clamp(11px,1.6vw,16px)] font-extrabold">{insula.titlu}</span>
-              <span className="text-[clamp(8px,1vw,11px)] font-semibold opacity-70">
-                {insula.autor}
-                {insula.ascunse > 0 ? ` · +${insula.ascunse} în listă` : ""}
-              </span>
-            </div>
+      {vizibile.map((insula, k) => (
+        <div key={insula.id}>
+          <ButonNivel
+            nivel={insula.nivel}
+            punct={peHarta(insula, [insula.nivel.x, insula.nivel.y])}
+            index={start + k}
+            stare={stare(start + k)}
+            activitati={activitatiNivel(insula.nivel)}
+            onDeschide={() => setDeschis({ insula, nivel: insula.nivel })}
+          />
+          <div
+            style={poz(peHarta(insula, insula.titluPoz))}
+            className="absolute z-[5] flex max-w-[30%] -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-2xl bg-white px-3.5 py-1 text-center leading-tight text-amber-900 shadow-md"
+          >
+            <span className="text-[clamp(10px,1.45vw,15px)] font-extrabold">{insula.titlu}</span>
+            <span className="text-[clamp(8px,1vw,11px)] font-semibold opacity-70">{insula.autor}</span>
           </div>
-        );
-      })}
+        </div>
+      ))}
 
       {deschis && (
         <TabNivel
           key={deschis.nivel.id}
-          insula={deschis.insula}
+          insula={{ titlu: lectie.titlu, autor: deschis.insula.autor }}
           nivel={deschis.nivel}
           activitati={activitatiNivel(deschis.nivel)}
           onInchide={inchide}
@@ -902,33 +841,30 @@ export default function HartaInsule({ cursuri, onActualizare }) {
         </div>
       )}
 
-      {/* Toate lecțiile, în listă (și cele care nu încap pe hartă) */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {insule.map((insula, i) => (
-          <section key={insula.id} className="rounded-2xl bg-white/95 p-4 shadow-lg">
-            <h3 className="font-extrabold text-amber-900">{insula.titlu}</h3>
-            <ul className="mt-2 grid gap-1.5">
-              {insula.toate.map((n, j) => {
-                const stare = insulaDeblocata(i) ? stareNivel(insula, j) : "blocat";
-                return (
-                  <li key={n.id}>
-                    <button
-                      disabled={stare === "blocat"}
-                      onClick={() => setDeschis({ insula, nivel: n })}
-                      className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-slate-800 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-black ${stare === "terminat" ? "bg-emerald-500 text-white" : stare === "disponibil" ? "bg-amber-400 text-amber-950" : "bg-slate-300 text-slate-600"}`}>
-                        {stare === "terminat" ? "✓" : j + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-semibold">{n.curs.titlu}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
-      </div>
+      {/* Toate capitolele, în listă (în ordinea recomandată) */}
+      <section className="mt-5 rounded-2xl bg-white/95 p-4 shadow-lg">
+        <h3 className="font-extrabold text-amber-900">Capitolele lecției</h3>
+        <p className="text-sm text-slate-600">Poți începe cu orice capitol; ordinea de mai jos e doar recomandarea profesorului.</p>
+        <ol className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          {insule.map((insula, i) => {
+            const s = stare(i);
+            return (
+              <li key={insula.id}>
+                <button
+                  onClick={() => { setPagina(Math.floor(i / PE_PAGINA)); setDeschis({ insula, nivel: insula.nivel }); }}
+                  className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-slate-800 hover:bg-sky-50"
+                >
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-black ${s === "terminat" ? "bg-emerald-500 text-white" : s === "recomandat" ? "bg-amber-400 text-amber-950" : "bg-sky-100 text-sky-900"}`}>
+                    {s === "terminat" ? "✓" : i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-semibold">{insula.titlu}</span>
+                  {s === "recomandat" && <span className="shrink-0 rounded-full bg-amber-100 px-2 text-xs font-bold text-amber-900">recomandat</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
     </div>
   );
 }

@@ -13,7 +13,7 @@ static class VerificariQuiz
         using var admin = await h.Login("admin");
         var creat = await admin.PostAsJsonAsync("/cursuri", new
         {
-            materieId = 1, titlu = "Luceafărul", capitol = "Romantismul",
+            parcursId = await Harness.LectiePlatforma(admin), titlu = "Luceafărul", capitol = "Romantismul",
             materiale = new[] { new { titlu = "Despre poem", text = "„Luceafărul” de Mihai Eminescu a apărut în 1883." } },
         });
         var cursId = (await creat.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();

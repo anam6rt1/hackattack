@@ -639,3 +639,13 @@ a.tv-pastila { text-decoration: none; }
 [data-theme="pixel"] .tv-taburi { border: 3px solid #1b1b3a; }
 [data-theme="pixel"] .tv-rand { border: 2px solid #1b1b3a; }
 [data-theme="pixel"] .tv-nivel-insigna { box-shadow: 0 0 0 4px #fff, 0 0 0 7px #1b1b3a; }
+
+/* Filtre-pastilă (clasa lecțiilor). */
+.tv-filtre { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.tv-filtru { border: 2px solid #ece3cd; background: #fff; color: var(--navy); border-radius: 99px; padding: 6px 14px; font-weight: 800; font-size: 14px; cursor: pointer; }
+.tv-filtru[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.tv-filtru:focus-visible { outline: 3px solid var(--aur); outline-offset: 2px; }
+.tv-lectie { text-decoration: none; color: var(--navy); transition: transform .15s; }
+.tv-lectie:hover { transform: translateY(-3px); }
+.tv-lectie .tv-butoane { gap: 6px; }
+.tv-harta-autor { color: #fff; font-weight: 700; opacity: .85; margin-top: -6px; }

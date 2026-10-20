@@ -43,6 +43,8 @@ public static class AplicatieMarkAi
         builder.Services.AddScoped<CoduriVerificare>();
         builder.Services.AddScoped<StergereCont>();
         builder.Services.AddScoped<ServiciuOrganizatii>();
+        builder.Services.AddScoped<AccesContinut>();
+        builder.Services.AddScoped<StergereContinut>();
         builder.Services.AddSingleton<CuratareConturi>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<CuratareConturi>());
         builder.Services.AddSignalR(o => { o.KeepAliveInterval = TimeSpan.FromSeconds(5); o.ClientTimeoutInterval = TimeSpan.FromSeconds(15); });

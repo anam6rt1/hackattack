@@ -90,8 +90,26 @@ Testul unei lecții: `POST /cursuri/{id}/quiz` pornește (sau reia) o încercare
 `POST /cursuri/{id}/quiz/{incercareId}/raspuns` spune doar dacă răspunsul e corect. După ultimul răspuns vin corecturile și
 explicațiile; lecția e trecută (100 XP, o singură dată) cu 4 din 5 (80%). Între două încercări e o pauză (`Limite:PauzaQuizSecunde`, 60 s).
 - **profesor**: se înscrie cu materii, bio, poză și dovada calificării; până la aprobare primește 403 la toate rutele de profesor
-  (frontendul îl trimite la `/in-asteptare`). Aprobat: programează ședințe (plătite la tariful fix sau pro bono) și editează lecțiile materiilor predate.
-- **admin**: aprobă/respinge organizații, stabilește onorariul negociat al profesorilor (≤ tariful elevului), editează orice conținut.
+  (frontendul îl trimite la `/in-asteptare`). Aprobat: programează ședințe (plătite la tariful fix sau pro bono) și creează Lecții
+  la materiile predate (vezi „Lecții și capitole”).
+- **admin**: aprobă/respinge organizații, stabilește onorariul negociat al profesorilor (≤ tariful elevului), creează materii, editează orice conținut.
+
+## Lecții și capitole
+
+Materie → **Lecție** (`parcurs`: clasă IX/X/XI/XII/Bac, autor, o organizație de bază, vizibilitate `public` sau `organizatie`,
+partajări doar pentru vizualizare în `parcurs_organizatie`) → **Capitol** (`curs`, o insulă pe hartă). Regulile sunt într-un singur loc,
+`Infrastructura/AccesContinut.cs`:
+
+- vede: Lecția e publicată și (publică, sau organizația de bază ori una partajată e a utilizatorului), sau o poate edita;
+- editează: adminul platformei, autorul, adminul organizației de bază (partajarea nu dă drept de editare); doar autorul o mută în altă organizație;
+- dacă organizația oprește publicarea publică pentru un profesor (`PUT /organizatia-mea/membri/{id}/publicare`), Lecțiile lui din acea
+  organizație devin „doar organizație”, iar publicarea publică acolo primește 409.
+
+Citire: `GET /materii` (numără capitolele vizibile), `GET /materii/{id}/parcursuri?clasa=XII,Bac&filtru=organizatia-mea|public`,
+`GET /parcursuri/{id}` (cu capitolele și progresul), `GET /cursuri/{id}`; tot ce nu e vizibil întoarce 404. Capitolele se pot deschide în orice ordine.
+Editare: `GET /continut/organizatii`, `GET /continut/parcursuri[/{id}]`, `POST/PUT/DELETE /parcursuri/{id}`, `PUT /parcursuri/{id}/ordine`
+`{ cursIds }`, `GET /continut/cursuri?parcursId=`, `POST /cursuri { parcursId, ... }`, `PUT/DELETE /cursuri/{id}`. Ștergerea e definitivă
+(întrebări, progres, încercări de test); XP-ul câștigat rămâne. `POST/PUT /materii` sunt doar pentru adminul platformei.
 
 Plata elevului este simulată (`plata.status = 'simulata'`); profesorul primește onorariul negociat, păstrat în `comision_mentor.suma_comision`.
 
@@ -111,7 +129,7 @@ Migrarea `AvatarSiStiluri` adaugă coloana `avatar` și interfețele `realist` �
 Ambele funcții AI (întrebările și tutorele) trec prin `Servicii/ModelAi.cs`: Claude dacă există `ANTHROPIC_API_KEY`,
 altfel Gemini dacă există `GEMINI_API_KEY`. Promptul și schema JSON sunt aceleași; se schimbă doar apelul.
 
-`POST /cursuri` și `PUT /cursuri/{id}` (când se schimbă materialul) pun lecția într-o coadă în memorie; un `BackgroundService`
+`POST /cursuri` și `PUT /cursuri/{id}` (când se schimbă materialul) pun capitolul într-o coadă în memorie; un `BackgroundService`
 cere lui Claude întrebări grilă + estimări (ieșire JSON structurată, cu fallback pe server la refuz) și le salvează cu `sursa = 'ai'`.
 Întrebările AI anterioare sunt dezactivate, nu șterse. O întrebare editată de om devine `manual` și nu mai e înlocuită.
 Starea: `GET /cursuri/{id}/generare`. Un profesor poate porni cel mult `Limite:GenerariAiPeZi` (10) generări în 24 de ore
@@ -121,15 +139,16 @@ Starea: `GET /cursuri/{id}/generare`. Un profesor poate porni cel mult `Limite:G
 
 Jocul rulează pe server (`Servicii/Triviador/MotorTriviador.cs`); clienții trimit doar intenții și primesc starea publică.
 
-- `POST /trivia/camere` `{ materieIds, insule (9–30), maxJucatori (2–4) }` → `{ cod }` (6 caractere). Cine creează camera e gazda.
+- `POST /trivia/camere` `{ materieIds, insule (9–30), maxJucatori (2–4), clasa? (IX–XII sau Bac) }` → `{ cod }` (6 caractere). Cine creează camera e gazda.
   Cel mult 3 camere deschise per gazdă și 200 în total; o cameră goală se închide după 10 minute.
 - Hub `/hub/joc` (SignalR, doar elevi): `Intra(cod)` întoarce starea; gazda: `AdaugaBot("usor"|"mediu"|"greu")`, `ScoateBot(id)`,
   `Porneste()`, `JocNou()`; jucătorii: `Ataca(insula)`, `Raspunde(index)`, `Estimeaza(numar)`. Serverul trimite `stare` după fiecare schimbare.
 - Starea nu conține niciodată răspunsul unei întrebări deschise; `rezultat` (cu răspunsul) apare doar în faza „rezultat”.
   `termenLa` și `acum` sunt timpi ai serverului (ms), pentru cronometru.
 - Harta e generată pe server (insule pe o grilă cu poduri care nu se intersectează, mereu conexă; cetățile cât mai departe).
-  Insulele poartă numele capitolelor materiilor alese; întrebările vin din toate întrebările active ale acestor materii
-  (inclusiv cele ale lecțiilor private: e un joc de exercițiu), cu setul demonstrativ de română dacă materiile nu au întrebări.
+  Insulele poartă numele Lecțiilor materiilor alese (doar din clasa aleasă, dacă e aleasă); întrebările vin din toate întrebările active
+  ale acestor materii, iar cu o clasă aleasă doar din capitolele acelei clase. Vizibilitatea e ignorată intenționat (joc de exercițiu);
+  fără întrebări se folosește setul demonstrativ de română.
 - Reguli: 30 s pentru alegerea insulei, 15 s pentru întrebare; duel corect-corect → estimare, egalitatea o câștigă apărătorul.
   Runde = ⌈insule libere / jucători⌉ + 2. Boții răspund corect în 50% / 70% / 90% din cazuri și estimează la ±30% / ±15% / ±5%.
 - XP la final, acordat o singură dată de server (`eveniment_recompensa`, tip `triviador`): 10 per insulă + 50 câștigătorului

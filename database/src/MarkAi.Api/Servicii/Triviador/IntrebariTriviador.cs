@@ -17,9 +17,12 @@ public sealed class PachetIntrebari(List<IntrebareGrila> grila, List<IntrebareEs
     public List<IntrebareEstimare> Estimari { get; } = estimari;
     private readonly HashSet<int> _folosite = [];
 
-    public static async Task<PachetIntrebari> IncarcaAsync(MarkAiDbContext db, IReadOnlyCollection<int> materieIds, CancellationToken ct)
+    /// <param name="cursIds">With a grade filter, only the questions of these chapters (otherwise every question of the subjects).</param>
+    public static async Task<PachetIntrebari> IncarcaAsync(MarkAiDbContext db, IReadOnlyCollection<int> materieIds, IReadOnlyCollection<int>? cursIds, CancellationToken ct)
     {
-        var intrebari = await db.Set<TriviaQuestion>().AsNoTracking().Where(q => materieIds.Contains(q.SubjectId) && q.Active).ToListAsync(ct);
+        var q0 = db.Set<TriviaQuestion>().AsNoTracking().Where(q => materieIds.Contains(q.SubjectId) && q.Active);
+        if (cursIds is not null) q0 = q0.Where(q => q.CourseId != null && cursIds.Contains(q.CourseId.Value));
+        var intrebari = await q0.ToListAsync(ct);
         var ids = intrebari.Where(q => q.Kind == "grila").Select(q => q.Id).ToList();
         var variante = (await db.Set<TriviaOption>().AsNoTracking().Where(o => ids.Contains(o.QuestionId)).OrderBy(o => o.Id).ToListAsync(ct))
             .ToLookup(o => o.QuestionId);

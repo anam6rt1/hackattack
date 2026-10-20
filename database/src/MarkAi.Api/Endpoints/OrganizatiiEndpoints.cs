@@ -120,8 +120,15 @@ public static class OrganizatiiEndpoints
             var o = await OrganizatiaMea(db, h, ct);
             var m = await Membru(db, o.Id, uid, ct);
             if (m.Rol != MembruOrganizatie.RolProfesor) throw new CerereInvalida("Setarea se aplică doar profesorilor.");
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
             m.PoatePublicaPublic = c.PoatePublicaPublic;
             await db.SaveChangesAsync(ct);
+            // Switched off: the professor's Lecții whose home is this organisation become organisation-only (switching it
+            // back on does not make them public again; the professor decides that per Lecție).
+            if (!c.PoatePublicaPublic)
+                await db.Set<Parcurs>().Where(p => p.AutorId == uid && p.OrganizatieId == o.Id && p.Vizibilitate == Parcurs.Public)
+                    .ExecuteUpdateAsync(x => x.SetProperty(p => p.Vizibilitate, Parcurs.DoarOrganizatie), ct);
+            await tx.CommitAsync(ct);
             return Results.NoContent();
         });
         // A professor's qualification document, for the admin of an organisation they asked to join.

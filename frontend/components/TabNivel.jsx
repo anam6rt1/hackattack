@@ -1,5 +1,5 @@
 "use client";
-// components/TabNivel.jsx — fereastra care se deschide când apeși o lecție pe hartă:
+// components/TabNivel.jsx — fereastra care se deschide când apeși un capitol pe hartă:
 // Videoclip, Materiale, Întrebări. Conținutul vine din API (GET /cursuri/{id}); culorile din lib/tema.js.
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -9,8 +9,8 @@ import { ACTIVITATI } from "@/components/Iconite";
 import { T } from "@/lib/tema";
 
 const DESCRIERI = {
-  video: "Urmărește lecția explicată pe scurt",
-  materiale: "Citește notițele lecției",
+  video: "Urmărește capitolul explicat pe scurt",
+  materiale: "Citește notițele capitolului",
   play: "Răspunde la întrebare și câștigă XP",
 };
 
@@ -119,7 +119,7 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
               })}
             </div>
             <p className={`mt-4 text-center text-sm ${T.textSlab}`}>
-              {parcurse} din 3 parcurse · lecția se termină când răspunzi corect la întrebare
+              {parcurse} din 3 parcurse · capitolul e terminat când treci testul de la final
             </p>
           </>
         )}
@@ -130,7 +130,7 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
               <iframe
                 className="aspect-video w-full rounded-2xl bg-black"
                 src={`https://www.youtube-nocookie.com/embed/${youtube}`}
-                title={continut.titlu ?? "Videoclipul lecției"}
+                title={continut.titlu ?? "Videoclipul capitolului"}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
@@ -141,7 +141,7 @@ export default function TabNivel({ insula, nivel, activitati = {}, onInchide, on
                     const Icon = ACTIVITATI[0].Icon;
                     return <Icon className="mx-auto mb-2 h-10 w-10" />;
                   })()}
-                  <p className="font-bold">{continut.titlu ?? "Videoclipul lecției"}</p>
+                  <p className="font-bold">{continut.titlu ?? "Videoclipul capitolului"}</p>
                   <p className="text-sm">{continut.videoUrl ? "Videoclipul se deschide pe site-ul sursei." : "Videoclipul va apărea aici."}</p>
                   {continut.videoUrl && (
                     <a className="mt-2 inline-block font-bold underline" href={continut.videoUrl} target="_blank" rel="noreferrer">

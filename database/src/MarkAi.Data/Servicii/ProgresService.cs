@@ -21,7 +21,7 @@ public sealed class ProgresService(MarkAiDbContext db)
 
     public async Task<RezultatProgres> MarcheazaAsync(int utilizatorId, int cursId, ActivitateCurs activitate, CancellationToken ct = default)
     {
-        var materieId = await db.Curs.Where(c => c.Id == cursId && c.Publicat).Select(c => (int?)c.MaterieId).SingleOrDefaultAsync(ct)
+        var materieId = await db.Curs.Where(c => c.Id == cursId && c.Publicat && c.Parcurs.Publicat).Select(c => (int?)c.MaterieId).SingleOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException("Cursul nu există.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);

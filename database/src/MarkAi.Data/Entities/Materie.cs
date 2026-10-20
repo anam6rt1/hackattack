@@ -21,6 +21,8 @@ public partial class Materie
 
     public virtual ICollection<Curs> Cursuri { get; set; } = new List<Curs>();
 
+    public virtual ICollection<Parcurs> Parcursuri { get; set; } = new List<Parcurs>();
+
     public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();
 
     public virtual ICollection<UtilizatorMaterie> UtilizatoriMaterii { get; set; } = new List<UtilizatorMaterie>();

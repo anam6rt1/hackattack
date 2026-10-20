@@ -195,6 +195,14 @@ public sealed class Harness : IAsyncDisposable
     /// <summary>Id of the fixture organisation "Liceul de Test" (approved, admin: director).</summary>
     public const int IdLiceu = 1;
 
+    /// <summary>A public platform Lecție (no organisation) created by the admin client; returns its id.</summary>
+    public static async Task<int> LectiePlatforma(HttpClient admin, int materieId = 1, string titlu = "Lecție de test", string clasa = "Bac")
+    {
+        var r = await admin.PostAsJsonAsync("/parcursuri", new { materieId, titlu, clasa, vizibilitate = "public", organizatieId = (int?)null });
+        r.EnsureSuccessStatusCode();
+        return (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+    }
+
     public void Check(bool condition, string label)
     {
         if (!condition) throw new Exception("FAIL: " + label);

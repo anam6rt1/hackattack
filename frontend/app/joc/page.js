@@ -1,5 +1,5 @@
 'use client'
-// Pagina /joc : creezi o cameră Triviador (materii, mărimea hărții, câți jucători) sau intri într-una cu un cod.
+// Pagina /joc : creezi o cameră Triviador (materii, clasa, mărimea hărții, câți jucători) sau intri într-una cu un cod.
 // Camera o creează serverul, care și arbitrează jocul.
 
 import { useEffect, useState } from 'react'
@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
+import { CLASE, numeClasa } from '@/lib/clase'
 import Harta from './Harta'
 
 const LUNGIME_COD = 6
@@ -19,6 +20,7 @@ export default function PaginaJoc() {
   const [alese, setAlese] = useState([])
   const [insule, setInsule] = useState(9)
   const [maxJucatori, setMaxJucatori] = useState(3)
+  const [clasa, setClasa] = useState('') // '' = toate clasele
   const [eroare, setEroare] = useState('')
   const [seCreeaza, setSeCreeaza] = useState(false)
 
@@ -38,7 +40,7 @@ export default function PaginaJoc() {
     setSeCreeaza(true)
     setEroare('')
     try {
-      const r = await api('/trivia/camere', { metoda: 'POST', corp: { materieIds: alese, insule, maxJucatori } })
+      const r = await api('/trivia/camere', { metoda: 'POST', corp: { materieIds: alese, insule, maxJucatori, clasa: clasa || null } })
       router.push('/joc/' + r.cod)
     } catch (e) {
       setEroare(e.message)
@@ -70,6 +72,13 @@ export default function PaginaJoc() {
                 </label>
               ))}
             </fieldset>
+            <label className="tv-eticheta-camp">
+              <span>Clasa</span>
+              <select className="tv-camp-text" value={clasa} onChange={(e) => setClasa(e.target.value)}>
+                <option value="">Toate clasele</option>
+                {CLASE.map((c) => <option key={c} value={c}>{numeClasa(c)}</option>)}
+              </select>
+            </label>
             <label className="tv-eticheta-camp">
               <span>Insule pe hartă: {insule}</span>
               <input type="range" min={9} max={30} value={insule} onChange={(e) => setInsule(Number(e.target.value))} />

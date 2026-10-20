@@ -9,15 +9,19 @@ public partial class Curs
 
     public int MaterieId { get; set; }
 
+    /// <summary>The path (shown as "Lecție") this chapter belongs to; always of the same subject.</summary>
+    public int ParcursId { get; set; }
+
     public string Titlu { get; set; } = null!;
 
     public string? Descriere { get; set; }
 
     public string? Continut { get; set; }
 
+    /// <summary>Recommended order inside the path; every chapter can be opened at any time.</summary>
     public int Ordine { get; set; }
 
-    /// <summary>Gruparea vizuala (insula) din care face parte cursul, de ex. "Harap-Alb".</summary>
+    /// <summary>Optional chapter label shown under the island name, e.g. "Harap-Alb".</summary>
     public string? Capitol { get; set; }
 
     public string? VideoUrl { get; set; }
@@ -39,6 +43,8 @@ public partial class Curs
     public virtual ICollection<GrafCurs> GrafuriCurs { get; set; } = new List<GrafCurs>();
 
     public virtual Materie Materie { get; set; } = null!;
+
+    public virtual Parcurs Parcurs { get; set; } = null!;
 
     public virtual ICollection<Sesiune> Sesiuni { get; set; } = new List<Sesiune>();
 }

@@ -67,7 +67,7 @@ export default function IntrebareNivel({ cursId }) {
     setRezultat(null);
   }
 
-  const inapoi = curs ? `/materiale/${curs.materieId}` : "/materiale";
+  const inapoi = curs ? `/parcurs/${curs.parcursId}` : "/materiale";
   const final = rezultat?.final;
   const intrebare = test?.intrebari[pas];
   const numar = test ? test.raspunse + pas + 1 : 0;
@@ -82,7 +82,7 @@ export default function IntrebareNivel({ cursId }) {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className={`text-xs font-bold uppercase tracking-wider ${T.accentText}`}>
-              {curs ? `${curs.materie}${curs.capitol ? ` · ${curs.capitol}` : ""}` : " "}
+              {curs ? `${curs.materie} · ${curs.parcurs}` : " "}
             </p>
             <h1 className="text-2xl font-extrabold">{curs?.titlu ?? "Se încarcă..."}</h1>
           </div>

@@ -46,11 +46,26 @@ internal static class Verification
             var wrong = new TriviaOption { QuestionId = question.Id, Text = "5" };
             db.AddRange(correct, wrong);
             await db.SaveChangesAsync();
-            var course = new Curs { MaterieId = subject.Id, Titlu = "Test course", Capitol = "Test",
+            var path = new Parcurs { MaterieId = subject.Id, Titlu = "Test path", CreatLa = DateTime.UtcNow };
+            db.Add(path);
+            await db.SaveChangesAsync();
+            var course = new Curs { MaterieId = subject.Id, ParcursId = path.Id, Titlu = "Test course", Capitol = "Test",
                 Materiale = [new SectiuneMaterial { Titlu = "Intro", Text = "Text" }] };
             var otherSubject = new Materie { Denumire = "Other subject" };
             db.AddRange(course, otherSubject);
             await db.SaveChangesAsync();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new Curs { MaterieId = otherSubject.Id, ParcursId = path.Id, Titlu = "Wrong subject" });
+                await db.SaveChangesAsync();
+            }), "a chapter's subject must match its Lecție's subject");
+            db.ChangeTracker.Clear();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new Parcurs { MaterieId = subject.Id, Titlu = "Org-only without organisation", Vizibilitate = Parcurs.DoarOrganizatie, CreatLa = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }), "an organisation-only Lecție needs an organisation");
+            db.ChangeTracker.Clear();
             db.ChangeTracker.Clear();
             Check((await db.Curs.SingleAsync(c => c.Id == course.Id)).Materiale.Single().Titlu == "Intro", "course note sections roundtrip as JSON");
             db.Add(new TriviaQuestion { SubjectId = subject.Id, CourseId = course.Id, Text = "Course question?", Source = "ai" });
