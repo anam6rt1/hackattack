@@ -34,6 +34,9 @@ public partial class Curs
 
     public DateTime CreatLa { get; set; }
 
+    /// <summary>Title, chapter label and description in lower case without diacritics, computed by the database.</summary>
+    public string Cautare { get; set; } = "";
+
     public virtual Utilizator? CreatDe { get; set; }
 
     public virtual ICollection<ProgresCurs> Progrese { get; set; } = new List<ProgresCurs>();

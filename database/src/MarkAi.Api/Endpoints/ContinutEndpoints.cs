@@ -15,8 +15,12 @@ public record CursRezumat(int Id, int MaterieId, int ParcursId, string Titlu, st
     ProgresCursDto? Progres);
 public record CursDetaliu(int Id, int MaterieId, string Materie, int ParcursId, string Parcurs, string Clasa, string Titlu, string? Descriere, string? Capitol,
     int Ordine, string? VideoUrl, IReadOnlyList<SectiuneMaterial> Materiale, string? Continut, bool Publicat, ProgresCursDto? Progres);
+/// <param name="Loc">The home organisation's locality and county, e.g. "Sectorul 1, București"; null for platform Lecții.</param>
+/// <param name="InLocalitateaTa">The home organisation is in the user's own locality (sorted first under "local").</param>
 public record ParcursRezumat(int Id, int MaterieId, string Titlu, string? Descriere, string Clasa, string? Autor, string? Organizatie, string Vizibilitate,
-    bool Publicat, int Ordine, int NumarCapitole, int CapitoleCompletate);
+    bool Publicat, int Ordine, int NumarCapitole, int CapitoleCompletate, string? Loc, bool InLocalitateaTa);
+public record CapitolGasit(int Id, string Titlu, string? Capitol, int ParcursId, string Parcurs, string Clasa, int MaterieId, string Materie);
+public record RezultatCautare(IReadOnlyList<ParcursRezumat> Lectii, IReadOnlyList<CapitolGasit> Capitole);
 public record ParcursDetaliu(int Id, int MaterieId, string Materie, string Titlu, string? Descriere, string Clasa, string? Autor, string? Organizatie,
     string Vizibilitate, bool Publicat, bool PoateEdita, IReadOnlyList<CursRezumat> Capitole);
 public record VariantaPublica(int Id, string Text);
@@ -65,29 +69,39 @@ public static class ContinutEndpoints
         });
 
         // The subject's Lecții the user may see. clasa: one or more of IX, X, XI, XII, Bac (comma-separated);
-        // filtru: "organizatia-mea" (home or shared with one of the user's organisations) or "public".
-        g.MapGet("/materii/{id:int}/parcursuri", async (int id, string? clasa, string? filtru, HttpContext h, AccesContinut acces, CancellationToken ct) =>
+        // filtru: toate | organizatia-mea | public | local (see FiltreLectii); under "local", the user's own locality comes first.
+        g.MapGet("/materii/{id:int}/parcursuri", async (int id, string? clasa, string? filtru, HttpContext h, MarkAiDbContext db, AccesContinut acces,
+            CancellationToken ct) =>
         {
             var a = await acces.PentruAsync(h.User, ct);
-            var q = acces.Parcursuri(a).AsNoTracking().Where(p => p.MaterieId == id);
-            var clase = (clasa ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (clase.Any(c => !Parcurs.Clase.Contains(c))) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
-            if (clase.Length > 0) q = q.Where(p => clase.Contains(p.Clasa));
-            var org = a.Organizatii;
-            q = filtru switch
+            var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
+            var q = FiltreLectii.Aplica(acces.Parcursuri(a).AsNoTracking().Where(p => p.MaterieId == id), a, loc, filtru, clasa);
+            var lista = await Rezumate(q, a.UtilizatorId, loc, ct);
+            return Lista<ParcursRezumat>.Din(filtru == "local" ? lista.OrderByDescending(p => p.InLocalitateaTa).ToList() : lista);
+        });
+
+        // Lecții and chapters whose title or description has every word of q (without diacritics: "sarpe" finds "Șarpe"),
+        // among what the user may see, with the same filters as the Lecții list; at most 30 of each.
+        g.MapGet("/cautare", async (string? q, int? materieId, string? clasa, string? filtru, HttpContext h, MarkAiDbContext db, AccesContinut acces,
+            CancellationToken ct) =>
+        {
+            var termeni = TermeniCautare.Din(q);
+            var a = await acces.PentruAsync(h.User, ct);
+            var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
+            var lectii = FiltreLectii.Aplica(acces.Parcursuri(a).AsNoTracking(), a, loc, filtru, clasa);
+            if (materieId is not null) lectii = lectii.Where(p => p.MaterieId == materieId);
+            var ids = lectii.Select(p => p.Id);
+            var capitole = acces.Capitole(a).AsNoTracking().Where(c => ids.Contains(c.ParcursId));
+            foreach (var t in termeni)
             {
-                null or "" or "toate" => q,
-                "organizatia-mea" => q.Where(p => (p.OrganizatieId != null && org.Contains(p.OrganizatieId.Value)) || p.Partajari.Any(s => org.Contains(s.OrganizatieId))),
-                "public" => q.Where(p => p.Vizibilitate == Parcurs.Public),
-                _ => throw new CerereInvalida("Filtrul trebuie să fie „toate”, „organizatia-mea” sau „public”."),
-            };
-            var uid = a.UtilizatorId;
-            var lista = await q.OrderBy(p => p.Ordine).ThenBy(p => p.Titlu)
-                .Select(p => new ParcursRezumat(p.Id, p.MaterieId, p.Titlu, p.Descriere, p.Clasa, p.Autor == null ? null : p.Autor.Nume,
-                    p.Organizatie == null ? null : p.Organizatie.Nume, p.Vizibilitate, p.Publicat,
-                    p.Ordine, p.Capitole.Count(c => c.Publicat), p.Capitole.Count(c => c.Publicat && c.Progrese.Any(x => x.UtilizatorId == uid && x.QuizPromovat))))
+                lectii = lectii.Where(p => EF.Functions.ILike(p.Cautare, t, "\\"));
+                capitole = capitole.Where(c => EF.Functions.ILike(c.Cautare, t, "\\"));
+            }
+            var gasite = await Rezumate(lectii.OrderBy(p => p.Titlu).Take(30), a.UtilizatorId, loc, ct);
+            var cap = await capitole.OrderBy(c => c.Titlu).Take(30)
+                .Select(c => new CapitolGasit(c.Id, c.Titlu, c.Capitol, c.ParcursId, c.Parcurs.Titlu, c.Parcurs.Clasa, c.MaterieId, c.Materie.Denumire))
                 .ToListAsync(ct);
-            return Lista<ParcursRezumat>.Din(lista);
+            return new RezultatCautare(filtru == "local" ? gasite.OrderByDescending(p => p.InLocalitateaTa).ToList() : gasite, cap);
         });
 
         g.MapGet("/parcursuri/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
@@ -341,6 +355,18 @@ public static class ContinutEndpoints
         if (materieId is not null) q = q.Where(c => c.MaterieId == materieId);
         var randuri = await q.Select(c => new { c.MaterieId, Gata = c.Progrese.Any(p => p.UtilizatorId == uid && p.QuizPromovat) }).ToListAsync(ct);
         return randuri.GroupBy(r => r.MaterieId).ToDictionary(g => g.Key, g => (g.Count(), g.Count(r => r.Gata)));
+    }
+
+    private static async Task<List<ParcursRezumat>> Rezumate(IQueryable<Parcurs> q, int uid, LocUtilizator loc, CancellationToken ct)
+    {
+        var localitate = loc.LocalitateId;
+        return await q.OrderBy(p => p.Ordine).ThenBy(p => p.Titlu)
+            .Select(p => new ParcursRezumat(p.Id, p.MaterieId, p.Titlu, p.Descriere, p.Clasa, p.Autor == null ? null : p.Autor.Nume,
+                p.Organizatie == null ? null : p.Organizatie.Nume, p.Vizibilitate, p.Publicat,
+                p.Ordine, p.Capitole.Count(c => c.Publicat), p.Capitole.Count(c => c.Publicat && c.Progrese.Any(x => x.UtilizatorId == uid && x.QuizPromovat)),
+                p.Organizatie == null ? null : (p.Organizatie.Localitate == null ? "" : p.Organizatie.Localitate.Nume + ", ") + p.Organizatie.Judet.Nume,
+                localitate != null && p.Organizatie != null && p.Organizatie.LocalitateId == localitate))
+            .ToListAsync(ct);
     }
 
     private static MaterieDto Dto(Materie m, Dictionary<int, (int Total, int Completate)> numere)

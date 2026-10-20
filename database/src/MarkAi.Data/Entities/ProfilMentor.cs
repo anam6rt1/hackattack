@@ -28,6 +28,14 @@ public partial class ProfilMentor
 
     public int? VerificatDeId { get; set; }
 
+    /// <summary>
+    /// Where the professor teaches, for "near me": one of their organisations, or null for their own county and locality
+    /// (from their account). An organisation they no longer belong to counts as null.
+    /// </summary>
+    public int? LocOrganizatieId { get; set; }
+
+    public virtual Organizatie? LocOrganizatie { get; set; }
+
     public virtual ICollection<MentorMaterie> Materii { get; set; } = new List<MentorMaterie>();
 
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();

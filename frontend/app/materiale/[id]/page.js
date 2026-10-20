@@ -1,6 +1,7 @@
 'use client'
-// /materiale/1 : Lecțiile unei materii (fiecare făcută de un profesor), cu filtru de clasă.
-// Implicit: clasa elevului + „Bac”; fără clasă setată, toate.
+// /materiale/1 : Lecțiile unei materii (fiecare făcută de un profesor), cu filtru de clasă și de loc.
+// Clasa implicită: clasa elevului + „Bac”; fără clasă setată, toate. Loc: toate / organizația mea / doar publice /
+// aproape de mine (județul din Setări; cele din localitatea elevului primele).
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -16,6 +17,7 @@ export default function PaginaMaterie() {
   const [materie, setMaterie] = useState(null)
   const [lectii, setLectii] = useState(null)
   const [aleseDeElev, setAlese] = useState(null) // null = implicitul de mai jos; [] = toate
+  const [unde, setUnde] = useState('toate')
   const [eroare, setEroare] = useState('')
 
   const alese = aleseDeElev ?? (elev?.clasa ? [elev.clasa, 'Bac'] : [])
@@ -25,7 +27,10 @@ export default function PaginaMaterie() {
     api(`/materii/${id}`).then(setMaterie).catch((e) => setEroare(e.message))
   }, [elev, id])
 
-  const filtru = alese.length ? `?clasa=${alese.join(',')}` : ''
+  const q = new URLSearchParams()
+  if (alese.length) q.set('clasa', alese.join(','))
+  if (unde !== 'toate') q.set('filtru', unde)
+  const filtru = q.size ? `?${q}` : ''
   useEffect(() => {
     if (!elev) return
     api(`/materii/${id}/parcursuri${filtru}`).then((r) => setLectii(r.elemente)).catch((e) => setEroare(e.message))
@@ -54,6 +59,14 @@ export default function PaginaMaterie() {
               </button>
             ))}
           </div>
+          <div className="tv-filtre" role="group" aria-label="Filtru după loc">
+            {[['toate', 'Toate'], ['organizatia-mea', 'Organizația mea'], ['public', 'Pentru toți'], ['local', 'Aproape de mine']].map(([v, t]) => (
+              <button key={v} type="button" className="tv-filtru" aria-pressed={unde === v} disabled={v === 'local' && !elev.judetId} onClick={() => setUnde(v)}>
+                {t}
+              </button>
+            ))}
+            {!elev.judetId && <Link href="/setari" className="tv-indiciu">Alege-ți județul în Setări ca să vezi lecțiile din apropiere.</Link>}
+          </div>
           <div className="tv-planuri">
             {lectii.map((l) => (
               <Link key={l.id} href={`/parcurs/${l.id}`} className="tv-plan tv-lectie">
@@ -65,13 +78,17 @@ export default function PaginaMaterie() {
                 <h3>{l.titlu}</h3>
                 {l.descriere && <p className="tv-indiciu">{l.descriere}</p>}
                 <span className="tv-cine">{l.autor ?? 'Autor necunoscut'}{l.organizatie ? ` · ${l.organizatie}` : ' · conținut al platformei'}</span>
+                {l.loc && <span className="tv-cine">{l.loc}{l.inLocalitateaTa ? ' · în localitatea ta' : ''}</span>}
                 <div className="tv-bara tv-bara-verde"><i style={{ width: `${l.numarCapitole ? (l.capitoleCompletate / l.numarCapitole) * 100 : 0}%` }} /></div>
                 <span className="tv-cine">{l.capitoleCompletate} din {l.numarCapitole} {l.numarCapitole === 1 ? 'capitol terminat' : 'capitole terminate'}</span>
               </Link>
             ))}
           </div>
           {lectii.length === 0 && (
-            <p className="tv-gol">{alese.length ? 'Nu există lecții pentru clasa aleasă. Alege „Toate” sau altă clasă.' : 'Materia nu are încă lecții.'}</p>
+            <p className="tv-gol">
+              {unde === 'local' ? 'Nu există lecții ale organizațiilor din județul tău aici.' : unde !== 'toate' ? 'Nu există lecții pentru filtrul ales.'
+                : alese.length ? 'Nu există lecții pentru clasa aleasă. Alege „Toate” sau altă clasă.' : 'Materia nu are încă lecții.'}
+            </p>
           )}
         </div>
       </div>

@@ -131,6 +131,30 @@ socotită o dată la limita zilnică a celui care a încărcat. Ștergerea capit
 
 Plata elevului este simulată (`plata.status = 'simulata'`); profesorul primește onorariul negociat, păstrat în `comision_mentor.suma_comision`.
 
+### Căutare și filtre
+
+`GET /cautare?q=&materieId=&clasa=&filtru=` caută Lecții și capitole (cel mult 30 din fiecare) după toate cuvintele lui `q`
+(minim 2 litere), fără diacritice: `parcurs.cautare` și `curs.cautare` sunt coloane generate de baza de date (titlu + descriere,
+la capitol și eticheta) cu `MarkAi.Data.CautareText` (ș/ț cu virgulă sau cu sedilă, majuscule, „-” = spațiu); `%` și `_` se caută
+ca text. Rezultatele trec mereu prin `AccesContinut`.
+
+Filtrele `filtru` (aceleași la `GET /materii/{id}/parcursuri`): `toate`, `organizatia-mea`, `public`, `local` — organizația de bază
+a Lecției e în județul utilizatorului (din Setări; fără județ → 400), cele din localitatea lui primele (`inLocalitateaTa`).
+Lecțiile de platformă nu au loc. Fiecare Lecție are `loc` („Sectorul 1, București”).
+
+## Ședințe cu profesori
+
+`GET /profesori?materieId=&gratuit=&zile=&filtru=toate|organizatia-mea|local&tip=online|fata_in_fata`: `local` = locul
+profesorului e în județul elevului (localitatea lui primele); `tip` arată doar ședințele de acel tip (cele hibride apar la ambele)
+și scoate profesorii fără ele. Locul profesorului: `GET/PUT /profesori/me/loc { organizatieId }` — `null` = județul și localitatea
+din contul lui, altfel una dintre organizațiile lui aprobate (dacă iese din ea, se folosește din nou locul propriu).
+
+O ședință (`camera_tutoring.tip`) e `online`, `fata_in_fata` sau `hibrid`. Cele față în față / hibride au un loc ales la creare
+(`locOrganizatieId` sau locul propriu; județul și localitatea se copiază) și o notă opțională (`notaLoc`, „Sala 12”) pe care,
+ca linkul, o văd doar profesorul și elevii rezervați (`PUT /profesori/me/sloturi/{id}/nota`). O ședință față în față nu are link.
+La rezervare (`POST /rezervari { slotId, participare }`), `participare` (`online` / `la_sala`) e obligatorie doar la hibride;
+locurile sunt comune. Ședințele și rezervările de dinaintea migrării `CautareSiSedinte` sunt online.
+
 ## Aspect: temă, stil și avatar
 
 `GET/PUT /utilizatori/me/preferinte` ține trei alegeri independente, în `preferinte_utilizator`:

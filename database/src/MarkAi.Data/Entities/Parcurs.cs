@@ -35,6 +35,9 @@ public class Parcurs
 
     public DateTime CreatLa { get; set; }
 
+    /// <summary>Title + description in lower case without diacritics, computed by the database (<see cref="MarkAi.Data.CautareText"/>).</summary>
+    public string Cautare { get; set; } = "";
+
     public virtual Materie Materie { get; set; } = null!;
 
     public virtual Utilizator? Autor { get; set; }

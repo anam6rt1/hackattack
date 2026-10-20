@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api, dataOra } from '@/lib/api'
+import { textLoc } from '@/lib/sedinte'
 import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
 import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
@@ -111,7 +112,9 @@ export default function AcasaElev({ utilizator }) {
                       <div>
                         <b>{r.slot.titlu}</b>
                         <small>{dataOra(r.slot.inceputLa)} · {r.profesor}</small>
-                        {r.slot.linkIntalnire ? (
+                        {r.participare === 'la_sala' ? (
+                          <small>La sală: {textLoc(r.slot.loc)}{r.slot.notaLoc ? ` · ${r.slot.notaLoc}` : ''}</small>
+                        ) : r.slot.linkIntalnire ? (
                           <a className="tv-link-sedinta" href={r.slot.linkIntalnire} target="_blank" rel="noreferrer">Intră în ședință →</a>
                         ) : (
                           <small>Profesorul va adăuga linkul ședinței.</small>

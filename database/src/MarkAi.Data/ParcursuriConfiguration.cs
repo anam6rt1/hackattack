@@ -29,6 +29,8 @@ internal static class ParcursuriConfiguration
             e.Property(x => x.Publicat).HasColumnName("publicat").HasDefaultValue(true);
             e.Property(x => x.Ordine).HasColumnName("ordine").HasDefaultValue(0);
             e.Property(x => x.CreatLa).HasColumnName("creat_la").HasDefaultValueSql("now()");
+            e.Property(x => x.Cautare).HasColumnName("cautare")
+                .HasComputedColumnSql(CautareText.Sql("titlu || ' ' || coalesce(descriere, '')"), stored: true);
             // Target of the chapters' composite key, so a chapter's subject always matches its path's.
             e.HasAlternateKey(x => new { x.Id, x.MaterieId }).HasName("parcurs_id_materie_id_key");
             e.HasIndex(x => new { x.MaterieId, x.Clasa }, "idx_parcurs_materie_clasa");
@@ -58,6 +60,8 @@ internal static class ParcursuriConfiguration
         model.Entity<Curs>(e =>
         {
             e.Property(x => x.ParcursId).HasColumnName("parcurs_id");
+            e.Property(x => x.Cautare).HasColumnName("cautare")
+                .HasComputedColumnSql(CautareText.Sql("titlu || ' ' || coalesce(capitol, '') || ' ' || coalesce(descriere, '')"), stored: true);
             e.HasIndex(x => new { x.ParcursId, x.MaterieId }, "idx_curs_parcurs_id_materie_id_fkey");
             // Chapters are deleted explicitly (their questions' options block a cascade), never by deleting the path.
             e.HasOne(x => x.Parcurs).WithMany(p => p.Capitole)
