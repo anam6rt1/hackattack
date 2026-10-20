@@ -63,6 +63,26 @@ export function adresaInapoi(valoare) {
   return typeof valoare === 'string' && valoare.startsWith('/') && !valoare.startsWith('//') && !valoare.startsWith('/\\') ? valoare : null
 }
 
+// Adresa se ține în sessionStorage (tabul curent) înainte de redirecționare: la o navigare în site, pagina de start
+// se poate randa înainte ca bara de adrese să arate ?inapoi=. Parametrul din adresă rămâne pentru linkurile deschise direct.
+const CHEIE_INAPOI = 'markai-inapoi'
+
+function retineInapoi(cale) {
+  try {
+    sessionStorage.setItem(CHEIE_INAPOI, cale)
+  } catch {}
+}
+
+// Citită o singură dată, după intrarea în cont.
+export function preiaInapoi() {
+  let cale = null
+  try {
+    cale = sessionStorage.getItem(CHEIE_INAPOI)
+    sessionStorage.removeItem(CHEIE_INAPOI)
+  } catch {}
+  return adresaInapoi(cale ?? new URLSearchParams(window.location.search).get('inapoi'))
+}
+
 // Paginile protejate: trimite vizitatorii la pagina de start (care îi readuce aici după intrarea în cont),
 // profesorii neaprobați la /in-asteptare și pe cei cu alt rol înapoi acasă.
 // Întoarce utilizatorul doar când are voie să vadă pagina.
@@ -74,7 +94,11 @@ export function usePagina(...roluri) {
 
   useEffect(() => {
     if (utilizator === undefined) return
-    if (utilizator === null) router.replace('/?inapoi=' + encodeURIComponent(window.location.pathname + window.location.search))
+    if (utilizator === null) {
+      const cale = window.location.pathname + window.location.search
+      retineInapoi(cale)
+      router.replace('/?inapoi=' + encodeURIComponent(cale))
+    }
     else if (neaprobat) router.replace('/in-asteptare')
     else if (!permis) router.replace('/')
   }, [utilizator, neaprobat, permis, router])
