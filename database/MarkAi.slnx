@@ -4,9 +4,12 @@
     <Project Path="src/MarkAi.Data/MarkAi.Data.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/MarkAi.AccountSettings.Checks/MarkAi.AccountSettings.Checks.csproj" />
+    <Project Path="tests/MarkAi.Tests.Integration/MarkAi.Tests.Integration.csproj" />
+    <Project Path="tests/MarkAi.Tests.Suport/MarkAi.Tests.Suport.csproj" />
+    <Project Path="tests/MarkAi.Tests.Unit/MarkAi.Tests.Unit.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/MarkAi.Database/MarkAi.Database.csproj" />
+    <Project Path="tools/MarkAi.Previzualizare/MarkAi.Previzualizare.csproj" />
   </Folder>
 </Solution>

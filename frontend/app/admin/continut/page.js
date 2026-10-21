@@ -4,14 +4,16 @@
 // administrează și (adminul platformei) toate.
 // Lecția are o clasă, o organizație de bază (al cărei administrator o poate edita), vizibilitate publică sau doar pentru
 // organizație, și poate fi arătată (doar vizualizare) și în celelalte organizații ale autorului.
-// La salvarea unui capitol nou sau la schimbarea materialului, serverul generează întrebări cu AI; fișierele capitolului
-// (PDF, DOCX, PPTX) au propria secțiune, iar textul lor intră și el în întrebări.
+// Testul și fișierele sunt ale lecției întregi: cel mult un PDF, un DOCX și un PPTX (unul nou de același tip îl înlocuiește),
+// iar întrebările testului se generează cu AI doar la cerere (câte vrea profesorul), din notițele tuturor capitolelor și
+// textul fișierelor; se adaugă la cele existente și pot fi editate, șterse sau scrise de mână.
 
 import { useCallback, useEffect, useState } from 'react'
 import { api, marime, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
+import { useConfirmare } from '@/components/Confirmare'
 
 const CURS_GOL = { titlu: '', descriere: '', capitol: '', ordine: '', videoUrl: '', continut: '', publicat: true, materiale: [{ titlu: '', text: '' }] }
 const LECTIE_GOALA = { titlu: '', descriere: '', clasa: 'Bac', vizibilitate: 'public', organizatieId: null, partajari: [], publicat: true }
@@ -52,6 +54,7 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
     : { ...lectie }))
   const [eroare, setEroare] = useState('')
   const [trimite, setTrimite] = useState(false)
+  const [confirma, fereastra] = useConfirmare()
   const posibile = nou ? organizatiiNoi : lectie.organizatiiPosibile
   const poateMuta = nou || lectie.poateMuta
   const aleasa = posibile.find((o) => o.id === date.organizatieId)
@@ -80,7 +83,11 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
 
   async function sterge() {
     const capitole = lectie.numarCapitole === 1 ? '1 capitol' : `${lectie.numarCapitole} capitole`
-    if (!window.confirm(`Ștergi definitiv lecția „${lectie.titlu}”, cu ${capitole}? Se șterg întrebările și progresul elevilor la ele; XP-ul deja câștigat rămâne.`)) return
+    if (!(await confirma({
+      titlu: 'Ștergi lecția?',
+      mesaj: `„${lectie.titlu}”, cu ${capitole}, se șterge definitiv. Se șterg și testul, fișierele și progresul elevilor; XP-ul deja câștigat rămâne.`,
+      da: 'Șterge lecția', pericol: true,
+    }))) return
     try {
       await api(`/parcursuri/${lectie.id}`, { metoda: 'DELETE' })
       onStearsa()
@@ -157,6 +164,7 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
         <button className="tv-btn" disabled={trimite || (nou && !esteAdmin && posibile.length === 0)}>{trimite ? 'Se salvează...' : nou ? 'Creează lecția' : 'Salvează lecția'}</button>
       </div>
       {!nou && <button type="button" className="tv-pastila tv-pastila-rosu" style={{ justifySelf: 'start' }} onClick={sterge}>Șterge lecția</button>}
+      {fereastra}
     </form>
   )
 }
@@ -194,7 +202,7 @@ function Capitole({ lectie, ales, onAlege, versiune }) {
             <button className={`tv-rand tv-rand-buton ${ales === c.id ? 'tv-rand-activ' : ''}`} style={{ flex: 1 }} onClick={() => onAlege(c.id)}>
               <div>
                 <b>{i + 1}. {c.titlu}</b>
-                <small>{c.capitol ? `${c.capitol} · ` : ''}{c.intrebari} întrebări</small>
+                {c.capitol && <small>{c.capitol}</small>}
               </div>
               {!c.publicat && <span className="tv-pastila">Ciornă</span>}
             </button>
@@ -212,6 +220,7 @@ function EditorCurs({ parcursId, curs, onSalvat, onAnulat, onSters }) {
   const [date, setDate] = useState(() => ({ ...CURS_GOL, ...curs, ordine: curs?.ordine ?? '', materiale: curs?.materiale?.length ? curs.materiale : CURS_GOL.materiale }))
   const [eroare, setEroare] = useState('')
   const [trimite, setTrimite] = useState(false)
+  const [confirma, fereastra] = useConfirmare()
   const camp = (k) => ({ value: date[k] ?? '', onChange: (e) => setDate({ ...date, [k]: e.target.value }) })
   const sectiune = (i, k, v) => setDate({ ...date, materiale: date.materiale.map((m, j) => (j === i ? { ...m, [k]: v } : m)) })
 
@@ -235,7 +244,9 @@ function EditorCurs({ parcursId, curs, onSalvat, onAnulat, onSters }) {
   }
 
   async function sterge() {
-    if (!window.confirm(`Ștergi definitiv capitolul „${curs.titlu}”? Se șterg și întrebările lui și progresul elevilor la el; XP-ul deja câștigat rămâne.`)) return
+    if (!(await confirma({
+      titlu: 'Ștergi capitolul?', mesaj: `„${curs.titlu}” se șterge definitiv. Testul și fișierele lecției rămân.`, da: 'Șterge capitolul', pericol: true,
+    }))) return
     try {
       await api(`/cursuri/${curs.id}`, { metoda: 'DELETE' })
       onSters()
@@ -251,7 +262,7 @@ function EditorCurs({ parcursId, curs, onSalvat, onAnulat, onSters }) {
       <label className="tv-eticheta-camp"><span>Descriere scurtă</span><input className="tv-camp-text" maxLength={1000} {...camp('descriere')} /></label>
       <label className="tv-eticheta-camp"><span>Link video (YouTube, opțional)</span><input className="tv-camp-text" type="url" placeholder="https://www.youtube.com/watch?v=..." {...camp('videoUrl')} /></label>
 
-      <div className="tv-mic">Notițele lecției</div>
+      <div className="tv-mic">Notițele capitolului</div>
       {date.materiale.map((m, i) => (
         <div key={i} className="tv-sectiune-editor">
           <input className="tv-camp-text" placeholder={`Titlul secțiunii ${i + 1}`} value={m.titlu} onChange={(e) => sectiune(i, 'titlu', e.target.value)} aria-label={`Titlul secțiunii ${i + 1}`} />
@@ -270,7 +281,7 @@ function EditorCurs({ parcursId, curs, onSalvat, onAnulat, onSters }) {
       <label className="tv-optiune" style={{ justifySelf: 'start' }}>
         <input type="checkbox" checked={date.publicat} onChange={(e) => setDate({ ...date, publicat: e.target.checked })} /> Publicat (vizibil elevilor care văd lecția)
       </label>
-      <p className="tv-indiciu">După salvare, întrebările se generează automat din notițe, materialul suplimentar și fișierele capitolului.</p>
+      <p className="tv-indiciu">Întrebările testului nu se generează singure: le ceri din secțiunea „Testul lecției”, după ce ai scris capitolele.</p>
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
       <div className="tv-grid-2">
         <button type="button" className="tv-btn tv-gri" onClick={onAnulat}>Renunț</button>
@@ -279,14 +290,16 @@ function EditorCurs({ parcursId, curs, onSalvat, onAnulat, onSters }) {
       {curs?.id && (
         <button type="button" className="tv-pastila tv-pastila-rosu" style={{ justifySelf: 'start' }} onClick={sterge}>Șterge capitolul</button>
       )}
+      {fereastra}
     </form>
   )
 }
 
-function Intrebare({ q, onSalvat }) {
+function Intrebare({ q, onSalvat, onStearsa }) {
   const [editare, setEditare] = useState(false)
   const [date, setDate] = useState(q)
   const [eroare, setEroare] = useState('')
+  const [confirma, fereastra] = useConfirmare()
 
   async function salveaza(modificari) {
     const urmator = { ...date, ...modificari }
@@ -303,6 +316,16 @@ function Intrebare({ q, onSalvat }) {
     }
   }
 
+  async function sterge() {
+    if (!(await confirma({ titlu: 'Ștergi întrebarea?', mesaj: `„${date.text}” se șterge definitiv din testul lecției.`, da: 'Șterge', pericol: true }))) return
+    try {
+      await api(`/intrebari/${q.id}`, { metoda: 'DELETE' })
+      onStearsa()
+    } catch (e) {
+      setEroare(e.message)
+    }
+  }
+
   return (
     <li className={`tv-cutie tv-intrebare-editor ${date.activa ? '' : 'tv-inactiva'}`}>
       <div className="tv-butoane" style={{ justifyContent: 'space-between' }}>
@@ -313,6 +336,7 @@ function Intrebare({ q, onSalvat }) {
         <span className="tv-butoane">
           <button className="tv-pastila" onClick={() => setEditare(!editare)}>{editare ? 'Închide' : 'Editează'}</button>
           <button className="tv-pastila" onClick={() => salveaza({ activa: !date.activa })}>{date.activa ? 'Dezactivează' : 'Activează'}</button>
+          <button className="tv-pastila tv-pastila-rosu" onClick={sterge}>Șterge</button>
         </span>
       </div>
       {editare ? (
@@ -345,6 +369,7 @@ function Intrebare({ q, onSalvat }) {
         </>
       )}
       {eroare && <p className="tv-eroare">{eroare}</p>}
+      {fereastra}
     </li>
   )
 }
@@ -356,21 +381,23 @@ const STARE_TEXT = {
   fara_text: 'fără text (de ex. un PDF scanat): elevii îl văd, dar nu ajută la întrebări',
   eroare: 'textul nu a putut fi citit: elevii îl văd, dar nu ajută la întrebări',
 }
+const tipFisier = (nume) => nume.split('.').pop().toLowerCase()
 
-// Fișierele capitolului (PDF, DOCX, PPTX): se încarcă pe rând; textul lor intră în materialul pentru întrebările AI,
-// iar serverul le regenerează o singură dată, la un minut după ultimul fișier.
-function Fisiere({ cursId }) {
+// Fișierele lecției: cel mult un PDF, un Word (.docx) și un PowerPoint (.pptx). Unul nou de un tip care există deja îl
+// înlocuiește, după confirmare. Textul lor intră în materialul din care se generează întrebările (doar la cerere).
+function Fisiere({ parcursId }) {
   const [date, setDate] = useState(null)
   const [incarcare, setIncarcare] = useState(null) // { nume, ramase }
   const [erori, setErori] = useState([])
+  const [confirma, fereastra] = useConfirmare()
 
-  const incarca = useCallback(() => api(`/continut/cursuri/${cursId}/fisiere`).then(setDate), [cursId])
+  const incarca = useCallback(() => api(`/continut/parcursuri/${parcursId}/fisiere`).then(setDate), [parcursId])
 
-  // Cât timp se citește textul unui fișier sau așteaptă regenerarea, lista se reîmprospătează.
+  // Cât timp se citește textul unui fișier, lista se reîmprospătează.
   useEffect(() => {
     incarca()
   }, [incarca])
-  const asteapta = !!date && (date.regenerareProgramata || date.elemente.some((f) => f.stareText === 'in_asteptare'))
+  const asteapta = !!date && date.elemente.some((f) => f.stareText === 'in_asteptare')
   useEffect(() => {
     if (!asteapta) return
     const t = setInterval(incarca, 4000)
@@ -382,16 +409,23 @@ function Fisiere({ cursId }) {
     e.target.value = ''
     const noi = []
     for (const [i, f] of alese.entries()) {
-      setIncarcare({ nume: f.name, ramase: alese.length - i })
-      // Verificat și aici: peste limită serverul închide conexiunea, iar browserul ar arăta doar o eroare de rețea.
+      // Verificat și aici, ca fișierul să nu fie trimis degeaba.
       if (f.size > date.maxMb * 1024 * 1024) {
         noi.push(`${f.name}: are ${marime(f.size)}; limita este ${date.maxMb} MB.`)
         continue
       }
+      const existent = date.elemente.find((x) => x.tip === tipFisier(f.name))
+      if (existent && !(await confirma({
+        titlu: `Înlocuiești ${existent.tip.toUpperCase()}-ul?`,
+        mesaj: `Lecția are deja „${existent.nume}”. Dacă îl înlocuiești cu „${f.name}”, cel vechi se șterge.`,
+        da: 'Înlocuiește', nu: 'Păstrează-l pe cel vechi',
+      }))) continue
+      setIncarcare({ nume: f.name, ramase: alese.length - i })
       const formular = new FormData()
       formular.append('fisier', f)
       try {
-        await api(`/cursuri/${cursId}/fisiere`, { metoda: 'POST', formular })
+        await api(`/parcursuri/${parcursId}/fisiere${existent ? '?inlocuieste=true' : ''}`, { metoda: 'POST', formular })
+        await incarca()
       } catch (err) {
         noi.push(`${f.name}: ${err.message}`)
       }
@@ -402,7 +436,7 @@ function Fisiere({ cursId }) {
   }
 
   async function sterge(f) {
-    if (!confirm(`Ștergi fișierul „${f.nume}”? Elevii nu îl vor mai vedea.`)) return
+    if (!(await confirma({ titlu: 'Ștergi fișierul?', mesaj: `„${f.nume}” se șterge, iar elevii nu îl vor mai vedea.`, da: 'Șterge', pericol: true }))) return
     try {
       await api(`/fisiere/${f.id}`, { metoda: 'DELETE' })
       setErori([])
@@ -413,13 +447,12 @@ function Fisiere({ cursId }) {
   }
 
   if (!date) return null
-  const plin = date.elemente.length >= date.maxim
   return (
     <div className="tv-form">
-      <h3 style={{ fontSize: 21, color: 'var(--navy)' }}>Fișiere</h3>
+      <h3 style={{ fontSize: 21, color: 'var(--navy)' }}>Fișierele lecției</h3>
       <p className="tv-indiciu">
-        PDF, Word (.docx) sau PowerPoint (.pptx), cel mult {date.maxMb} MB fiecare și {date.maxim} pe capitol. Elevii le deschid din capitol;
-        textul lor e folosit și la întrebările generate cu AI.
+        Cel mult un PDF, un Word (.docx) și un PowerPoint (.pptx), de până la {date.maxMb} MB fiecare. Elevii le deschid din pagina lecției;
+        textul lor intră și în întrebările generate cu AI.
       </p>
       <ul className="tv-lista">
         {date.elemente.map((f) => (
@@ -429,14 +462,16 @@ function Fisiere({ cursId }) {
               <small>
                 {f.tip.toUpperCase()} · {marime(f.marimeOcteti)}
                 {f.incarcatDe ? ` · de ${f.incarcatDe}` : ''}
-                {STARE_TEXT[f.stareText] ? ` · ${STARE_TEXT[f.stareText]}` : ''}
+                {f.stareText === 'gata'
+                  ? ` · text citit (${f.caractereText.toLocaleString('ro-RO')} caractere), folosit la întrebările AI`
+                  : STARE_TEXT[f.stareText] ? ` · ${STARE_TEXT[f.stareText]}` : ''}
               </small>
             </div>
             <a className="tv-pastila" href={urlApi(`/fisiere/${f.id}`)} target="_blank" rel="noreferrer">Deschide</a>
             <button type="button" className="tv-pastila tv-pastila-rosu" onClick={() => sterge(f)}>Șterge</button>
           </li>
         ))}
-        {date.elemente.length === 0 && <p className="tv-gol">Capitolul nu are fișiere.</p>}
+        {date.elemente.length === 0 && <p className="tv-gol">Lecția nu are fișiere.</p>}
       </ul>
       {incarcare && (
         <p className="tv-status">
@@ -444,33 +479,78 @@ function Fisiere({ cursId }) {
           {incarcare.ramase > 1 && <span>Mai sunt {incarcare.ramase - 1} după el.</span>}
         </p>
       )}
-      {date.regenerareProgramata && !incarcare && (
-        <p className="tv-status">
-          <b>Întrebările vor fi regenerate din fișiere.</b>
-          <span>Pornește la un minut după ultimul fișier adăugat sau șters.</span>
-        </p>
-      )}
       {erori.map((e) => <p key={e} className="tv-eroare">{e}</p>)}
       <label className="tv-eticheta-camp">
-        <span>{plin ? `Ai ajuns la ${date.maxim} fișiere: șterge unul ca să adaugi altul.` : 'Adaugă fișiere'}</span>
-        <input className="tv-fisier" type="file" multiple accept={TIPURI_FISIER} onChange={adauga} disabled={plin || !!incarcare} />
+        <span>Adaugă sau înlocuiește fișiere</span>
+        <input className="tv-fisier" type="file" multiple accept={TIPURI_FISIER} onChange={adauga} disabled={!!incarcare} />
       </label>
+      {fereastra}
     </div>
   )
 }
 
-function Intrebari({ cursId }) {
+const INTREBARE_GOALA = { text: '', explicatie: '', variante: [0, 1, 2, 3].map(() => ({ text: '', corecta: false })) }
+
+// O întrebare grilă scrisă de mână (2–6 variante, exact una corectă).
+function IntrebareNoua({ parcursId, onAdaugata }) {
+  const [deschis, setDeschis] = useState(false)
+  const [date, setDate] = useState(INTREBARE_GOALA)
+  const [eroare, setEroare] = useState('')
+
+  async function trimite(e) {
+    e.preventDefault()
+    const variante = date.variante.filter((v) => v.text.trim())
+    try {
+      await api(`/parcursuri/${parcursId}/intrebari`, { metoda: 'POST', corp: { text: date.text, explicatie: date.explicatie || null, activa: true, variante, tip: 'grila' } })
+      setDate(INTREBARE_GOALA)
+      setDeschis(false)
+      setEroare('')
+      onAdaugata()
+    } catch (err) {
+      setEroare(err.message)
+    }
+  }
+
+  if (!deschis) return <button className="tv-pastila" style={{ justifySelf: 'start' }} onClick={() => setDeschis(true)}>+ Scrie o întrebare</button>
+  return (
+    <form className="tv-cutie tv-form" onSubmit={trimite}>
+      <textarea className="tv-camp-text" rows={2} required maxLength={1000} placeholder="Întrebarea" value={date.text} onChange={(e) => setDate({ ...date, text: e.target.value })} aria-label="Întrebarea" />
+      {date.variante.map((v, i) => (
+        <label key={i} className="tv-varianta-editor">
+          <input type="radio" name="corecta-noua" checked={v.corecta} onChange={() => setDate({ ...date, variante: date.variante.map((x, j) => ({ ...x, corecta: j === i })) })} aria-label={`Varianta ${i + 1} e corectă`} />
+          <input className="tv-camp-text" maxLength={500} placeholder={`Varianta ${i + 1}`} value={v.text} onChange={(e) => setDate({ ...date, variante: date.variante.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)) })} aria-label={`Varianta ${i + 1}`} />
+        </label>
+      ))}
+      <small className="tv-indiciu">Bifează varianta corectă; variantele goale nu se salvează.</small>
+      <textarea className="tv-camp-text" rows={2} maxLength={2000} placeholder="Explicația (opțional)" value={date.explicatie} onChange={(e) => setDate({ ...date, explicatie: e.target.value })} aria-label="Explicația" />
+      {eroare && <p className="tv-eroare">{eroare}</p>}
+      <div className="tv-grid-2">
+        <button type="button" className="tv-btn tv-gri" onClick={() => setDeschis(false)}>Renunț</button>
+        <button className="tv-btn">Adaugă întrebarea</button>
+      </div>
+    </form>
+  )
+}
+
+// Testul lecției: întrebările generate cu AI la cerere (câte alege profesorul, adăugate la cele existente) sau scrise de mână.
+function Intrebari({ parcursId }) {
   const [generare, setGenerare] = useState(null)
   const [intrebari, setIntrebari] = useState(null)
+  const [numar, setNumar] = useState(5)
+  const [eroare, setEroare] = useState('')
+  const [buget, setBuget] = useState(null) // { ramase, peZi }: întrebări AI care se mai pot cere în ultimele 24 de ore
 
-  const incarca = useCallback(() => api(`/cursuri/${cursId}/intrebari/toate`).then((r) => setIntrebari(r.elemente)), [cursId])
+  const incarca = useCallback(() => {
+    api('/continut/buget-ai').then(setBuget).catch(() => {})
+    return api(`/continut/parcursuri/${parcursId}/intrebari`).then((r) => setIntrebari(r.elemente))
+  }, [parcursId])
 
-  // Urmărește generarea cât timp e în lucru
-  useEffect(() => {
+  // Urmărește generarea cât timp e în lucru; la final reîncarcă lista, ca întrebările noi să apară singure.
+  const urmareste = useCallback(() => {
     let oprit = false
     let t
     const verifica = async () => {
-      const g = await api(`/cursuri/${cursId}/generare`).catch(() => null)
+      const g = await api(`/parcursuri/${parcursId}/generare`).catch(() => null)
       if (oprit) return
       setGenerare(g)
       if (g && ['in_asteptare', 'in_lucru'].includes(g.stare)) t = setTimeout(verifica, 2000)
@@ -481,31 +561,51 @@ function Intrebari({ cursId }) {
       oprit = true
       clearTimeout(t)
     }
-  }, [cursId, incarca])
+  }, [parcursId, incarca])
+  const [cerere, setCerere] = useState(0)
+  useEffect(() => urmareste(), [urmareste, cerere])
 
-  async function regenereaza() {
-    setGenerare(await api(`/cursuri/${cursId}/regenereaza-intrebari`, { metoda: 'POST' }))
-    const verifica = async () => {
-      const g = await api(`/cursuri/${cursId}/generare`)
-      setGenerare(g)
-      if (['in_asteptare', 'in_lucru'].includes(g.stare)) setTimeout(verifica, 2000)
-      else incarca()
+  async function genereaza() {
+    setEroare('')
+    try {
+      setGenerare(await api(`/parcursuri/${parcursId}/genereaza-intrebari`, { metoda: 'POST', corp: { numar: Number(numar) } }))
+      setCerere((c) => c + 1)
+    } catch (err) {
+      setEroare(err.message)
+      api('/continut/buget-ai').then(setBuget).catch(() => {}) // refuzat (ex. peste limită): arată ce a rămas de fapt
     }
-    setTimeout(verifica, 1500)
   }
 
   const lucreaza = generare && ['in_asteptare', 'in_lucru'].includes(generare.stare)
+  const maxim = Math.min(20, buget?.ramase ?? 20)
+  const active = intrebari?.filter((q) => q.activa && q.tip === 'grila').length ?? 0
   return (
     <div className="tv-form">
-      <div className="tv-butoane" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 21, color: 'var(--navy)' }}>Întrebări</h3>
-        <button className="tv-pastila tv-pastila-aur" onClick={regenereaza} disabled={lucreaza}>Generează din nou cu AI</button>
+      <h3 style={{ fontSize: 21, color: 'var(--navy)' }}>Testul lecției</h3>
+      <p className="tv-indiciu">
+        Elevii termină lecția când trec testul (80% răspunsuri corecte), cu întrebări alese la întâmplare dintre cele active de mai jos.
+        {intrebari && ` Acum: ${active} ${active === 1 ? 'întrebare grilă activă' : 'întrebări grilă active'}.`}
+      </p>
+      <div className="tv-butoane" style={{ alignItems: 'center' }}>
+        <label className="tv-eticheta-camp" style={{ maxWidth: 140 }}>
+          <span>Câte întrebări</span>
+          <input className="tv-camp-text" type="number" min={1} max={maxim} value={numar} onChange={(e) => setNumar(e.target.value)} />
+        </label>
+        <button className="tv-pastila tv-pastila-aur" onClick={genereaza} disabled={lucreaza || maxim === 0 || !(numar >= 1 && numar <= maxim)}>Generează întrebări cu AI</button>
       </div>
+      <small className="tv-indiciu">
+        Se generează din notițele tuturor capitolelor și textul fișierelor; se adaugă la întrebările existente.
+        {buget && (buget.ramase > 0
+          ? ` Îți mai rămân ${buget.ramase} ${buget.ramase === 1 ? 'întrebare AI' : 'întrebări AI'} în ultimele 24 de ore (cel mult 20 odată).`
+          : ' Ai folosit întrebările AI disponibile în ultimele 24 de ore; poți scrie întrebări de mână.')}
+      </small>
       {lucreaza && <p className="tv-status"><b>Se generează întrebările...</b><span>Durează de obicei mai puțin de un minut.</span></p>}
-      {generare?.stare === 'gata' && <p className="tv-succes">Au fost generate {generare.intrebariGenerate} întrebări noi. Verifică-le mai jos.</p>}
+      {generare?.stare === 'gata' && <p className="tv-succes">Au fost adăugate {generare.intrebariGenerate} întrebări noi. Verifică-le mai jos.</p>}
       {generare?.stare === 'eroare' && <p className="tv-eroare">{generare.mesaj}</p>}
-      {intrebari?.length === 0 && !lucreaza && <p className="tv-gol">Capitolul nu are încă întrebări.</p>}
-      <ul className="tv-lista">{intrebari?.map((q) => <Intrebare key={q.id} q={q} onSalvat={incarca} />)}</ul>
+      {eroare && <p className="tv-eroare">{eroare}</p>}
+      <IntrebareNoua parcursId={parcursId} onAdaugata={incarca} />
+      {intrebari?.length === 0 && !lucreaza && <p className="tv-gol">Lecția nu are încă întrebări.</p>}
+      <ul className="tv-lista">{intrebari?.map((q) => <Intrebare key={q.id} q={q} onSalvat={incarca} onStearsa={incarca} />)}</ul>
     </div>
   )
 }
@@ -559,7 +659,7 @@ export default function AdminContinut() {
         <section className="tv-erou" style={{ paddingBottom: 110 }}>
           <span className="tv-erou-pill">Conținut</span>
           <h1>Lecții, capitole și întrebări</h1>
-          <p>O lecție e o hartă pentru elevi; fiecare capitol al ei e o insulă, cu notițe, un video opțional și întrebări.</p>
+          <p>O lecție e o hartă pentru elevi: fiecare capitol e o insulă, cu notițe și un video opțional; lecția are fișiere și un test.</p>
         </section>
         <div className="tv-coala">
           <div className="tv-editor">
@@ -617,6 +717,14 @@ export default function AdminContinut() {
                   <Capitole lectie={lectie} ales={capitol} onAlege={deschideCapitol} versiune={versiune} />
                 </>
               )}
+              {lectie?.id && capitol === null && (
+                <>
+                  <hr className="tv-linie" />
+                  <Fisiere key={`f-${lectie.id}`} parcursId={lectie.id} />
+                  <hr className="tv-linie" />
+                  <Intrebari key={`q-${lectie.id}`} parcursId={lectie.id} />
+                </>
+              )}
               {lectie?.id && capitol === 'nou' && (
                 <>
                   <hr className="tv-linie" />
@@ -630,10 +738,6 @@ export default function AdminContinut() {
                   <EditorCurs key={detaliu.id} parcursId={lectie.id} curs={detaliu} onAnulat={() => deschideCapitol(null)}
                     onSalvat={(c) => { setVersiune((v) => v + 1); setDetaliu(c) }}
                     onSters={() => { setVersiune((v) => v + 1); incarcaLectii(); deschideCapitol(null) }} />
-                  <hr className="tv-linie" />
-                  <Fisiere key={`f-${detaliu.id}`} cursId={detaliu.id} />
-                  <hr className="tv-linie" />
-                  <Intrebari key={`q-${detaliu.id}-${detaliu.titlu}`} cursId={detaliu.id} />
                 </>
               )}
             </section>

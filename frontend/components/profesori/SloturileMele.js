@@ -206,14 +206,20 @@ function LinkSedinta({ slot, onActualizat }) {
 
 export default function SloturileMele({ panou, onActualizat }) {
   const [anulare, setAnulare] = useState(null)
+  const [eroareAnulare, setEroareAnulare] = useState('')
   const acum = new Date()
   const viitoare = panou.sloturi.filter((s) => s.slot.status === 'deschisa' && new Date(s.slot.inceputLa) > acum)
   const trecute = panou.sloturi.filter((s) => !viitoare.includes(s))
 
   async function anuleaza(id) {
-    await api(`/profesori/me/sloturi/${id}`, { metoda: 'DELETE' })
-    setAnulare(null)
-    onActualizat(await api('/profesori/me'))
+    setEroareAnulare('')
+    try {
+      await api(`/profesori/me/sloturi/${id}`, { metoda: 'DELETE' })
+      setAnulare(null)
+      onActualizat(await api('/profesori/me'))
+    } catch (e) {
+      setEroareAnulare(e.message)
+    }
   }
 
   // funcție simplă (nu componentă), ca editorul de link să nu se remonteze la fiecare randare
@@ -238,7 +244,8 @@ export default function SloturileMele({ panou, onActualizat }) {
           (anulare === s.slot.id ? (
             <span className="tv-butoane">
               <button className="tv-pastila tv-pastila-rosu" onClick={() => anuleaza(s.slot.id)}>Confirm anularea</button>
-              <button className="tv-pastila" onClick={() => setAnulare(null)}>Renunț</button>
+              <button className="tv-pastila" onClick={() => { setAnulare(null); setEroareAnulare('') }}>Renunț</button>
+              {eroareAnulare && <span className="tv-pastila tv-pastila-rosu" role="alert">{eroareAnulare}</span>}
             </span>
           ) : (
             <button className="tv-pastila" onClick={() => setAnulare(s.slot.id)}>Anulează</button>

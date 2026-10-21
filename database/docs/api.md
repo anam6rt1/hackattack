@@ -171,12 +171,13 @@ Migrarea `AvatarSiStiluri` adaugă coloana `avatar` și interfețele `realist` �
 Ambele funcții AI (întrebările și tutorele) trec prin `Servicii/ModelAi.cs`: Claude dacă există `ANTHROPIC_API_KEY`,
 altfel Gemini dacă există `GEMINI_API_KEY`. Promptul și schema JSON sunt aceleași; se schimbă doar apelul.
 
-`POST /cursuri` și `PUT /cursuri/{id}` (când se schimbă materialul) pun capitolul într-o coadă în memorie; un `BackgroundService`
-cere lui Claude întrebări grilă + estimări (ieșire JSON structurată, cu fallback pe server la refuz) și le salvează cu `sursa = 'ai'`.
-Întrebările AI anterioare sunt dezactivate, nu șterse. O întrebare editată de om devine `manual` și nu mai e înlocuită.
-Starea: `GET /cursuri/{id}/generare`. Un profesor poate porni cel mult `Limite:GenerariAiPeZi` (10) generări în 24 de ore
-(adminii nu au limită); peste limită, regenerarea cerută primește 409, iar cea automată după o editare nu pornește și starea spune de ce.
-Materialul trimis modelului include textul extras din fișierele capitolului (vezi mai sus).
+Întrebările se generează DOAR la cerere: `POST /parcursuri/{id}/genereaza-intrebari {numar}` (1–20) pune Lecția într-o coadă în
+memorie; un `BackgroundService` cere modelului întrebări grilă + estimări din notițele tuturor capitolelor și textul fișierelor
+Lecției și le ADAUGĂ cu `sursa = 'ai'` (modelul vede întrebările existente, ca să nu le repete). Crearea/editarea capitolelor nu
+generează nimic. Starea: `GET /parcursuri/{id}/generare`.
+Cheltuiala e plafonată după numărul de întrebări cerute în ultimele 24 de ore: `Limite:IntrebariAiPeZi` (30) per cont, inclusiv
+adminii, și `Limite:IntrebariAiPeZiTotal` (300) pe toată platforma; peste plafon cererea primește 409 cu câte au mai rămas.
+`GET /continut/buget-ai` → `{ ramase, peZi }` (editorul arată „Îți mai rămân N”).
 
 ## Triviador
 

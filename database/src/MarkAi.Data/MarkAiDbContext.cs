@@ -24,17 +24,11 @@ public partial class MarkAiDbContext : DbContext
 
     public virtual DbSet<EvenimentRecompensa> EvenimenteRecompensa { get; set; }
 
-    public virtual DbSet<Graf> Grafuri { get; set; }
-
-    public virtual DbSet<GrafCurs> GrafuriCurs { get; set; }
-
     public virtual DbSet<Interfata> Interfata { get; set; }
 
     public virtual DbSet<Materie> Materii { get; set; }
 
     public virtual DbSet<Mesaj> Mesaje { get; set; }
-
-    public virtual DbSet<MuchieGraf> MuchiiGraf { get; set; }
 
     public virtual DbSet<NivelXp> NiveluriXp { get; set; }
 
@@ -44,8 +38,6 @@ public partial class MarkAiDbContext : DbContext
 
     public virtual DbSet<ProfilMentor> ProfiluriMentor { get; set; }
 
-    public virtual DbSet<Realizare> Realizari { get; set; }
-
     public virtual DbSet<RegulaBackground> ReguliBackground { get; set; }
 
     public virtual DbSet<Rezervare> Rezervari { get; set; }
@@ -54,17 +46,9 @@ public partial class MarkAiDbContext : DbContext
 
     public virtual DbSet<Sesiune> Sesiuni { get; set; }
 
-    public virtual DbSet<SmsLog> JurnaleSms { get; set; }
-
-    public virtual DbSet<TablaPas> PasiTabla { get; set; }
-
     public virtual DbSet<TarifFix> TarifeFixe { get; set; }
 
     public virtual DbSet<Utilizator> Utilizatori { get; set; }
-
-    public virtual DbSet<UtilizatorMaterie> UtilizatoriMaterii { get; set; }
-
-    public virtual DbSet<UtilizatorRealizare> UtilizatoriRealizari { get; set; }
 
     public virtual DbSet<UtilizatorRol> UtilizatoriRoluri { get; set; }
 
@@ -255,7 +239,7 @@ public partial class MarkAiDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("eveniment_recompensa_pkey");
 
-            entity.ToTable("eveniment_recompensa", "mark_ai", tb => tb.HasComment("Jurnal XP; nivelul se deriva din SUM(xp_acordat) si pragurile nivel_xp. Referinta la utilizator_materie foloseste cheia compusa, fara utilizator_id_materie inexistent."));
+            entity.ToTable("eveniment_recompensa", "mark_ai", tb => tb.HasComment("Jurnal XP; nivelul se deriva din SUM(xp_acordat) si pragurile nivel_xp."));
 
             entity.HasIndex(e => e.CheieUnica, "eveniment_recompensa_cheie_unica_key").IsUnique();
 
@@ -265,7 +249,7 @@ public partial class MarkAiDbContext : DbContext
 
             entity.HasIndex(e => e.UtilizatorId, "idx_eveniment_recompensa_utilizator_id_fkey");
 
-            entity.HasIndex(e => new { e.UtilizatorId, e.MaterieId }, "idx_eveniment_recompensa_utilizator_id_materie_id_fkey");
+            entity.HasIndex(e => e.MaterieId, "idx_eveniment_recompensa_materie_id_fkey");
 
             entity.Property(e => e.Id)
                 .UseIdentityAlwaysColumn()
@@ -291,72 +275,10 @@ public partial class MarkAiDbContext : DbContext
                 .HasForeignKey(d => new { d.SesiuneId, d.UtilizatorId })
                 .HasConstraintName("eveniment_recompensa_sesiune_id_utilizator_id_fkey");
 
-            entity.HasOne(d => d.UtilizatorMaterie).WithMany(p => p.EvenimenteRecompensa)
-                .HasForeignKey(d => new { d.UtilizatorId, d.MaterieId })
-                .HasConstraintName("eveniment_recompensa_utilizator_id_materie_id_fkey");
-        });
-
-        modelBuilder.Entity<Graf>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("graf_pkey");
-
-            entity.ToTable("graf", "mark_ai");
-
-            entity.HasIndex(e => new { e.Id, e.MaterieId }, "graf_id_materie_id_key").IsUnique();
-
-            entity.HasIndex(e => e.MaterieId, "idx_graf_materie_id_fkey");
-
-            entity.HasIndex(e => e.OwnerId, "idx_graf_owner_id_fkey");
-
-            entity.Property(e => e.Id)
-                .UseIdentityAlwaysColumn()
-                .HasColumnName("id");
-            entity.Property(e => e.CreatLa)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("creat_la");
-            entity.Property(e => e.Descriere).HasColumnName("descriere");
-            entity.Property(e => e.MaterieId).HasColumnName("materie_id");
-            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
-            entity.Property(e => e.Titlu).HasColumnName("titlu");
-
-            entity.HasOne(d => d.Materie).WithMany(p => p.Grafuri)
+            entity.HasOne(d => d.Materie).WithMany()
                 .HasForeignKey(d => d.MaterieId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("graf_materie_id_fkey");
-
-            entity.HasOne(d => d.Owner).WithMany(p => p.Grafuri)
-                .HasForeignKey(d => d.OwnerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("graf_owner_id_fkey");
-        });
-
-        modelBuilder.Entity<GrafCurs>(entity =>
-        {
-            entity.HasKey(e => new { e.GrafId, e.CursId }).HasName("graf_curs_pkey");
-
-            entity.ToTable("graf_curs", "mark_ai");
-
-            entity.HasIndex(e => new { e.CursId, e.MaterieId }, "idx_graf_curs_curs_id_materie_id_fkey");
-
-            entity.HasIndex(e => new { e.GrafId, e.MaterieId }, "idx_graf_curs_graf_id_materie_id_fkey");
-
-            entity.Property(e => e.GrafId).HasColumnName("graf_id");
-            entity.Property(e => e.CursId).HasColumnName("curs_id");
-            entity.Property(e => e.AdaugatLa)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("adaugat_la");
-            entity.Property(e => e.MaterieId).HasColumnName("materie_id");
-
-            entity.HasOne(d => d.Curs).WithMany(p => p.GrafuriCurs)
-                .HasPrincipalKey(p => new { p.Id, p.MaterieId })
-                .HasForeignKey(d => new { d.CursId, d.MaterieId })
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("graf_curs_curs_id_materie_id_fkey");
-
-            entity.HasOne(d => d.Graf).WithMany(p => p.CursuriGraf)
-                .HasPrincipalKey(p => new { p.Id, p.MaterieId })
-                .HasForeignKey(d => new { d.GrafId, d.MaterieId })
-                .HasConstraintName("graf_curs_graf_id_materie_id_fkey");
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("eveniment_recompensa_materie_id_fkey");
         });
 
         modelBuilder.Entity<Interfata>(entity =>
@@ -419,29 +341,6 @@ public partial class MarkAiDbContext : DbContext
                 .HasForeignKey(d => d.SesiuneId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("mesaj_sesiune_id_fkey");
-        });
-
-        modelBuilder.Entity<MuchieGraf>(entity =>
-        {
-            entity.HasKey(e => new { e.GrafId, e.CursSursaId, e.CursDestinatieId }).HasName("muchie_graf_pkey");
-
-            entity.ToTable("muchie_graf", "mark_ai");
-
-            entity.HasIndex(e => new { e.GrafId, e.CursDestinatieId }, "idx_muchie_graf_graf_id_curs_destinatie_id_fkey");
-
-            entity.Property(e => e.GrafId).HasColumnName("graf_id");
-            entity.Property(e => e.CursSursaId).HasColumnName("curs_sursa_id");
-            entity.Property(e => e.CursDestinatieId).HasColumnName("curs_destinatie_id");
-            entity.Property(e => e.Descriere).HasColumnName("descriere");
-            entity.Property(e => e.TipLegatura).HasColumnName("tip_legatura");
-
-            entity.HasOne(d => d.GrafCurs).WithMany(p => p.MuchiiCaDestinatie)
-                .HasForeignKey(d => new { d.GrafId, d.CursDestinatieId })
-                .HasConstraintName("muchie_graf_graf_id_curs_destinatie_id_fkey");
-
-            entity.HasOne(d => d.GrafCurNavigation).WithMany(p => p.MuchiiCaSursa)
-                .HasForeignKey(d => new { d.GrafId, d.CursSursaId })
-                .HasConstraintName("muchie_graf_graf_id_curs_sursa_id_fkey");
         });
 
         modelBuilder.Entity<NivelXp>(entity =>
@@ -545,27 +444,6 @@ public partial class MarkAiDbContext : DbContext
                 .HasForeignKey<ProfilMentor>(d => d.UtilizatorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("profil_mentor_utilizator_id_fkey");
-        });
-
-        modelBuilder.Entity<Realizare>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("realizare_pkey");
-
-            entity.ToTable("realizare", "mark_ai");
-
-            entity.HasIndex(e => e.Cod, "realizare_cod_key").IsUnique();
-
-            entity.Property(e => e.Id)
-                .UseIdentityAlwaysColumn()
-                .HasColumnName("id");
-            entity.Property(e => e.Activa)
-                .HasDefaultValue(true)
-                .HasColumnName("activa");
-            entity.Property(e => e.Cod).HasColumnName("cod");
-            entity.Property(e => e.Conditie).HasColumnName("conditie");
-            entity.Property(e => e.Descriere).HasColumnName("descriere");
-            entity.Property(e => e.Titlu).HasColumnName("titlu");
-            entity.Property(e => e.XpBonus).HasColumnName("xp_bonus");
         });
 
         modelBuilder.Entity<RegulaBackground>(entity =>
@@ -699,74 +577,6 @@ public partial class MarkAiDbContext : DbContext
                 .HasConstraintName("sesiune_rezervare_id_utilizator_id_fkey");
         });
 
-        modelBuilder.Entity<SmsLog>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("sms_log_pkey");
-
-            entity.ToTable("sms_log", "mark_ai");
-
-            entity.HasIndex(e => new { e.MesajId, e.SesiuneId }, "idx_sms_log_mesaj_id_sesiune_id_fkey");
-
-            entity.HasIndex(e => e.SesiuneId, "idx_sms_log_sesiune_id_fkey");
-
-            entity.HasIndex(e => e.ProviderSid, "sms_log_provider_sid_key").IsUnique();
-
-            entity.Property(e => e.Id)
-                .UseIdentityAlwaysColumn()
-                .HasColumnName("id");
-            entity.Property(e => e.Continut).HasColumnName("continut");
-            entity.Property(e => e.Directie).HasColumnName("directie");
-            entity.Property(e => e.MesajId).HasColumnName("mesaj_id");
-            entity.Property(e => e.NumarDestinatie).HasColumnName("numar_destinatie");
-            entity.Property(e => e.ProviderSid).HasColumnName("provider_sid");
-            entity.Property(e => e.SesiuneId).HasColumnName("sesiune_id");
-            entity.Property(e => e.StatusLivrare).HasColumnName("status_livrare");
-            entity.Property(e => e.TrimisLa).HasColumnName("trimis_la");
-
-            entity.HasOne(d => d.Sesiune).WithMany(p => p.JurnaleSms)
-                .HasForeignKey(d => d.SesiuneId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("sms_log_sesiune_id_fkey");
-
-            entity.HasOne(d => d.Mesaj).WithMany(p => p.JurnaleSms)
-                .HasPrincipalKey(p => new { p.Id, p.SesiuneId })
-                .HasForeignKey(d => new { d.MesajId, d.SesiuneId })
-                .HasConstraintName("sms_log_mesaj_id_sesiune_id_fkey");
-        });
-
-        modelBuilder.Entity<TablaPas>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("tabla_pas_pkey");
-
-            entity.ToTable("tabla_pas", "mark_ai");
-
-            entity.HasIndex(e => new { e.MesajId, e.SesiuneId }, "idx_tabla_pas_mesaj_id_sesiune_id_fkey");
-
-            entity.HasIndex(e => new { e.SesiuneId, e.Ordine }, "tabla_pas_sesiune_id_ordine_key").IsUnique();
-
-            entity.Property(e => e.Id)
-                .UseIdentityAlwaysColumn()
-                .HasColumnName("id");
-            entity.Property(e => e.CreatLa)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("creat_la");
-            entity.Property(e => e.Explicatie).HasColumnName("explicatie");
-            entity.Property(e => e.FormulaLatex).HasColumnName("formula_latex");
-            entity.Property(e => e.MesajId).HasColumnName("mesaj_id");
-            entity.Property(e => e.Ordine).HasColumnName("ordine");
-            entity.Property(e => e.SesiuneId).HasColumnName("sesiune_id");
-
-            entity.HasOne(d => d.Sesiune).WithMany(p => p.PasiTabla)
-                .HasForeignKey(d => d.SesiuneId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("tabla_pas_sesiune_id_fkey");
-
-            entity.HasOne(d => d.Mesaj).WithMany(p => p.PasiTabla)
-                .HasPrincipalKey(p => new { p.Id, p.SesiuneId })
-                .HasForeignKey(d => new { d.MesajId, d.SesiuneId })
-                .HasConstraintName("tabla_pas_mesaj_id_sesiune_id_fkey");
-        });
-
         modelBuilder.Entity<TarifFix>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("tarif_fix_pkey");
@@ -808,56 +618,6 @@ public partial class MarkAiDbContext : DbContext
             entity.Property(e => e.Nume).HasColumnName("nume");
             entity.Property(e => e.Telefon).HasColumnName("telefon");
             entity.Property(e => e.Username).HasColumnName("username");
-        });
-
-        modelBuilder.Entity<UtilizatorMaterie>(entity =>
-        {
-            entity.HasKey(e => new { e.UtilizatorId, e.MaterieId }).HasName("utilizator_materie_pkey");
-
-            entity.ToTable("utilizator_materie", "mark_ai");
-
-            entity.HasIndex(e => e.MaterieId, "idx_utilizator_materie_materie_id_fkey");
-
-            entity.Property(e => e.UtilizatorId).HasColumnName("utilizator_id");
-            entity.Property(e => e.MaterieId).HasColumnName("materie_id");
-            entity.Property(e => e.NivelScolar).HasColumnName("nivel_scolar");
-            entity.Property(e => e.SelectataLa)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("selectata_la");
-
-            entity.HasOne(d => d.Materie).WithMany(p => p.UtilizatoriMaterii)
-                .HasForeignKey(d => d.MaterieId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("utilizator_materie_materie_id_fkey");
-
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.Materii)
-                .HasForeignKey(d => d.UtilizatorId)
-                .HasConstraintName("utilizator_materie_utilizator_id_fkey");
-        });
-
-        modelBuilder.Entity<UtilizatorRealizare>(entity =>
-        {
-            entity.HasKey(e => new { e.UtilizatorId, e.RealizareId }).HasName("utilizator_realizare_pkey");
-
-            entity.ToTable("utilizator_realizare", "mark_ai");
-
-            entity.HasIndex(e => e.RealizareId, "idx_utilizator_realizare_realizare_id_fkey");
-
-            entity.Property(e => e.UtilizatorId).HasColumnName("utilizator_id");
-            entity.Property(e => e.RealizareId).HasColumnName("realizare_id");
-            entity.Property(e => e.DeblocataLa)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("deblocata_la");
-
-            entity.HasOne(d => d.Realizare).WithMany(p => p.UtilizatoriRealizari)
-                .HasForeignKey(d => d.RealizareId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("utilizator_realizare_realizare_id_fkey");
-
-            entity.HasOne(d => d.Utilizator).WithMany(p => p.Realizari)
-                .HasForeignKey(d => d.UtilizatorId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("utilizator_realizare_utilizator_id_fkey");
         });
 
         modelBuilder.Entity<UtilizatorRol>(entity =>

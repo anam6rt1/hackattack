@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MarkAi.Data\MarkAi.Data.csproj" />
-    <EmbeddedResource Include="..\schema-fingerprint.sql" LogicalName="SchemaFingerprint.sql" />
   </ItemGroup>
 
   <PropertyGroup>

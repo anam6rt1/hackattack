@@ -16,5 +16,10 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MarkAi.Tests.Suport" />
+    <InternalsVisibleTo Include="MarkAi.Tests.Unit" />
+  </ItemGroup>
+
 </Project>
 

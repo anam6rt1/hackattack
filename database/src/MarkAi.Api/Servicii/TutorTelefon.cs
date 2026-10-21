@@ -129,11 +129,13 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
         return string.Join(", ", titluri);
     }
 
+    // The chapter opened last, in the Lecție the student worked on last.
     private async Task<Curs?> UltimulCurs(int utilizatorId, CancellationToken ct)
     {
         var vizibile = await CapitoleVizibile(utilizatorId, ct);
-        return await db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == utilizatorId && vizibile.Any(c => c.Id == p.CursId))
-            .OrderByDescending(p => p.UltimaAccesare).Select(p => p.Curs).FirstOrDefaultAsync(ct);
+        return await db.Set<ProgresLectie>().AsNoTracking()
+            .Where(p => p.UtilizatorId == utilizatorId && p.UltimulCursId != null && vizibile.Any(c => c.Id == p.UltimulCursId))
+            .OrderByDescending(p => p.UltimaAccesare).Select(p => p.UltimulCurs).FirstOrDefaultAsync(ct);
     }
 
     // The lessons mentioned in the student's last two turns come first, then the lesson already being discussed.
@@ -176,8 +178,9 @@ public sealed class TutorTelefon(MarkAiDbContext db, ProgresService progres, Mod
     {
         var nivel = await progres.NivelAsync(elev.Id, ct);
         var vizibile = await CapitoleVizibile(elev.Id, ct);
-        var completate = await db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == elev.Id && p.QuizPromovat && vizibile.Any(c => c.Id == p.CursId))
-            .Select(p => p.Curs.Titlu).ToListAsync(ct);
+        var completate = await db.Set<ProgresLectie>().AsNoTracking()
+            .Where(p => p.UtilizatorId == elev.Id && p.PromovatLa != null && vizibile.Any(c => c.ParcursId == p.ParcursId))
+            .Select(p => p.Parcurs.Titlu).ToListAsync(ct);
         var catalog = await vizibile.OrderBy(c => c.MaterieId).ThenBy(c => c.Parcurs.Ordine).ThenBy(c => c.Ordine)
             .Select(c => $"- {c.Materie.Denumire} / {c.Parcurs.Titlu} (clasa {c.Parcurs.Clasa}) / {c.Titlu}").Take(80).ToListAsync(ct);
 

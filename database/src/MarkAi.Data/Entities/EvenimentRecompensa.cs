@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace MarkAi.Data.Entities;
 
 /// <summary>
-/// Jurnal XP; nivelul se deriva din SUM(xp_acordat) si pragurile nivel_xp. Referinta la utilizator_materie foloseste cheia compusa, fara utilizator_id_materie inexistent.
+/// Jurnal XP; nivelul se deriva din SUM(xp_acordat) si pragurile nivel_xp.
 /// </summary>
 public partial class EvenimentRecompensa
 {
@@ -30,6 +30,6 @@ public partial class EvenimentRecompensa
 
     public virtual Utilizator Utilizator { get; set; } = null!;
 
-    public virtual UtilizatorMaterie? UtilizatorMaterie { get; set; }
+    public virtual Materie? Materie { get; set; }
 }
 

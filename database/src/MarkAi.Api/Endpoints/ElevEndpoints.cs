@@ -3,16 +3,16 @@ using MarkAi.Api.Servicii.Triviador;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
-using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Api.Endpoints;
 
-public record ProgresMaterie(int MaterieId, string Denumire, int Puncte, int CursuriCompletate, int TotalCursuri);
-public record CursCompletat(int CursId, string Titlu, string? Capitol, int MaterieId, string Materie, DateTime CompletatLa, int ParcursId, string Parcurs);
-public record UltimulCurs(int CursId, string Titlu, string? Capitol, int MaterieId, string Materie, bool Completat, DateTime Accesat, int ParcursId, string Parcurs);
-public record ProgresGeneral(NivelCurent Nivel, IReadOnlyList<ProgresMaterie> Materii, UltimulCurs? UltimulCurs,
-    IReadOnlyList<CursCompletat> CursuriCompletate);
+public record ProgresMaterie(int MaterieId, string Denumire, int Puncte, int LectiiCompletate, int TotalLectii);
+public record LectieCompletata(int ParcursId, string Titlu, string Clasa, int MaterieId, string Materie, DateTime CompletatLa);
+/// <param name="CursId">The chapter opened last in that Lecție (null if it was deleted).</param>
+public record UltimaLectie(int ParcursId, string Titlu, int MaterieId, string Materie, bool Completata, DateTime Accesat, int? CursId, string? Capitol);
+public record ProgresGeneral(NivelCurent Nivel, IReadOnlyList<ProgresMaterie> Materii, UltimaLectie? UltimaLectie,
+    IReadOnlyList<LectieCompletata> LectiiCompletate);
 
 public record CameraNoua(List<int>? MaterieIds, int Insule = 9, int MaxJucatori = 3, string? Clasa = null);
 
@@ -32,23 +32,22 @@ public static class ElevEndpoints
             var puncte = await db.EvenimenteRecompensa.Where(e => e.UtilizatorId == uid && e.MaterieId != null)
                 .GroupBy(e => e.MaterieId!.Value).Select(g => new { MaterieId = g.Key, Puncte = g.Sum(e => e.PuncteMaterie) })
                 .ToDictionaryAsync(x => x.MaterieId, x => x.Puncte, ct);
-            // Only chapters the student may still see (for example, not those of an organisation they left).
-            var vizibile = acces.Capitole(a).Where(c => c.Publicat && c.Parcurs.Publicat);
-            var capitole = await vizibile.Select(c => new { c.MaterieId, Gata = c.Progrese.Any(p => p.UtilizatorId == uid && p.QuizPromovat) }).ToListAsync(ct);
+            // Only Lecții the student may still see (for example, not those of an organisation they left).
+            var vizibile = acces.Parcursuri(a).Where(p => p.Publicat);
+            var lectii = await vizibile.Select(p => new { p.MaterieId, Gata = p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null) }).ToListAsync(ct);
             var materii = await db.Materii.AsNoTracking().OrderBy(m => m.Ordine).Select(m => new { m.Id, m.Denumire }).ToListAsync(ct);
-            var progrese = db.Set<ProgresCurs>().AsNoTracking().Where(p => p.UtilizatorId == uid && vizibile.Any(c => c.Id == p.CursId));
-            var ultimul = await progrese.OrderByDescending(p => p.UltimaAccesare)
-                .Select(p => new UltimulCurs(p.CursId, p.Curs.Titlu, p.Curs.Capitol, p.Curs.MaterieId, p.Curs.Materie.Denumire, p.QuizPromovat, p.UltimaAccesare,
-                    p.Curs.ParcursId, p.Curs.Parcurs.Titlu))
+            var progrese = db.Set<ProgresLectie>().AsNoTracking().Where(x => x.UtilizatorId == uid && vizibile.Any(p => p.Id == x.ParcursId));
+            var ultima = await progrese.OrderByDescending(x => x.UltimaAccesare)
+                .Select(x => new UltimaLectie(x.ParcursId, x.Parcurs.Titlu, x.Parcurs.MaterieId, x.Parcurs.Materie.Denumire, x.PromovatLa != null, x.UltimaAccesare,
+                    x.UltimulCursId, x.UltimulCurs == null ? null : x.UltimulCurs.Titlu))
                 .FirstOrDefaultAsync(ct);
-            var completate = await progrese.Where(p => p.CompletatLa != null).OrderByDescending(p => p.CompletatLa)
-                .Select(p => new CursCompletat(p.CursId, p.Curs.Titlu, p.Curs.Capitol, p.Curs.MaterieId, p.Curs.Materie.Denumire, p.CompletatLa!.Value,
-                    p.Curs.ParcursId, p.Curs.Parcurs.Titlu))
+            var completate = await progrese.Where(x => x.PromovatLa != null).OrderByDescending(x => x.PromovatLa)
+                .Select(x => new LectieCompletata(x.ParcursId, x.Parcurs.Titlu, x.Parcurs.Clasa, x.Parcurs.MaterieId, x.Parcurs.Materie.Denumire, x.PromovatLa!.Value))
                 .ToListAsync(ct);
             return new ProgresGeneral(await progres.NivelAsync(uid, ct),
                 materii.Select(m => new ProgresMaterie(m.Id, m.Denumire, puncte.GetValueOrDefault(m.Id),
-                    capitole.Count(c => c.MaterieId == m.Id && c.Gata), capitole.Count(c => c.MaterieId == m.Id))).ToList(),
-                ultimul, completate);
+                    lectii.Count(l => l.MaterieId == m.Id && l.Gata), lectii.Count(l => l.MaterieId == m.Id))).ToList(),
+                ultima, completate);
         }).WithTags("Progres").RequireAuthorization(Politici.Elev);
 
         // Triviador: a room is created here and then played over the /hub/joc SignalR hub; the server referees the game.

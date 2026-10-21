@@ -80,6 +80,8 @@ public static class AutentificareEndpoints
         g.MapPost("/autentificare/inregistrare-profesor", async ([FromForm] InregistrareProfesor c, MarkAiDbContext db, Stocare stocare,
             Posta posta, CoduriVerificare coduri, ServiciuOrganizatii org, IConfiguration cfg, TimeProvider ceas, CancellationToken ct) =>
         {
+            // A form without any of the expected fields binds as null; the checks below then name what is missing.
+            c ??= new InregistrareProfesor();
             // Every professor belongs to at least one organisation, whose admin approves them.
             var organizatii = (c.OrganizatieIds ?? []).Distinct().ToList();
             if (organizatii.Count == 0) throw new CerereInvalida("Alege cel puțin o organizație în care predai.");
@@ -96,10 +98,15 @@ public static class AutentificareEndpoints
             var u = await CreeazaUtilizator(db, posta, cfg, ceas, c.Nume, c.Username, c.Email, c.Parola, telefon, Roluri.Profesor, ct);
             if (u is not null)
             {
+                var descriere = Validare.Obligatoriu(c.Descriere, "Despre tine", 2000);
+                var poza = await stocare.SalveazaPozaAsync(c.Poza, ct);
+                string dovada;
+                // A refused document must not leave the photo already saved behind.
+                try { dovada = await stocare.SalveazaDovadaAsync(c.Dovada, ct); }
+                catch { stocare.Sterge(poza); throw; }
                 u.ProfilMentor = new ProfilMentor
                 {
-                    StareVerificare = StareInAsteptare, Descriere = Validare.Obligatoriu(c.Descriere, "Despre tine", 2000),
-                    PozaUrl = await stocare.SalveazaPozaAsync(c.Poza, ct), DovadaCalificareUrl = await stocare.SalveazaDovadaAsync(c.Dovada, ct),
+                    StareVerificare = StareInAsteptare, Descriere = descriere, PozaUrl = poza, DovadaCalificareUrl = dovada,
                     Materii = materii.Select(id => new MentorMaterie { MaterieId = id }).ToList(),
                 };
                 (u.JudetId, u.LocalitateId) = (judetId, localitateId);

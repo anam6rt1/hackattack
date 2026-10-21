@@ -1,7 +1,7 @@
 "use client";
-// components/IntrebareNivel.jsx — testul lecției: câteva întrebări alese aleator de server.
-// După fiecare răspuns afli doar dacă a fost corect; răspunsurile corecte apar la final, iar XP-ul se primește
-// doar dacă treci testul (de ex. 4 din 5). Între două teste e o pauză scurtă.
+// components/IntrebareNivel.jsx — testul Lecției: câteva întrebări din toate capitolele ei, alese aleator de server.
+// După fiecare răspuns afli doar dacă a fost corect; răspunsurile corecte apar la final, iar Lecția e terminată
+// (și primești XP) doar dacă treci testul (80%, de ex. 8 din 10). Între două teste e o pauză scurtă.
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -9,8 +9,8 @@ import { T } from "@/lib/tema";
 
 const LITERE = ["A", "B", "C", "D", "E", "F"];
 
-export default function IntrebareNivel({ cursId }) {
-  const [curs, setCurs] = useState(null);
+export default function IntrebareNivel({ parcursId }) {
+  const [lectie, setLectie] = useState(null);
   const [test, setTest] = useState(null); // { id, total, necesare, raspunse, intrebari }
   const [pas, setPas] = useState(0); // indexul întrebării curente în test.intrebari
   const [ales, setAles] = useState(null); // id-ul variantei apăsate
@@ -22,7 +22,7 @@ export default function IntrebareNivel({ cursId }) {
   // Pornește un test nou (sau îl reia pe cel neterminat); starea se schimbă doar după răspunsul serverului.
   const incepe = useCallback(
     () =>
-      api(`/cursuri/${cursId}/quiz`, { metoda: "POST" })
+      api(`/parcursuri/${parcursId}/quiz`, { metoda: "POST" })
         .then((t) => {
           setTest(t);
           setTexte((v) => ({ ...v, ...Object.fromEntries(t.intrebari.map((q) => [q.id, q])) }));
@@ -36,13 +36,13 @@ export default function IntrebareNivel({ cursId }) {
           setEroare(e.message);
         })
         .finally(() => setSeIncarca(false)),
-    [cursId],
+    [parcursId],
   );
 
   useEffect(() => {
-    api(`/cursuri/${cursId}`).then(setCurs).catch((e) => setEroare(e.message));
+    api(`/parcursuri/${parcursId}`).then(setLectie).catch((e) => setEroare(e.message));
     incepe();
-  }, [cursId, incepe]);
+  }, [parcursId, incepe]);
 
   function reia() {
     setSeIncarca(true);
@@ -54,7 +54,7 @@ export default function IntrebareNivel({ cursId }) {
     setAles(variantaId);
     try {
       const intrebare = test.intrebari[pas];
-      setRezultat(await api(`/cursuri/${cursId}/quiz/${test.id}/raspuns`, { metoda: "POST", corp: { intrebareId: intrebare.id, variantaId } }));
+      setRezultat(await api(`/parcursuri/${parcursId}/quiz/${test.id}/raspuns`, { metoda: "POST", corp: { intrebareId: intrebare.id, variantaId } }));
     } catch (e) {
       setAles(null);
       setEroare(e.message);
@@ -67,7 +67,7 @@ export default function IntrebareNivel({ cursId }) {
     setRezultat(null);
   }
 
-  const inapoi = curs ? `/parcurs/${curs.parcursId}` : "/materiale";
+  const inapoi = `/parcurs/${parcursId}`;
   const final = rezultat?.final;
   const intrebare = test?.intrebari[pas];
   const numar = test ? test.raspunse + pas + 1 : 0;
@@ -75,18 +75,18 @@ export default function IntrebareNivel({ cursId }) {
   return (
     <Ecran>
       <Link href={inapoi} className={`mb-4 inline-flex items-center gap-1 text-sm font-semibold ${T.textSecundar} hover:opacity-100`}>
-        ← Înapoi la hartă
+        ← Înapoi la lecție
       </Link>
 
       <div className={`rounded-3xl p-5 shadow-2xl ring-1 sm:p-7 ${T.card} ${T.contur}`}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className={`text-xs font-bold uppercase tracking-wider ${T.accentText}`}>
-              {curs ? `${curs.materie} · ${curs.parcurs}` : " "}
+              {lectie ? `${lectie.materie} · testul lecției` : " "}
             </p>
-            <h1 className="text-2xl font-extrabold">{curs?.titlu ?? "Se încarcă..."}</h1>
+            <h1 className="text-2xl font-extrabold">{lectie?.titlu ?? "Se încarcă..."}</h1>
           </div>
-          <span className={`rounded-full px-3 py-1 text-sm font-black ${T.accent}`}>{curs?.progres?.quizPromovat ? "Recapitulare" : "+100 XP"}</span>
+          <span className={`rounded-full px-3 py-1 text-sm font-black ${T.accent}`}>{lectie?.progres?.promovatLa ? "Recapitulare" : "+100 XP"}</span>
         </div>
 
         {seIncarca ? (
@@ -96,7 +96,7 @@ export default function IntrebareNivel({ cursId }) {
             <p className="text-lg font-bold">{eroare || "Testul nu poate fi început acum."}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <button onClick={reia} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>Încearcă din nou</button>
-              <Link href={inapoi} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>Înapoi la hartă</Link>
+              <Link href={inapoi} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>Înapoi la lecție</Link>
             </div>
           </div>
         ) : final ? (
@@ -123,7 +123,8 @@ export default function IntrebareNivel({ cursId }) {
                     className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left font-semibold ring-1 transition ${stil} ${ales !== null ? "cursor-default" : "cursor-pointer"}`}
                   >
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/20 text-sm font-black">{LITERE[i]}</span>
-                    {varianta.text}
+                    {/* the space keeps the letter apart from the answer for screen readers ("A Mihai Eminescu") */}
+                    {` ${varianta.text}`}
                   </button>
                 );
               })}
@@ -178,7 +179,7 @@ function Rezumat({ final, texte, inapoi, onReia }) {
       </ol>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <Link href={inapoi} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>Continuă pe hartă →</Link>
+        <Link href={inapoi} className={`rounded-xl px-4 py-2 font-black ${T.accent}`}>Înapoi la lecție →</Link>
         <button onClick={onReia} className={`rounded-xl px-4 py-2 font-bold ${T.suprafata} ${T.suprafataHover}`}>Test nou</button>
       </div>
     </>

@@ -48,6 +48,13 @@ public class Parcurs
     public virtual ICollection<ParcursOrganizatie> Partajari { get; set; } = new List<ParcursOrganizatie>();
 
     public virtual ICollection<Curs> Capitole { get; set; } = new List<Curs>();
+
+    /// <summary>The Lecție's quiz.</summary>
+    public virtual ICollection<Intrebare> Intrebari { get; set; } = new List<Intrebare>();
+
+    public virtual ICollection<FisierLectie> Fisiere { get; set; } = new List<FisierLectie>();
+
+    public virtual ICollection<ProgresLectie> Progrese { get; set; } = new List<ProgresLectie>();
 }
 
 public class ParcursOrganizatie

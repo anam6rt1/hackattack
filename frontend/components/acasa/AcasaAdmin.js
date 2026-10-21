@@ -39,7 +39,7 @@ export default function AcasaAdmin({ utilizator }) {
                 {materii.map((m) => (
                   <li key={m.id}>
                     <Link className="tv-rand" href={`/admin/continut?materie=${m.id}`}>
-                      <div><b>{m.denumire}</b><small>{m.numarCursuri} lecții publicate</small></div>
+                      <div><b>{m.denumire}</b><small>{m.numarLectii} {m.numarLectii === 1 ? 'lecție publicată' : 'lecții publicate'}</small></div>
                     </Link>
                   </li>
                 ))}

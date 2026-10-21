@@ -128,7 +128,8 @@ public static class SetariContEndpoints
             var u = await AutentificareEndpoints.Curent(db, h.User.Id(), ct);
             if (!Roluri.EsteProfesor(u.Rol)) return Results.Forbid();
             var p = await db.ProfiluriMentor.SingleAsync(x => x.UtilizatorId == u.Id, ct);
-            if (c.Poza is null && c.Dovada is null) throw new CerereInvalida("Alege o fotografie sau o dovadă a calificării.");
+            // A form without any of the two fields binds as null.
+            if (c?.Poza is null && c?.Dovada is null) throw new CerereInvalida("Alege o fotografie sau o dovadă a calificării.");
             var (pozaVeche, dovadaVeche) = (p.PozaUrl, p.DovadaCalificareUrl);
             if (c.Poza is not null) p.PozaUrl = await storage.SalveazaPozaAsync(c.Poza, ct);
             // A new document is seen by the organisations' admins; it does not undo approvals already given.

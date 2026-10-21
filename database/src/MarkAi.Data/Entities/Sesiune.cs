@@ -39,10 +39,6 @@ public partial class Sesiune
 
     public virtual Rezervare? Rezervare { get; set; }
 
-    public virtual ICollection<SmsLog> JurnaleSms { get; set; } = new List<SmsLog>();
-
-    public virtual ICollection<TablaPas> PasiTabla { get; set; } = new List<TablaPas>();
-
     public virtual Utilizator Utilizator { get; set; } = null!;
 }
 

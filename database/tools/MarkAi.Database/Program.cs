@@ -1,12 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 
-if (args.Length < 1 || args[0] is not ("adopt-existing" or "migrate" or "verify" or "seed" or "seteaza-parola" or "seed-localitati" or "organizatie-demo")
-    || (args[0] switch { "seteaza-parola" => args.Length != 3, "organizatie-demo" => args.Length is < 2 or > 5, "seed" or "seed-localitati" => args.Length > 2, _ => args.Length > 1 }))
+if (args.Length < 1 || args[0] is not ("migrate" or "verify" or "seed" or "seteaza-parola" or "seed-localitati" or "organizatie-demo" or "date-test")
+    || (args[0] switch { "seteaza-parola" => args.Length != 3, "organizatie-demo" => args.Length is < 2 or > 5, "seed" or "seed-localitati" or "date-test" => args.Length > 2, _ => args.Length > 1 }))
 {
-    Console.WriteLine("Usage: dotnet run --project tools/MarkAi.Database -- adopt-existing|migrate|verify|seed [frontend-data-dir]");
+    Console.WriteLine("Usage: dotnet run --project tools/MarkAi.Database -- migrate|verify|seed [frontend-data-dir]");
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- seteaza-parola <email-or-username> <new-password>");
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- seed-localitati [siruta.csv]   (counties and localities, SIRUTA)");
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- organizatie-demo <admin-username> [name] [county-id] [locality-siruta]");
+    Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- date-test [api-storage-dir]   (test accounts and content; TEST databases only)");
     Console.WriteLine("Set MARKAI_CONNECTION_STRING in your environment. Never put passwords in Git.");
     return 1;
 }
@@ -15,8 +16,10 @@ try
     var connection = Environment.GetEnvironmentVariable("MARKAI_CONNECTION_STRING")
         ?? throw new InvalidOperationException("MARKAI_CONNECTION_STRING is required.");
     if (args[0] == "verify") await Verification.Run(connection);
-    else if (args[0] == "adopt-existing") await DatabaseTools.Adopt(connection);
     else if (args[0] == "seteaza-parola") await SeteazaParola(connection, args[1], args[2]);
+    // Files go to the API's storage folder (src/MarkAi.Api/uploads when the API runs with `dotnet run` from database/).
+    else if (args[0] == "date-test")
+        await DateTest.Run(connection, Path.Combine("tools", "MarkAi.Database", "date"), args.Length == 2 ? args[1] : Path.Combine("src", "MarkAi.Api", "uploads"));
     else if (args[0] == "seed") await Seed.Run(connection, args.Length == 2 ? args[1] : Path.Combine("..", "frontend", "data"));
     else if (args[0] == "seed-localitati")
     {

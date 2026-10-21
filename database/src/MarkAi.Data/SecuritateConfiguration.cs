@@ -23,18 +23,18 @@ internal static class SecuritateConfiguration
             e.HasKey(x => x.Id).HasName("incercare_quiz_pkey");
             e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();
             e.Property(x => x.UtilizatorId).HasColumnName("utilizator_id");
-            e.Property(x => x.CursId).HasColumnName("curs_id");
+            e.Property(x => x.ParcursId).HasColumnName("parcurs_id");
             e.Property(x => x.IntrebariIds).HasColumnName("intrebari_ids");
             e.Property(x => x.Raspunsuri).HasColumnName("raspunsuri");
             e.Property(x => x.Corecte).HasColumnName("corecte");
             e.Property(x => x.InceputLa).HasColumnName("inceput_la").HasDefaultValueSql("now()");
             e.Property(x => x.FinalizataLa).HasColumnName("finalizata_la");
-            e.HasIndex(x => new { x.UtilizatorId, x.CursId, x.InceputLa }, "idx_incercare_quiz_utilizator_curs");
-            e.HasIndex(x => x.CursId, "idx_incercare_quiz_curs_id_fkey");
+            e.HasIndex(x => new { x.UtilizatorId, x.ParcursId, x.InceputLa }, "idx_incercare_quiz_utilizator_parcurs");
+            e.HasIndex(x => x.ParcursId, "idx_incercare_quiz_parcurs_id_fkey");
             e.HasOne(x => x.Utilizator).WithMany().HasForeignKey(x => x.UtilizatorId)
                 .OnDelete(DeleteBehavior.Cascade).HasConstraintName("incercare_quiz_utilizator_id_fkey");
-            e.HasOne(x => x.Curs).WithMany().HasForeignKey(x => x.CursId)
-                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("incercare_quiz_curs_id_fkey");
+            e.HasOne(x => x.Parcurs).WithMany().HasForeignKey(x => x.ParcursId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("incercare_quiz_parcurs_id_fkey");
         });
 
         model.Entity<GenerareAi>(e =>
@@ -43,10 +43,11 @@ internal static class SecuritateConfiguration
             e.HasKey(x => x.Id).HasName("generare_ai_pkey");
             e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();
             e.Property(x => x.UtilizatorId).HasColumnName("utilizator_id");
-            e.Property(x => x.CursId).HasColumnName("curs_id");
+            e.Property(x => x.ParcursId).HasColumnName("parcurs_id");
+            e.Property(x => x.Numar).HasColumnName("numar");
             e.Property(x => x.CreatLa).HasColumnName("creat_la").HasDefaultValueSql("now()");
             e.HasIndex(x => new { x.UtilizatorId, x.CreatLa }, "idx_generare_ai_utilizator_data");
-            // A log only: no foreign keys, so deleting an account or a lesson never has to touch it first.
+            // A log only: no foreign keys, so deleting an account or a Lecție never has to touch it first.
         });
     }
 }

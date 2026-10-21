@@ -7,6 +7,7 @@ import { API, api, EroareApi } from '@/lib/api'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import SetariOrganizatie from '@/components/SetariOrganizatie'
+import { useConfirmare } from '@/components/Confirmare'
 import './setari.css'
 
 const DECOR = decorSVG(13)
@@ -86,6 +87,7 @@ export default function SetariCont() {
   const [files, setFiles] = useState({})
   const [fileKey, setFileKey] = useState(0)
   const securityForm = useRef(null)
+  const [confirma, fereastra] = useConfirmare()
 
   const receive = useCallback(({ settings, available }) => {
     setData(settings)
@@ -152,7 +154,7 @@ export default function SetariCont() {
 
   // Închide toate sesiunile contului (inclusiv aceasta), de exemplu după pierderea unui telefon.
   async function iesirePesteTot() {
-    if (!window.confirm('Vei fi scos din cont pe toate dispozitivele, inclusiv pe acesta. Continui?')) return
+    if (!(await confirma({ titlu: 'Ieși peste tot?', mesaj: 'Vei fi scos din cont pe toate dispozitivele, inclusiv pe acesta.', da: 'Ieși peste tot', pericol: true }))) return
     setBusy(true); setError('')
     try {
       await api('/autentificare/iesire-peste-tot', { metoda: 'POST' })
@@ -225,5 +227,6 @@ export default function SetariCont() {
     </div>
     {toast && <div className="sc-toast" role="status" aria-live="polite"><span><Icon name="check" /></span><div><strong>Totul e în regulă!</strong><p>{toast}</p></div><button type="button" aria-label="Închide notificarea" onClick={() => setToast(null)}><Icon name="close" width="18" /></button></div>}
     {challenge && <CodDialog key={challenge.id} challenge={challenge} onClose={() => { setChallenge(null); setOtpError('') }} onConfirm={confirm} busy={busy} error={otpError} />}
+    {fereastra}
   </main>
 }
