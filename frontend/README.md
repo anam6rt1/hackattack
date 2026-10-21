@@ -22,3 +22,14 @@ Next.js 16 (App Router), JavaScript, Tailwind + stilul „insule” (`app/insule
 - `app/` — paginile: `/` (prezentare + cont, sau panoul elevului/profesorului/adminului), `/materiale`, `/materiale/[id]` (harta),
   `/nivel/[id]` (întrebarea lecției), `/antrenament`, `/joc`, `/profesori`, `/linia-ai`, `/admin/continut`, `/admin/profesori`, `/in-asteptare`.
 - `data/*.json` — conținutul inițial, importat în baza de date de comanda `seed`.
+
+## Teste (Vitest + React Testing Library)
+
+```
+npm test            # o dată (~8 s)
+npm run test:watch  # la fiecare salvare
+```
+
+Testele stau în `teste/` (`lib/`, `componente/`, `pagini/`), rulează în jsdom și nu ating niciun server: `teste/ajutor.js`
+înlocuiește `fetch` cu un API fals (`apiFals({ "GET /cale": raspuns })`) și ține un router fals, iar `teste/setup.js`
+înlocuiește `next/navigation` și `next/link`. Testele din browser (Playwright) și cele ale API-ului (`database/docs/teste.md`) sunt separate.

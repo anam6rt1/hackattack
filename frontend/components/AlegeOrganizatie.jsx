@@ -2,12 +2,13 @@
 // Organizațiile aprobate (școli, centre). Elevii aleg cel mult una; profesorii aleg una sau mai multe.
 // Dacă e ales un județ, apar întâi organizațiile din el; „Toate județele” le arată pe toate.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { api } from '@/lib/api'
 
 export default function AlegeOrganizatie({ judetId = null, multiplu = false, obligatoriu = false }) {
   const [toate, setToate] = useState(false)
   const [organizatii, setOrganizatii] = useState(null)
+  const idTitlu = useId()
 
   useEffect(() => {
     api('/organizatii' + (judetId && !toate ? `?judetId=${judetId}` : '')).then((r) => setOrganizatii(r.elemente)).catch(() => setOrganizatii([]))
@@ -15,8 +16,8 @@ export default function AlegeOrganizatie({ judetId = null, multiplu = false, obl
 
   const titlu = multiplu ? 'Organizațiile în care predai' : `Organizația ta${obligatoriu ? '' : ' (opțional)'}`
   return (
-    <fieldset className="tv-eticheta-camp">
-      <span>{titlu}</span>
+    <fieldset className="tv-eticheta-camp" aria-labelledby={idTitlu}>
+      <span id={idTitlu}>{titlu}</span>
       {organizatii === null ? (
         <small className="tv-indiciu">Se încarcă...</small>
       ) : organizatii.length === 0 ? (
@@ -30,7 +31,7 @@ export default function AlegeOrganizatie({ judetId = null, multiplu = false, obl
           ))}
         </div>
       ) : (
-        <select className="tv-camp-text" name="organizatieId" required={obligatoriu} defaultValue="">
+        <select className="tv-camp-text" name="organizatieId" required={obligatoriu} defaultValue="" aria-labelledby={idTitlu}>
           <option value="">{obligatoriu ? 'Alege organizația' : 'Fără organizație'}</option>
           {organizatii.map((o) => <option key={o.id} value={o.id}>{o.nume} · {o.localitate ?? o.judet}</option>)}
         </select>

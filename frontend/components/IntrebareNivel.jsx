@@ -123,7 +123,8 @@ export default function IntrebareNivel({ parcursId }) {
                     className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left font-semibold ring-1 transition ${stil} ${ales !== null ? "cursor-default" : "cursor-pointer"}`}
                   >
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/20 text-sm font-black">{LITERE[i]}</span>
-                    {varianta.text}
+                    {/* the space keeps the letter apart from the answer for screen readers ("A Mihai Eminescu") */}
+                    {` ${varianta.text}`}
                   </button>
                 );
               })}
