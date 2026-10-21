@@ -34,6 +34,9 @@ Testele stau în `teste/` (`lib/`, `componente/`, `pagini/`), rulează în jsdom
 înlocuiește `fetch` cu un API fals (`apiFals({ "GET /cale": raspuns })`) și ține un router fals, iar `teste/setup.js`
 înlocuiește `next/navigation` și `next/link`. Testele din browser (Playwright) și cele ale API-ului (`database/docs/teste.md`) sunt separate.
 
+Dacă după o actualizare de pachete `npm run build` cade cu `Can't resolve '@vercel/turbopack-next/internal/font/google/font'`
+(„next/font/google queries have exactly one entry”), cache-ul Turbopack e vechi: `rm -rf .next/cache` și build din nou.
+
 ## Teste în browser (Playwright: Chromium, Firefox, WebKit)
 
 ```
