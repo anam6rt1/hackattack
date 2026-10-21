@@ -1,5 +1,5 @@
 # Every pull request and every push to main: the backend tests (xUnit, PostgreSQL in Testcontainers), the frontend checks
-# (lint, Vitest, build) and the browser tests (Playwright, Chromium + Firefox, against a throwaway test API). No secrets are
+# (lint, Vitest, build) and the browser tests (Playwright, one job per browser: Chromium, Firefox, WebKit, against a throwaway test API). No secrets are
 # needed: every test uses fake email, SMS, AI and Twilio providers.
 name: Teste
 
