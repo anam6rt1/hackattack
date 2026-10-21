@@ -7,6 +7,8 @@ const API_INTERN = process.env.API_INTERN_URL || "http://localhost:5080";
 const MAX_FISIER_MB = Math.max(1, Number(process.env.Fisiere__MaxMb) || 20);
 
 const nextConfig: NextConfig = {
+  // The browser tests build their own copy (.next-e2e, pointed at the test API) next to the real one.
+  distDir: process.env.MARKAI_DIST_DIR || ".next",
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_INTERN}/:path*` }];
   },

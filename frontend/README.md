@@ -33,3 +33,17 @@ npm run test:watch  # la fiecare salvare
 Testele stau în `teste/` (`lib/`, `componente/`, `pagini/`), rulează în jsdom și nu ating niciun server: `teste/ajutor.js`
 înlocuiește `fetch` cu un API fals (`apiFals({ "GET /cale": raspuns })`) și ține un router fals, iar `teste/setup.js`
 înlocuiește `next/navigation` și `next/link`. Testele din browser (Playwright) și cele ale API-ului (`database/docs/teste.md`) sunt separate.
+
+## Teste în browser (Playwright, Chromium + Firefox)
+
+```
+npx playwright install chromium firefox   # o dată (~250 MB în ~/.cache/ms-playwright)
+npm run test:e2e                          # ~4 min; pornește și oprește singur serverele de test
+npx playwright test e2e/lectie.spec.ts --project=firefox --headed   # un fișier, într-un browser, cu fereastră
+```
+
+Testele (`e2e/`) nu ating site-ul sau baza reală: Playwright pornește API-ul de test (`database/tools/MarkAi.Previzualizare --e2e`,
+127.0.0.1:5081, cu PostgreSQL-ul lui în Testcontainers — pe Bazzite prin socket-ul podman) și un build separat al site-ului
+(`.next-e2e`, 127.0.0.1:3001, cu `/api` îndreptat spre API-ul de test). Înainte de teste, `e2e/pregatire.ts` verifică asta (baza de
+test are doar 2 județe) și adaugă lecțiile, întrebările și PDF-ul folosite. Codurile de pe email și SMS sunt citite din lista
+„Mesaje trimise” a administratorului (furnizorul de test nu trimite nimic). La un eșec, `npx playwright show-report`.

@@ -42,6 +42,12 @@ Aceeași aplicație și aceleași fixturi (george, irina, admin, director; parol
 pornite și furnizorul „jurnal” (codurile apar la admin, pagina „Mesaje trimise”). Baza e o copie de unică folosință. Un frontend de test
 trebuie construit cu `API_INTERN_URL=http://127.0.0.1:5081`, altfel `/api` ajunge la API-ul real.
 
+## Teste în browser și CI
+
+Testele Playwright (frontend/e2e, `npm run test:e2e`) pornesc singure `tools/MarkAi.Previzualizare --e2e` (fără limite de cereri,
+fără pauză între teste) și un build separat al site-ului; vezi frontend/README.md. GitHub Actions (`.github/workflows/teste.yml`)
+rulează la fiecare PR și push pe main: `dotnet test`, lint + Vitest + build, apoi Playwright în Chromium și Firefox.
+
 ## Reguli
 - Un test care pică uneori se repară (sau se pune deoparte cu o problemă deschisă) înainte de merge; nu se reîncearcă orbește.
   Cursa cunoscută: după `HubConnection.StopAsync`, serverul vede deconectarea puțin mai târziu, deci ceasul fals se mută în buclă
