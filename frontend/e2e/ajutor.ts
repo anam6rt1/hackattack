@@ -74,6 +74,9 @@ export async function intra(page: Page, identificator: string, parola = PAROLA) 
   await page.getByLabel("Parolă", { exact: true }).fill(parola);
   await page.getByRole("button", { name: "Intră în cont" }).click();
   await expect(page.getByRole("button", { name: "Intră în cont" })).toBeHidden();
+  // WebKit stores the cookie from the login response a moment after the page shows the account;
+  // a navigation in that gap would arrive logged out.
+  await expect.poll(async () => (await page.context().cookies()).some((c) => c.name === "markai_sesiune")).toBe(true);
 }
 
 /** Signs in by API through the site (same cookie jar as the page): for tests that are not about signing in. */
