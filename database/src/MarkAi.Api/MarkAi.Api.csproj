@@ -16,10 +16,17 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Endpoint handlers generated at compile time instead of compiled at the first request: faster start, and the test suite
+         (a new app per test) runs about four times faster. The few endpoints it cannot generate (RDG003/RDG004: a [FromForm]
+         class, an anonymous result) are built at runtime as before. -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <NoWarn>$(NoWarn);RDG003;RDG004</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="MarkAi.AccountSettings.Checks" />
+    <InternalsVisibleTo Include="MarkAi.Tests.Suport" />
+    <InternalsVisibleTo Include="MarkAi.Tests.Unit" />
+    <InternalsVisibleTo Include="MarkAi.Tests.Integration" />
   </ItemGroup>
 
 </Project>

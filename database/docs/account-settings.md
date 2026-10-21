@@ -68,24 +68,10 @@ Modificarile cer headerul `X-MarkAi-Settings: 1`, impiedicand formularele cross-
 Rolul si utilizatorul sunt determinate de server; nu se accepta un ID de cont sau un rol din formular.
 Fisierele noi sunt salvate prin serviciul existent de stocare (poza max. 5 MB, dovada max. 10 MB), fara suprascrierea sau stergerea fisierelor vechi.
 
-## Verificari
+## Teste
 
-```bash
-# Server PostgreSQL de unica folosinta (nu baza reala); fiecare grup de verificari isi creeaza si sterge propria baza.
-podman run --rm -d --name markai-test -e POSTGRES_PASSWORD=test -p 127.0.0.1:55432:5432 docker.io/library/postgres:18
-export MARKAI_TEST_CONNECTION='Host=127.0.0.1;Port=55432;Username=postgres;Password=test'
-dotnet run --project database/tests/MarkAi.AccountSettings.Checks            # toate grupurile
-dotnet run --project database/tests/MarkAi.AccountSettings.Checks -- setari  # un singur grup
-podman stop markai-test
-```
-
-Verificarile pornesc aplicatia reala (`Infrastructura/AplicatieMarkAi.cs`, aceeasi ca `Program.cs`) cu inlocuitori falsi:
-email (`FakeMail`), ceas (`FakeTimeProvider`, inclusiv temporizatoare), model AI (`FakeAi`) si API-ul REST Twilio (`FakeTwilio`,
-servit chiar de aplicatia de test). Inainte de pornire sterg din proces setarile reale (conexiunea, cheile AI, Twilio, SMTP),
-deci pot rula si dintr-un terminal care a incarcat `markai.env`. Serviciile de fundal nu pornesc singure: o verificare le
-ruleaza cu `h.Serviciu<...>().RuleazaOdataAsync(...)`. Fiecare faza adauga un fisier `Verificari*.cs` si il inregistreaza in `Program.cs`.
-
-Grupuri: `infrastructura` (inlocuitorii sunt cei folositi, generarea de intrebari ruleaza la cerere), `twilio-fals`
-(„Suna-ma” ajunge doar la API-ul Twilio fals) si `setari`, cu 23 de verificari pe PostgreSQL real: autentificare, roluri, salvare, telefon, unicitate, protectia modificarilor, OTP legat de cont, cod gresit, expirare, reutilizare, parole vechi/noi, email si erori de livrare. Emailurile sunt interceptate de un sender fals exclusiv in acest executabil de test.
+Setarile contului sunt acoperite de testele automate (`tests/MarkAi.Tests.Integration/Conturi/SetariContTests.cs`, plus
+`SesiuniTests`, `TelefonTests`, `ParolaUitataTests`; logica pura in `tests/MarkAi.Tests.Unit/ConturiTests.cs`). Cum se ruleaza:
+[teste.md](teste.md).
 
 Frontend verificat suplimentar in browser pe desktop si la latime 390px: salvare reala pe baza temporara, notificare de succes, meniu, dialog OTP, campuri de profesor si absenta scrollului orizontal. Buildul Next.js include ruta `/setari`.
