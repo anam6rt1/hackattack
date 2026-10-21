@@ -46,7 +46,9 @@ trebuie construit cu `API_INTERN_URL=http://127.0.0.1:5081`, altfel `/api` ajung
 
 Testele Playwright (frontend/e2e, `npm run test:e2e`) pornesc singure `tools/MarkAi.Previzualizare --e2e` (fără limite de cereri,
 fără pauză între teste) și un build separat al site-ului; vezi frontend/README.md. GitHub Actions (`.github/workflows/teste.yml`)
-rulează la fiecare PR și push pe main: `dotnet test`, lint + Vitest + build, apoi Playwright în Chromium și Firefox.
+rulează la fiecare PR și push pe main: `dotnet test`, lint + Vitest + build, apoi Playwright în Chromium, Firefox și WebKit
+(motorul din Safari), câte un job pe browser. Eșecurile WebKit apar în raport, dar nu opresc încă rularea. Pe Bazzite WebKit
+rulează doar în containerul oficial Playwright: `npm run test:e2e:webkit`.
 
 ## Reguli
 - Un test care pică uneori se repară (sau se pune deoparte cu o problemă deschisă) înainte de merge; nu se reîncearcă orbește.

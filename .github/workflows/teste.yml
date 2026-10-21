@@ -50,9 +50,16 @@ jobs:
           NEXT_PUBLIC_API_URL: /api
 
   e2e:
-    name: Browser (Playwright)
+    name: Browser (${{ matrix.browser }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      # Each browser gets its own job: they run side by side and a failure in one doesn't cancel the others.
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    # WebKit is new in CI: its failures show up but don't fail the run until it has passed a few times.
+    continue-on-error: ${{ matrix.browser == 'webkit' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -70,19 +77,19 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('frontend/package-lock.json') }}
       - if: steps.browsere.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps ${{ matrix.browser }}
         working-directory: frontend
       - if: steps.browsere.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium firefox
+        run: npx playwright install-deps ${{ matrix.browser }}
         working-directory: frontend
       - name: Testele din browser
         working-directory: frontend
-        run: npx playwright test
+        run: npx playwright test --project=${{ matrix.browser }}
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.browser }}
           path: frontend/playwright-report/
           retention-days: 7

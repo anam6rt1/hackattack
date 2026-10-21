@@ -34,13 +34,19 @@ Testele stau în `teste/` (`lib/`, `componente/`, `pagini/`), rulează în jsdom
 înlocuiește `fetch` cu un API fals (`apiFals({ "GET /cale": raspuns })`) și ține un router fals, iar `teste/setup.js`
 înlocuiește `next/navigation` și `next/link`. Testele din browser (Playwright) și cele ale API-ului (`database/docs/teste.md`) sunt separate.
 
-## Teste în browser (Playwright, Chromium + Firefox)
+## Teste în browser (Playwright: Chromium, Firefox, WebKit)
 
 ```
 npx playwright install chromium firefox   # o dată (~250 MB în ~/.cache/ms-playwright)
-npm run test:e2e                          # ~4 min; pornește și oprește singur serverele de test
+npm run test:e2e                          # Chromium + Firefox, ~4 min; pornește și oprește singur serverele de test
+npm run test:e2e:webkit                   # WebKit (motorul din Safari), în containerul oficial Playwright
 npx playwright test e2e/lectie.spec.ts --project=firefox --headed   # un fișier, într-un browser, cu fereastră
 ```
+
+WebKit-ul Playwright pentru Linux cere biblioteci din Ubuntu (`libicu74`, `libjpeg-turbo8`) pe care Fedora și Bazzite nu le
+au, așa că `test:e2e:webkit` pornește serverele de test pe calculator și rulează doar testele WebKit în
+`mcr.microsoft.com/playwright` (aceeași versiune ca `@playwright/test`, ~2 GB la prima rulare, cu podman). În CI fiecare browser
+rulează direct pe Ubuntu, într-un job separat.
 
 Testele (`e2e/`) nu ating site-ul sau baza reală: Playwright pornește API-ul de test (`database/tools/MarkAi.Previzualizare --e2e`,
 127.0.0.1:5081, cu PostgreSQL-ul lui în Testcontainers — pe Bazzite prin socket-ul podman) și un build separat al site-ului

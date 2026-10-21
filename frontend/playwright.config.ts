@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
-// Browser tests (Chromium + Firefox) against a throwaway stack, never the real site or database:
+// Browser tests (Chromium, Firefox and WebKit, Safari's engine) against a throwaway stack, never the real site or database:
 //   the seeded test API (database/tools/MarkAi.Previzualizare --e2e) on 127.0.0.1:5081, with its own PostgreSQL container, and
 //   a separate Next.js build (.next-e2e) on 127.0.0.1:3001 whose /api proxy points at that API.
 // Run: npx playwright test   (both servers start and stop by themselves)
@@ -33,6 +33,7 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
   webServer: [
     {
