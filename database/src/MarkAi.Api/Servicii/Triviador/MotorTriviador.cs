@@ -79,17 +79,17 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
         var materii = await db.Materii.AsNoTracking().Where(m => materieIds.Contains(m.Id)).OrderBy(m => m.Ordine)
             .Select(m => new { m.Id, m.Denumire }).ToListAsync(ct);
         if (materii.Count != materieIds.Count) throw new CerereInvalida("Materie inexistentă.");
-        // Islands are named after the Lecții of the chosen subjects (and grade); their chapters' questions are asked there.
-        var cursuri = await db.Curs.AsNoTracking()
-            .Where(c => materieIds.Contains(c.MaterieId) && c.Publicat && c.Parcurs.Publicat && (clasa == null || c.Parcurs.Clasa == clasa))
-            .OrderBy(c => c.MaterieId).ThenBy(c => c.Parcurs.Ordine).ThenBy(c => c.Ordine)
-            .Select(c => new { c.Id, c.ParcursId, Nume = c.Parcurs.Titlu, c.MaterieId }).ToListAsync(ct);
+        // One island per published Lecție of the chosen subjects (and grade); its quiz questions are asked there.
+        var lectii = await db.Set<Parcurs>().AsNoTracking()
+            .Where(p => materieIds.Contains(p.MaterieId) && p.Publicat && (clasa == null || p.Clasa == clasa))
+            .OrderBy(p => p.MaterieId).ThenBy(p => p.Ordine)
+            .Select(p => new { p.Id, p.Titlu, p.MaterieId, Capitole = p.Capitole.Count(c => c.Publicat) }).ToListAsync(ct);
         var rnd = new Random();
-        var capitole = cursuri.GroupBy(c => (c.MaterieId, c.ParcursId, c.Nume))
-            .Select(g => (g.Key.Nume, materii.Count > 1 ? materii.First(m => m.Id == g.Key.MaterieId).Denumire : $"{g.Count()} {(g.Count() == 1 ? "capitol" : "capitole")}",
-                g.Select(c => c.Id).ToArray()))
+        var capitole = lectii
+            .Select(p => (p.Titlu, materii.Count > 1 ? materii.First(m => m.Id == p.MaterieId).Denumire : $"{p.Capitole} {(p.Capitole == 1 ? "capitol" : "capitole")}",
+                new[] { p.Id }))
             .OrderBy(_ => rnd.Next()).ToList();
-        var pachet = await PachetIntrebari.IncarcaAsync(db, materieIds, clasa is null ? null : cursuri.Select(c => c.Id).ToList(), ct);
+        var pachet = await PachetIntrebari.IncarcaAsync(db, materieIds, clasa is null ? null : lectii.Select(p => p.Id).ToList(), ct);
         var harta = GeneratorHarta.Genereaza(s.Insule, capitole, rnd);
 
         while (true)
@@ -332,7 +332,7 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
     private void Ataca(Camera c, string atacator, string insula)
     {
         c.Atac = new AtacJoc(atacator, c.Proprietari[insula], insula);
-        var q = c.Pachet.Alege(c.Pachet.Grila, Insula(c, insula).CursIds, x => x.Id, x => x.CursId, c.Rnd);
+        var q = c.Pachet.Alege(c.Pachet.Grila, Insula(c, insula).ParcursIds, x => x.Id, x => x.ParcursId, c.Rnd);
         DeschideIntrebare(c, "intrebare", q, new IntrebareJoc(++c.Nr, q.Text, q.Variante, (int)TimpIntrebare.TotalSeconds));
     }
 
@@ -394,7 +394,7 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
 
     private void PornesteEstimare(Camera c)
     {
-        var e = c.Pachet.Alege(c.Pachet.Estimari, Insula(c, c.Atac!.Insula).CursIds, x => x.Id, x => x.CursId, c.Rnd);
+        var e = c.Pachet.Alege(c.Pachet.Estimari, Insula(c, c.Atac!.Insula).ParcursIds, x => x.Id, x => x.ParcursId, c.Rnd);
         DeschideIntrebare(c, "estimare", e, new IntrebareJoc(++c.Nr, e.Text, null, (int)TimpIntrebare.TotalSeconds));
     }
 

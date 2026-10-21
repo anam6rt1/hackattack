@@ -1,7 +1,7 @@
 namespace MarkAi.Api.Servicii.Triviador;
 
 /// <summary>One island: its place on the map, the drawing (seed, building) and the lessons its questions prefer.</summary>
-public sealed record InsulaHarta(string Id, string Nume, string Autor, int X, int Y, int Seed, string Semn, int[] CursIds);
+public sealed record InsulaHarta(string Id, string Nume, string Autor, int X, int Y, int Seed, string Semn, int[] ParcursIds);
 
 /// <summary>A game map: islands, the bridges between them, and the size of the drawing (map units).</summary>
 public sealed class HartaJoc(int latime, int inaltime, IReadOnlyList<InsulaHarta> insule, IReadOnlyList<string[]> poduri)
@@ -54,8 +54,8 @@ public static class GeneratorHarta
     private const int LatimeCelula = 250, InaltimeCelula = 210, Margine = 40, Sus = 70;
     private static readonly string[] Semne = ["castel", "conac", "turn", "casa", "clopot", "far", "moara"];
 
-    /// <param name="capitole">Island names (chapters of the chosen subjects), in reading order; the rest become "Insula N".</param>
-    public static HartaJoc Genereaza(int numar, IReadOnlyList<(string Nume, string Autor, int[] CursIds)> capitole, Random rnd)
+    /// <param name="capitole">Island names (Lecții of the chosen subjects), in reading order; the rest become "Insula N".</param>
+    public static HartaJoc Genereaza(int numar, IReadOnlyList<(string Nume, string Autor, int[] ParcursIds)> capitole, Random rnd)
     {
         if (numar is < MinInsule or > MaxInsule) throw new ArgumentOutOfRangeException(nameof(numar));
         var coloane = (int)Math.Ceiling(Math.Sqrt(numar * 1.6));

@@ -7,17 +7,14 @@ using MarkAi.Api.Servicii.Triviador;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
-using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 /// <summary>
 /// Lecții (paths) and chapters: ownership (author, home organisation admin, platform admin), visibility on every read path
 /// (including the phone tutor), view-only shares, the organisation's publishing switch, grades, chapter order, hard deletion,
-/// the Triviador grade filter, and the migration that groups existing chapters into platform Lecții.
+/// the Lecție quiz and progress, and the Triviador grade filter.
 /// </summary>
 static class VerificariParcursuri
 {
@@ -28,7 +25,6 @@ static class VerificariParcursuri
 
     public static async Task Ruleaza(Harness h)
     {
-        await VerificaMigrarea(h);
         var (liceu, centru) = await Populeaza(h);
 
         using var admin = await h.Login("admin");
@@ -58,37 +54,37 @@ static class VerificariParcursuri
         var privata = await Id(await irina.PostAsJsonAsync("/parcursuri", Lectie("Ion — organizație", liceu, clasa: "XI", vizibilitate: "organizatie")));
         var cap1 = await Capitol(irina, privata, "Ion: capitolul 1", "Glasul pământului și satul lui Ion");
         var cap2 = await Capitol(irina, privata, "Ion: capitolul 2", "Glasul iubirii și finalul romanului");
-        await IntrebariDeTest(h, cap2);
+        await IntrebariDeTest(h, privata);
 
         // Visibility on every read path.
         h.Check((await george.GetAsync($"/parcursuri/{privata}")).StatusCode == HttpStatusCode.NotFound, "outsider: organisation-only Lecție is 404");
         h.Check((await george.GetAsync($"/cursuri/{cap1}")).StatusCode == HttpStatusCode.NotFound, "outsider: its chapter is 404");
-        h.Check((await george.PostAsync($"/cursuri/{cap1}/quiz", null)).StatusCode == HttpStatusCode.NotFound, "outsider: its quiz is 404");
-        h.Check((await george.PostAsJsonAsync($"/cursuri/{cap1}/progres", new { activitate = "video" })).StatusCode == HttpStatusCode.NotFound, "outsider: no progress on it");
+        h.Check((await george.PostAsync($"/parcursuri/{privata}/quiz", null)).StatusCode == HttpStatusCode.NotFound, "outsider: its quiz is 404");
+        h.Check((await george.PostAsync($"/cursuri/{cap1}/acces", null)).StatusCode == HttpStatusCode.NotFound, "outsider: no progress on it");
         h.Check(!(await Lista(george, "/materii/1/parcursuri")).Contains(privata) && (await Lista(george, "/materii/1/parcursuri")).Contains(platforma),
             "outsider: listed Lecții are only public ones");
-        h.Check(await NumarCursuri(george, 1) == 1 && await NumarCursuri(elena, 1) == 3, "subject counts follow visibility (1 for an outsider, 3 for a member)");
-        h.Check(await NumarCursuri(h.Anonim(), 1) == 1, "anonymous counts show only public content");
+        h.Check(await NumarLectii(george, 1) == 1 && await NumarLectii(elena, 1) == 2, "subject counts follow visibility (1 Lecție for an outsider, 2 for a member)");
+        h.Check(await NumarLectii(h.Anonim(), 1) == 1, "anonymous counts show only public content");
         h.Check((await elena.GetAsync($"/parcursuri/{privata}")).IsSuccessStatusCode && (await elena.GetAsync($"/cursuri/{cap2}")).IsSuccessStatusCode,
             "a student of the home organisation sees it");
         h.Check((await radu.GetAsync($"/parcursuri/{privata}")).StatusCode == HttpStatusCode.NotFound, "a student of another organisation does not");
 
-        // Chapters open in any order: the second one first.
-        h.Check((await elena.PostAsJsonAsync($"/cursuri/{cap2}/progres", new { activitate = "video" })).IsSuccessStatusCode, "chapter 2 can be started before chapter 1");
-        h.Check((await elena.PostAsync($"/cursuri/{cap2}/quiz", null)).IsSuccessStatusCode, "its quiz can be taken before chapter 1");
+        // Chapters open in any order: the second one first; the Lecție quiz covers them all.
+        h.Check((await elena.PostAsync($"/cursuri/{cap2}/acces", null)).IsSuccessStatusCode, "chapter 2 can be opened before chapter 1");
+        h.Check((await elena.PostAsync($"/parcursuri/{privata}/quiz", null)).IsSuccessStatusCode, "the Lecție quiz can be taken at any time");
 
-        // Progress page: progress on a chapter the student can no longer see is hidden.
+        // Progress page: progress on a Lecție the student can no longer see is hidden.
         var georgeId = await h.Db(db => db.Utilizatori.Where(u => u.Username == "george").Select(u => u.Id).SingleAsync());
         await h.Db(async db =>
         {
-            db.Add(new ProgresCurs { UtilizatorId = georgeId, CursId = cap1, QuizPromovat = true, CompletatLa = DateTime.UtcNow, UltimaAccesare = DateTime.UtcNow });
+            db.Add(new ProgresLectie { UtilizatorId = georgeId, ParcursId = privata, UltimulCursId = cap1, PromovatLa = DateTime.UtcNow, UltimaAccesare = DateTime.UtcNow });
             return await db.SaveChangesAsync();
         });
         var progres = await george.GetFromJsonAsync<JsonElement>("/progres");
-        h.Check(progres.GetProperty("cursuriCompletate").EnumerateArray().All(c => c.GetProperty("cursId").GetInt32() != cap1)
-            && progres.GetProperty("ultimulCurs").ValueKind == JsonValueKind.Null
-            && progres.GetProperty("materii").EnumerateArray().Single(m => m.GetProperty("materieId").GetInt32() == 1).GetProperty("totalCursuri").GetInt32() == 1,
-            "/progres hides chapters of organisations the student is not in");
+        h.Check(progres.GetProperty("lectiiCompletate").EnumerateArray().All(c => c.GetProperty("parcursId").GetInt32() != privata)
+            && progres.GetProperty("ultimaLectie").ValueKind == JsonValueKind.Null
+            && progres.GetProperty("materii").EnumerateArray().Single(m => m.GetProperty("materieId").GetInt32() == 1).GetProperty("totalLectii").GetInt32() == 1,
+            "/progres hides Lecții of organisations the student is not in");
 
         // The phone tutor: an outsider's prompt and speech hints never contain the organisation's chapters.
         await VerificaTutorul(h, georgeId, "george", cap1, vede: false);
@@ -180,16 +176,12 @@ static class VerificariParcursuri
             "the home organisation's admin keeps editing it");
     }
 
-    // Two valid multiple-choice questions on a chapter, so its quiz can start.
-    static Task<int> IntrebariDeTest(Harness h, int cursId) => h.Db(async db =>
+    // Two valid multiple-choice questions in a Lecție's quiz, so it can start.
+    static Task<int> IntrebariDeTest(Harness h, int parcursId) => h.Db(async db =>
     {
         foreach (var text in new[] { "Cine e Ana?", "Cine e Florica?" })
-        {
-            var q = new TriviaQuestion { SubjectId = 1, CourseId = cursId, Text = text };
-            db.Add(q);
-            await db.SaveChangesAsync();
-            db.AddRange(new TriviaOption { QuestionId = q.Id, Text = "Răspunsul bun", IsCorrect = true }, new TriviaOption { QuestionId = q.Id, Text = "Alt răspuns" });
-        }
+            db.Add(new Intrebare { MaterieId = 1, ParcursId = parcursId, Text = text,
+                Variante = [new VariantaIntrebare { Text = "Răspunsul bun", Corecta = true }, new VariantaIntrebare { Text = "Alt răspuns" }] });
         return await db.SaveChangesAsync();
     });
 
@@ -204,28 +196,31 @@ static class VerificariParcursuri
             return s.Id;
         });
         await using (var scope = h.App.Services.CreateAsyncScope())
-            await scope.ServiceProvider.GetRequiredService<ProgresService>().MarcheazaAsync(elenaId, cap2, ActivitateCurs.Quiz);
+        {
+            await scope.ServiceProvider.GetRequiredService<ProgresService>().AcceseazaAsync(elenaId, cap2);
+            await scope.ServiceProvider.GetRequiredService<ProgresService>().PromoveazaAsync(elenaId, privata);
+        }
         var xpInainte = await h.Db(db => db.EvenimenteRecompensa.Where(e => e.UtilizatorId == elenaId).SumAsync(e => e.XpAcordat));
 
         h.Check((await irina.DeleteAsync($"/cursuri/{cap2}")).StatusCode == HttpStatusCode.NoContent, "the author deletes a chapter with student activity");
         var ramase = await h.Db(async db => new
         {
             Curs = await db.Curs.CountAsync(c => c.Id == cap2),
-            Progres = await db.Set<ProgresCurs>().CountAsync(p => p.CursId == cap2),
-            Incercari = await db.Set<IncercareQuiz>().CountAsync(i => i.CursId == cap2),
-            Intrebari = await db.Set<TriviaQuestion>().CountAsync(q => q.CourseId == cap2),
-            Variante = await db.Set<TriviaOption>().CountAsync(o => db.Set<TriviaQuestion>().Any(q => q.Id == o.QuestionId && q.CourseId == cap2)),
+            Progres = await db.Set<ProgresLectie>().Where(p => p.ParcursId == privata && p.UtilizatorId == elenaId).Select(p => new { p.UltimulCursId, p.PromovatLa }).SingleAsync(),
+            Intrebari = await db.Set<Intrebare>().CountAsync(q => q.ParcursId == privata),
             Sesiune = await db.Sesiuni.Where(s => s.Id == apel).Select(s => new { s.CursId }).SingleOrDefaultAsync(),
-            Xp = await db.EvenimenteRecompensa.Where(e => e.UtilizatorId == elenaId).SumAsync(e => e.XpAcordat),
         });
-        h.Check(ramase.Curs == 0 && ramase.Progres == 0 && ramase.Incercari == 0 && ramase.Intrebari == 0 && ramase.Variante == 0,
-            "the chapter, its progress, attempts, questions and options are gone");
+        h.Check(ramase.Curs == 0 && ramase.Progres.UltimulCursId is null && ramase.Progres.PromovatLa is not null && ramase.Intrebari == 2,
+            "the chapter is gone; the Lecție's quiz and the student's completion stay");
         h.Check(ramase.Sesiune is { CursId: null }, "a tutor call about it stays, without the link");
-        h.Check(xpInainte >= ProgresService.XpCurs && ramase.Xp == xpInainte, "XP already awarded stays");
 
         h.Check((await irina.DeleteAsync($"/parcursuri/{privata}")).StatusCode == HttpStatusCode.NoContent, "the author deletes the whole Lecție");
         h.Check(await h.Db(async db => !await db.Curs.AnyAsync(c => c.Id == cap1 || c.Id == cap3) && !await db.Set<ParcursOrganizatie>().AnyAsync(s => s.ParcursId == privata)
-            && !await db.Set<Parcurs>().AnyAsync(p => p.Id == privata)), "its chapters and shares are gone");
+            && !await db.Set<Parcurs>().AnyAsync(p => p.Id == privata) && !await db.Set<Intrebare>().AnyAsync(q => q.ParcursId == privata)
+            && !await db.Set<ProgresLectie>().AnyAsync(p => p.ParcursId == privata) && !await db.Set<IncercareQuiz>().AnyAsync(i => i.ParcursId == privata)),
+            "its chapters, shares, questions, progress and attempts are gone");
+        h.Check(await h.Db(db => db.EvenimenteRecompensa.Where(e => e.UtilizatorId == elenaId).SumAsync(e => e.XpAcordat)) == xpInainte
+            && xpInainte >= ProgresService.XpLectie, "XP already awarded stays");
         h.Check((await elena.GetAsync($"/parcursuri/{privata}")).StatusCode == HttpStatusCode.NotFound, "a deleted Lecție is 404");
     }
 
@@ -246,47 +241,6 @@ static class VerificariParcursuri
         var sistem = h.Ai.Apeluri.Last().Sistem;
         h.Check(sistem.Contains(titlu) == vede, vede ? $"{username}: the tutor uses the organisation's chapter" : $"{username}: the tutor never sees the organisation's chapter");
         h.Check((await tutor.IndiciiVorbire(elevId, CancellationToken.None)).Contains("Ion — organizație") == vede, $"{username}: speech hints follow visibility");
-    }
-
-    // A database at the Organizatii migration with hackathon-style chapters, then migrated: chapters grouped per subject and label.
-    static async Task VerificaMigrarea(Harness h)
-    {
-        var adminConexiune = Environment.GetEnvironmentVariable("MARKAI_TEST_CONNECTION")!;
-        var nume = "markai_checks_migrare_" + Guid.NewGuid().ToString("N");
-        await using (var c = new NpgsqlConnection(adminConexiune)) { await c.OpenAsync(); await new NpgsqlCommand($"CREATE DATABASE \"{nume}\"", c).ExecuteNonQueryAsync(); }
-        try
-        {
-            var conexiune = new NpgsqlConnectionStringBuilder(adminConexiune) { Database = nume }.ConnectionString;
-            await using var db = new MarkAiDbContext(new DbContextOptionsBuilder<MarkAiDbContext>()
-                .UseNpgsql(conexiune, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "mark_ai")).Options);
-            await db.GetService<IMigrator>().MigrateAsync("20261020020614_Organizatii");
-            await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO mark_ai.rol (nume) VALUES ('admin') ON CONFLICT DO NOTHING;
-                INSERT INTO mark_ai.utilizator (nume, username, email, parola_hash) VALUES ('Admin', 'admin', 'admin@example.invalid', 'x');
-                INSERT INTO mark_ai.utilizator_rol (utilizator_id, rol_id) SELECT u.id, r.id FROM mark_ai.utilizator u, mark_ai.rol r WHERE r.nume = 'admin';
-                INSERT INTO mark_ai.materie (denumire) VALUES ('Română'), ('Matematică');
-                INSERT INTO mark_ai.curs (materie_id, titlu, capitol, ordine, publicat) VALUES
-                    (1, 'Harap-Alb 1', 'Harap-Alb', 1, true), (1, 'Harap-Alb 2', 'Harap-Alb', 2, true), (1, 'Moara 1', 'Moara cu noroc', 3, true),
-                    (1, 'Fără capitol', NULL, 4, false), (2, 'Funcții 1', 'Funcții', 1, true), (2, 'Harap-Alb la mate', 'Harap-Alb', 2, true);
-                """);
-            await db.Database.MigrateAsync();
-            var parcursuri = await db.Set<Parcurs>().AsNoTracking().Include(p => p.Capitole).ToListAsync();
-            var adminId = await db.Utilizatori.Where(u => u.Username == "admin").Select(u => u.Id).SingleAsync();
-            h.Check(await db.Curs.CountAsync() == 6 && parcursuri.Sum(p => p.Capitole.Count) == 6, "migration keeps every chapter, each in a Lecție");
-            h.Check(parcursuri.Count == 5 && parcursuri.Single(p => p.MaterieId == 1 && p.Titlu == "Harap-Alb").Capitole.Count == 2
-                && parcursuri.Any(p => p.MaterieId == 2 && p.Titlu == "Harap-Alb") && parcursuri.Any(p => p.MaterieId == 1 && p.Titlu == "Lecții"),
-                "one platform Lecție per subject and chapter label");
-            h.Check(parcursuri.All(p => p.Clasa == "Bac" && p.Vizibilitate == Parcurs.Public && p.OrganizatieId == null && p.AutorId == adminId && p.Publicat),
-                "migrated Lecții are public platform content, grade Bac, by the platform admin");
-            h.Check(parcursuri.All(p => p.Capitole.All(c => c.MaterieId == p.MaterieId)), "no chapter is in another subject's Lecție");
-        }
-        finally
-        {
-            NpgsqlConnection.ClearAllPools();
-            await using var c = new NpgsqlConnection(adminConexiune);
-            await c.OpenAsync();
-            await new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{nume}\" WITH (FORCE)", c).ExecuteNonQueryAsync();
-        }
     }
 
     // Fixtures on top of the harness ones: a second organisation (Centrul Alba, admin ovidiu) where irina also teaches,
@@ -337,9 +291,9 @@ static class VerificariParcursuri
     static async Task<List<int>> Lista(HttpClient c, string url) =>
         (await c.GetFromJsonAsync<JsonElement>(url)).GetProperty("elemente").EnumerateArray().Select(e => e.GetProperty("id").GetInt32()).ToList();
 
-    static async Task<int> NumarCursuri(HttpClient c, int materieId) =>
+    static async Task<int> NumarLectii(HttpClient c, int materieId) =>
         (await c.GetFromJsonAsync<JsonElement>("/materii")).GetProperty("elemente").EnumerateArray()
-            .Single(m => m.GetProperty("id").GetInt32() == materieId).GetProperty("numarCursuri").GetInt32();
+            .Single(m => m.GetProperty("id").GetInt32() == materieId).GetProperty("numarLectii").GetInt32();
 
     static async Task<JsonElement> Lectia(HttpClient c, int id, bool editor = true) =>
         await c.GetFromJsonAsync<JsonElement>(editor ? $"/continut/parcursuri/{id}" : $"/parcursuri/{id}");

@@ -94,6 +94,7 @@
 .tv-aur { background: var(--aur); color: var(--maro); box-shadow: 0 5px 0 #c99400; }
 .tv-albastru { background: var(--ocean); box-shadow: 0 5px 0 #0d5c9e; }
 .tv-gri { background: #eef3fb; color: var(--navy); box-shadow: 0 5px 0 #d2dcec; }
+.tv-rosu { background: var(--rau); box-shadow: 0 5px 0 #a3271f; }
 .tv-asteapta { text-align: center; font-weight: 800; color: #6b7a99; animation: tv-puls 1.4s ease-in-out infinite; margin: 0; }
 @keyframes tv-puls { 50% { opacity: .5; } }
 .tv-tura { display: flex; gap: 12px; align-items: center; }
@@ -645,6 +646,9 @@ a.tv-pastila { text-decoration: none; }
 .tv-filtru { border: 2px solid #ece3cd; background: #fff; color: var(--navy); border-radius: 99px; padding: 6px 14px; font-weight: 800; font-size: 14px; cursor: pointer; }
 .tv-filtru[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
 .tv-filtru:focus-visible { outline: 3px solid var(--aur); outline-offset: 2px; }
+.tv-bara-filtre { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 14px; margin-bottom: 16px; background: #fff; border-radius: 18px; box-shadow: 0 3px 0 #ece3cd; }
+.tv-bara-filtre .tv-filtre { margin-bottom: 0; }
+.tv-bara-filtre select.tv-camp-text { width: auto; padding-top: 6px; padding-bottom: 6px; }
 .tv-lectie { text-decoration: none; color: var(--navy); transition: transform .15s; }
 .tv-lectie:hover { transform: translateY(-3px); }
 .tv-lectie .tv-butoane { gap: 6px; }

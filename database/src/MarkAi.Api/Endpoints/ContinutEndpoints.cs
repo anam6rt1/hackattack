@@ -4,28 +4,29 @@ using MarkAi.Api.Servicii;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
-using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Api.Endpoints;
 
-public record MaterieDto(int Id, string? Cod, string Denumire, string? Descriere, int Ordine, int NumarCursuri, int CursuriCompletate);
-public record ProgresCursDto(bool VideoVazut, bool MaterialeCitite, bool QuizPromovat, DateTime? CompletatLa);
-public record CursRezumat(int Id, int MaterieId, int ParcursId, string Titlu, string? Descriere, string? Capitol, int Ordine, bool AreVideo, bool Publicat,
-    ProgresCursDto? Progres);
+/// <param name="NumarLectii">Published Lecții the user may see; <paramref name="LectiiCompletate"/> = those whose quiz they passed.</param>
+public record MaterieDto(int Id, string? Cod, string Denumire, string? Descriere, int Ordine, int NumarLectii, int LectiiCompletate);
+/// <param name="PromovatLa">When the student passed the Lecție's quiz (the only thing that completes a Lecție).</param>
+/// <param name="UltimulCursId">The chapter they opened last.</param>
+public record ProgresLectieDto(DateTime? PromovatLa, int? UltimulCursId);
+public record CursRezumat(int Id, int MaterieId, int ParcursId, string Titlu, string? Descriere, string? Capitol, int Ordine, bool AreVideo, bool Publicat);
 public record CursDetaliu(int Id, int MaterieId, string Materie, int ParcursId, string Parcurs, string Clasa, string Titlu, string? Descriere, string? Capitol,
-    int Ordine, string? VideoUrl, IReadOnlyList<SectiuneMaterial> Materiale, string? Continut, bool Publicat, ProgresCursDto? Progres);
+    int Ordine, string? VideoUrl, IReadOnlyList<SectiuneMaterial> Materiale, string? Continut, bool Publicat);
 /// <param name="Loc">The home organisation's locality and county, e.g. "Sectorul 1, București"; null for platform Lecții.</param>
 /// <param name="InLocalitateaTa">The home organisation is in the user's own locality (sorted first under "local").</param>
 public record ParcursRezumat(int Id, int MaterieId, string Titlu, string? Descriere, string Clasa, string? Autor, string? Organizatie, string Vizibilitate,
-    bool Publicat, int Ordine, int NumarCapitole, int CapitoleCompletate, string? Loc, bool InLocalitateaTa);
+    bool Publicat, int Ordine, int NumarCapitole, bool Completata, string? Loc, bool InLocalitateaTa);
 public record CapitolGasit(int Id, string Titlu, string? Capitol, int ParcursId, string Parcurs, string Clasa, int MaterieId, string Materie);
 public record RezultatCautare(IReadOnlyList<ParcursRezumat> Lectii, IReadOnlyList<CapitolGasit> Capitole);
+/// <param name="IntrebariTest">Questions the Lecție's quiz can draw from (0: no quiz yet).</param>
 public record ParcursDetaliu(int Id, int MaterieId, string Materie, string Titlu, string? Descriere, string Clasa, string? Autor, string? Organizatie,
-    string Vizibilitate, bool Publicat, bool PoateEdita, IReadOnlyList<CursRezumat> Capitole);
+    string Vizibilitate, bool Publicat, bool PoateEdita, int IntrebariTest, ProgresLectieDto? Progres, IReadOnlyList<CursRezumat> Capitole);
 public record VariantaPublica(int Id, string Text);
 public record IntrebarePublica(int Id, string Text, IReadOnlyList<VariantaPublica> Variante);
-public record MarcareActivitate(string Activitate);
 
 public record MaterieEditare(string Denumire, string? Descriere, string? Cod, int? Ordine);
 public record ParcursEditare(int MaterieId, string Titlu, string? Descriere, string Clasa, string Vizibilitate, int? OrganizatieId,
@@ -33,20 +34,22 @@ public record ParcursEditare(int MaterieId, string Titlu, string? Descriere, str
 public record OrganizatieAutor(int Id, string Nume, bool PoatePublicaPublic);
 public record ParcursEditabil(int Id, int MaterieId, string Materie, string Titlu, string? Descriere, string Clasa, string Vizibilitate, bool Publicat,
     int Ordine, int? AutorId, string? Autor, int? OrganizatieId, string? Organizatie, IReadOnlyList<int> Partajari, int NumarCapitole,
-    bool PoatePublicaPublic, bool PoateMuta, IReadOnlyList<OrganizatieAutor> OrganizatiiPosibile);
+    int NumarIntrebari, bool PoatePublicaPublic, bool PoateMuta, IReadOnlyList<OrganizatieAutor> OrganizatiiPosibile);
 public record OrdineCapitole(List<int> CursIds);
 public record CursEditare(int ParcursId, string Titlu, string? Descriere, string? Capitol, int? Ordine, string? VideoUrl,
     List<SectiuneMaterial>? Materiale, string? Continut, bool? Publicat);
 public record VariantaEditare(string Text, bool Corecta);
-public record IntrebareEditare(string Text, string? Explicatie, bool Activa, List<VariantaEditare>? Variante, int? RaspunsNumeric);
+/// <param name="Tip">Only when adding a question: "grila" (default) or "estimare".</param>
+public record IntrebareEditare(string Text, string? Explicatie, bool Activa, List<VariantaEditare>? Variante, int? RaspunsNumeric, string? Tip = null);
+public record CerereGenerare(int Numar);
 public record VariantaCompleta(int Id, string Text, bool Corecta);
 public record IntrebareCompleta(int Id, string Tip, string Text, string? Explicatie, string Sursa, bool Activa, int? RaspunsNumeric,
     IReadOnlyList<VariantaCompleta> Variante);
 
 /// <summary>
-/// Subjects (Materii), their Lecții (paths, <see cref="Parcurs"/>) and chapters (Capitole, <see cref="Curs"/>). Every read goes
-/// through <see cref="AccesContinut"/>; editing a Lecție or its chapters is for its author, its home organisation's admin and
-/// platform admins. Subjects are created and renamed by platform admins only.
+/// Subjects (Materii), their Lecții (paths, <see cref="Parcurs"/>), chapters (Capitole, <see cref="Curs"/>) and each Lecție's
+/// quiz questions. Every read goes through <see cref="AccesContinut"/>; editing a Lecție, its chapters or its questions is for
+/// its author, its home organisation's admin and platform admins. Subjects are created and renamed by platform admins only.
 /// </summary>
 public static class ContinutEndpoints
 {
@@ -114,38 +117,34 @@ public static class ContinutEndpoints
             var poateEdita = await acces.Editabile(a).AnyAsync(x => x.Id == id, ct);
             var uid = a.UtilizatorId;
             var capitole = await acces.Capitole(a).AsNoTracking().Where(c => c.ParcursId == id).OrderBy(c => c.Ordine).ThenBy(c => c.Id)
-                .Select(c => new CursRezumat(c.Id, c.MaterieId, c.ParcursId, c.Titlu, c.Descriere, c.Capitol, c.Ordine, c.VideoUrl != null, c.Publicat,
-                    c.Progrese.Where(x => x.UtilizatorId == uid)
-                        .Select(x => new ProgresCursDto(x.VideoVazut, x.MaterialeCitite, x.QuizPromovat, x.CompletatLa)).FirstOrDefault()))
+                .Select(c => new CursRezumat(c.Id, c.MaterieId, c.ParcursId, c.Titlu, c.Descriere, c.Capitol, c.Ordine, c.VideoUrl != null, c.Publicat))
                 .ToListAsync(ct);
+            var progres = await db.Set<ProgresLectie>().AsNoTracking().Where(x => x.ParcursId == id && x.UtilizatorId == uid)
+                .Select(x => new ProgresLectieDto(x.PromovatLa, x.UltimulCursId)).SingleOrDefaultAsync(ct);
             return new ParcursDetaliu(p.Id, p.MaterieId, p.Materie, p.Titlu, p.Descriere, p.Clasa, p.Autor, p.Organizatie, p.Vizibilitate, p.Publicat,
-                poateEdita, capitole);
+                poateEdita, await QuizEndpoints.IntrebariValide(db, id).CountAsync(ct), progres, capitole);
         });
 
         g.MapGet("/cursuri/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             await acces.AsiguraCapitolVizibilAsync(h.User, id, ct);
-            return await Detaliu(db, id, h.User.Id(), ct);
+            return await Detaliu(db, id, ct);
         });
 
-        // The lesson quiz lives in QuizEndpoints: answers are checked there and never sent ahead.
+        // The Lecție quiz lives in QuizEndpoints: answers are checked there and never sent ahead.
 
-        g.MapPost("/cursuri/{id:int}/progres", async (int id, MarcareActivitate c, HttpContext h, AccesContinut acces, ProgresService progres, CancellationToken ct) =>
+        // The student read this chapter (the client calls it once the notes, and the video if any, were opened). Completes nothing.
+        g.MapPost("/cursuri/{id:int}/acces", async (int id, HttpContext h, AccesContinut acces, ProgresService progres, CancellationToken ct) =>
         {
-            var activitate = c.Activitate switch
-            {
-                "video" => ActivitateCurs.Video,
-                "materiale" => ActivitateCurs.Materiale,
-                _ => throw new CerereInvalida("Activitatea trebuie să fie „video” sau „materiale”."),
-            };
             await acces.AsiguraCapitolVizibilAsync(h.User, id, ct);
-            var p = await progres.MarcheazaAsync(h.User.Id(), id, activitate, ct);
-            return new ProgresCursDto(p.VideoVazut, p.MaterialeCitite, p.QuizPromovat, p.CompletatLa);
+            await progres.AcceseazaAsync(h.User.Id(), id, ct);
+            return Results.NoContent();
         }).RequireAuthorization(Politici.Elev);
 
         MapeazaMaterii(app);
         MapeazaParcursuri(app);
         MapeazaCapitole(app);
+        MapeazaIntrebari(app);
     }
 
     private static void MapeazaMaterii(WebApplication app)
@@ -221,7 +220,7 @@ public static class ContinutEndpoints
             return await Editabil(db, acces, h.User, p.Id, ct);
         });
 
-        // Hard delete, with every chapter and the students' progress on them (XP already earned stays).
+        // Hard delete, with every chapter, question and file and the students' progress (XP already earned stays).
         e.MapDelete("/parcursuri/{id:int}", async (int id, HttpContext h, AccesContinut acces, StergereContinut stergere, CancellationToken ct) =>
         {
             await acces.PentruEditareAsync(h.User, id, ct);
@@ -251,13 +250,12 @@ public static class ContinutEndpoints
         {
             await acces.PentruEditareAsync(h.User, parcursId, ct);
             var cursuri = await db.Curs.AsNoTracking().Where(c => c.ParcursId == parcursId).OrderBy(c => c.Ordine).ThenBy(c => c.Id)
-                .Select(c => new { c.Id, c.ParcursId, c.MaterieId, c.Titlu, c.Capitol, c.Ordine, c.Publicat,
-                    Intrebari = db.Set<TriviaQuestion>().Count(x => x.CourseId == c.Id && x.Active) })
+                .Select(c => new { c.Id, c.ParcursId, c.MaterieId, c.Titlu, c.Capitol, c.Ordine, c.Publicat })
                 .ToListAsync(ct);
             return new { elemente = cursuri, total = cursuri.Count };
         });
 
-        e.MapPost("/cursuri", async (CursEditare c, HttpContext h, MarkAiDbContext db, AccesContinut acces, CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
+        e.MapPost("/cursuri", async (CursEditare c, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             var p = await acces.PentruEditareAsync(h.User, c.ParcursId, ct);
             var curs = new Curs { CreatDeId = h.User.Id(), MaterieId = p.MaterieId, ParcursId = p.Id };
@@ -265,11 +263,10 @@ public static class ContinutEndpoints
             curs.Ordine = c.Ordine ?? (await db.Curs.Where(x => x.ParcursId == p.Id).MaxAsync(x => (int?)x.Ordine, ct) ?? 0) + 1;
             db.Curs.Add(curs);
             await db.SaveChangesAsync(ct);
-            await PuneLaGenerare(db, coada, cfg, h.User, curs.Id, laCerere: false, ct);
-            return Results.Created($"/cursuri/{curs.Id}", await Detaliu(db, curs.Id, h.User.Id(), ct));
+            return Results.Created($"/cursuri/{curs.Id}", await Detaliu(db, curs.Id, ct));
         });
 
-        e.MapPut("/cursuri/{id:int}", async (int id, CursEditare c, HttpContext h, MarkAiDbContext db, AccesContinut acces, CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
+        e.MapPut("/cursuri/{id:int}", async (int id, CursEditare c, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             var curs = await acces.CapitolPentruEditareAsync(h.User, id, ct);
             // A chapter may move to another Lecție of the same subject that the user may also edit.
@@ -279,13 +276,10 @@ public static class ContinutEndpoints
                 if (alt.MaterieId != curs.MaterieId) throw new CerereInvalida("Un capitol poate fi mutat doar într-o lecție de la aceeași materie.");
                 curs.ParcursId = alt.Id;
             }
-            var inainte = Amprenta(curs);
             Aplica(curs, c);
             if (c.Ordine is not null) curs.Ordine = c.Ordine.Value;
             await db.SaveChangesAsync(ct);
-            // Questions follow the content: regenerate only when the learning material changed.
-            if (Amprenta(curs) != inainte) await PuneLaGenerare(db, coada, cfg, h.User, curs.Id, laCerere: false, ct);
-            return await Detaliu(db, curs.Id, h.User.Id(), ct);
+            return await Detaliu(db, curs.Id, ct);
         });
 
         e.MapDelete("/cursuri/{id:int}", async (int id, HttpContext h, AccesContinut acces, StergereContinut stergere, CancellationToken ct) =>
@@ -294,66 +288,113 @@ public static class ContinutEndpoints
             await stergere.StergeCapitoleAsync([id], ct);
             return Results.NoContent();
         });
+    }
 
-        e.MapPost("/cursuri/{id:int}/regenereaza-intrebari", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
+    /// <summary>
+    /// A Lecție's quiz questions: generated by AI only when the professor asks (N at a time, added to the set), or written by
+    /// hand; any of them can be edited or deleted. Questions of a whole subject (no Lecție, Triviador only) are the platform's.
+    /// </summary>
+    private static void MapeazaIntrebari(WebApplication app)
+    {
+        var e = app.MapGroup("").WithTags("Editare conținut").RequireAuthorization(Politici.Continut);
+
+        e.MapGet("/continut/parcursuri/{id:int}/intrebari", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
-            await acces.CapitolPentruEditareAsync(h.User, id, ct);
-            await PuneLaGenerare(db, coada, cfg, h.User, id, laCerere: true, ct);
-            return Results.Accepted($"/cursuri/{id}/generare", coada.Stare(id));
+            await acces.PentruEditareAsync(h.User, id, ct);
+            var intrebari = await db.Set<Intrebare>().AsNoTracking().Include(q => q.Variante).Where(q => q.ParcursId == id)
+                .OrderByDescending(q => q.Activa).ThenBy(q => q.Id).ToListAsync(ct);
+            return Lista<IntrebareCompleta>.Din(intrebari.Select(Completa).ToList());
+        });
+
+        e.MapPost("/parcursuri/{id:int}/genereaza-intrebari", async (int id, CerereGenerare c, HttpContext h, MarkAiDbContext db, AccesContinut acces,
+            CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
+        {
+            await acces.PentruEditareAsync(h.User, id, ct);
+            await LimitaGenerariAi.PuneAsync(db, coada, cfg, h.User.Id(), id, c.Numar, ct);
+            return Results.Accepted($"/parcursuri/{id}/generare", coada.Stare(id));
         }).RequireRateLimiting(LimiteCereri.Ai);
 
-        e.MapGet("/cursuri/{id:int}/generare", async (int id, HttpContext h, AccesContinut acces, CoadaIntrebari coada, CancellationToken ct) =>
+        e.MapGet("/continut/buget-ai", (HttpContext h, MarkAiDbContext db, IConfiguration cfg, CancellationToken ct) =>
+            LimitaGenerariAi.BugetAsync(db, cfg, h.User.Id(), ct));
+
+        e.MapGet("/parcursuri/{id:int}/generare", async (int id, HttpContext h, AccesContinut acces, CoadaIntrebari coada, CancellationToken ct) =>
         {
-            await acces.CapitolPentruEditareAsync(h.User, id, ct);
+            await acces.PentruEditareAsync(h.User, id, ct);
             return coada.Stare(id) ?? new StareGenerare("necunoscuta", null, 0, DateTime.UtcNow);
         });
 
-        e.MapGet("/cursuri/{id:int}/intrebari/toate", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        e.MapPost("/parcursuri/{id:int}/intrebari", async (int id, IntrebareEditare c, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
-            await acces.CapitolPentruEditareAsync(h.User, id, ct);
-            var intrebari = await db.Set<TriviaQuestion>().AsNoTracking().Where(q => q.CourseId == id)
-                .OrderByDescending(q => q.Active).ThenBy(q => q.Id).ToListAsync(ct);
-            var ids = intrebari.Select(q => q.Id).ToList();
-            var variante = (await db.Set<TriviaOption>().AsNoTracking().Where(o => ids.Contains(o.QuestionId)).OrderBy(o => o.Id).ToListAsync(ct))
-                .ToLookup(o => o.QuestionId);
-            return Lista<IntrebareCompleta>.Din(intrebari.Select(q => Completa(q, variante[q.Id])).ToList());
+            var p = await acces.PentruEditareAsync(h.User, id, ct);
+            var tip = c.Tip ?? Intrebare.Grila;
+            if (tip is not (Intrebare.Grila or Intrebare.Estimare)) throw new CerereInvalida("Tipul trebuie să fie „grila” sau „estimare”.");
+            var q = new Intrebare { MaterieId = p.MaterieId, ParcursId = p.Id, Tip = tip, CreataLa = DateTime.UtcNow };
+            Aplica(q, c, nou: true);
+            db.Add(q);
+            await db.SaveChangesAsync(ct);
+            return Results.Created($"/intrebari/{q.Id}", Completa(q));
         });
 
         e.MapPut("/intrebari/{id:int}", async (int id, IntrebareEditare c, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
-            var q = await db.Set<TriviaQuestion>().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new KeyNotFoundException("Întrebarea nu există.");
-            // Questions of a whole subject (no chapter) belong to the platform.
-            if (q.CourseId is { } cursId) await acces.CapitolPentruEditareAsync(h.User, cursId, ct);
-            else if (!h.User.EsteAdmin()) throw new UnauthorizedAccessException();
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-            q.Text = Validare.Obligatoriu(c.Text, "Întrebare", 1000);
-            q.Explanation = Validare.Optional(c.Explicatie, 2000);
-            q.Active = c.Activa;
-            // An edited AI question is now owned by a person and survives regeneration.
-            q.Source = "manual";
-            if (q.Kind == "estimare") q.NumericAnswer = c.RaspunsNumeric ?? throw new CerereInvalida("Răspunsul numeric este obligatoriu.");
-            else if (c.Variante is not null)
-            {
-                if (c.Variante.Count is < 2 or > 6 || c.Variante.Count(v => v.Corecta) != 1)
-                    throw new CerereInvalida("O întrebare grilă are 2–6 variante și exact una corectă.");
-                // Bank options are not referenced by played rounds (rounds keep their own copies).
-                await db.Set<TriviaOption>().Where(o => o.QuestionId == id).ExecuteDeleteAsync(ct);
-                db.AddRange(c.Variante.Select(v => new TriviaOption { QuestionId = id, Text = Validare.Obligatoriu(v.Text, "Variantă", 500), IsCorrect = v.Corecta }));
-            }
+            var q = await IntrebarePentruEditareAsync(id, h, db, acces, ct);
+            Aplica(q, c, nou: false);
             await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-            return Completa(q, await db.Set<TriviaOption>().AsNoTracking().Where(o => o.QuestionId == id).OrderBy(o => o.Id).ToListAsync(ct));
+            return Completa(q);
+        });
+
+        e.MapDelete("/intrebari/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        {
+            var q = await IntrebarePentruEditareAsync(id, h, db, acces, ct);
+            // Its options cascade. A quiz attempt in progress that drew it skips it (attempts keep only ids).
+            db.Remove(q);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
         });
     }
 
-    // Chapters a student would see, per subject: (total, completed by the user).
+    private static async Task<Intrebare> IntrebarePentruEditareAsync(int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct)
+    {
+        var q = await db.Set<Intrebare>().Include(x => x.Variante).SingleOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new KeyNotFoundException("Întrebarea nu există.");
+        if (q.ParcursId is { } parcursId) await acces.PentruEditareAsync(h.User, parcursId, ct);
+        else if (!h.User.EsteAdmin()) throw new UnauthorizedAccessException();
+        return q;
+    }
+
+    private static void Aplica(Intrebare q, IntrebareEditare c, bool nou)
+    {
+        q.Text = Validare.Obligatoriu(c.Text, "Întrebare", 1000);
+        q.Explicatie = Validare.Optional(c.Explicatie, 2000);
+        q.Activa = c.Activa;
+        // An edited AI question is now owned by a person.
+        q.Sursa = Intrebare.SursaManual;
+        if (q.Tip == Intrebare.Estimare)
+        {
+            q.RaspunsNumeric = c.RaspunsNumeric ?? throw new CerereInvalida("Răspunsul numeric este obligatoriu.");
+            return;
+        }
+        if (c.Variante is null)
+        {
+            if (nou) throw new CerereInvalida("O întrebare grilă are 2–6 variante și exact una corectă.");
+            return;
+        }
+        if (c.Variante.Count is < 2 or > 6 || c.Variante.Count(v => v.Corecta) != 1)
+            throw new CerereInvalida("O întrebare grilă are 2–6 variante și exact una corectă.");
+        // Options are replaced as a whole; quiz attempts answered with the old ones are already scored.
+        q.Variante.Clear();
+        foreach (var v in c.Variante)
+            q.Variante.Add(new VariantaIntrebare { Text = Validare.Obligatoriu(v.Text, "Variantă", 500), Corecta = v.Corecta });
+    }
+
+    // Published Lecții a student would see, per subject: (total, completed by the user).
     private static async Task<Dictionary<int, (int Total, int Completate)>> Numere(AccesContinut acces, ClaimsPrincipal u, int? materieId, CancellationToken ct)
     {
         var a = await acces.PentruAsync(u, ct);
         var uid = a.UtilizatorId;
-        var q = acces.Capitole(a).AsNoTracking().Where(c => c.Publicat && c.Parcurs.Publicat);
-        if (materieId is not null) q = q.Where(c => c.MaterieId == materieId);
-        var randuri = await q.Select(c => new { c.MaterieId, Gata = c.Progrese.Any(p => p.UtilizatorId == uid && p.QuizPromovat) }).ToListAsync(ct);
+        var q = acces.Parcursuri(a).AsNoTracking().Where(p => p.Publicat);
+        if (materieId is not null) q = q.Where(p => p.MaterieId == materieId);
+        var randuri = await q.Select(p => new { p.MaterieId, Gata = p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null) }).ToListAsync(ct);
         return randuri.GroupBy(r => r.MaterieId).ToDictionary(g => g.Key, g => (g.Count(), g.Count(r => r.Gata)));
     }
 
@@ -363,7 +404,7 @@ public static class ContinutEndpoints
         return await q.OrderBy(p => p.Ordine).ThenBy(p => p.Titlu)
             .Select(p => new ParcursRezumat(p.Id, p.MaterieId, p.Titlu, p.Descriere, p.Clasa, p.Autor == null ? null : p.Autor.Nume,
                 p.Organizatie == null ? null : p.Organizatie.Nume, p.Vizibilitate, p.Publicat,
-                p.Ordine, p.Capitole.Count(c => c.Publicat), p.Capitole.Count(c => c.Publicat && c.Progrese.Any(x => x.UtilizatorId == uid && x.QuizPromovat)),
+                p.Ordine, p.Capitole.Count(c => c.Publicat), p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null),
                 p.Organizatie == null ? null : (p.Organizatie.Localitate == null ? "" : p.Organizatie.Localitate.Nume + ", ") + p.Organizatie.Judet.Nume,
                 localitate != null && p.Organizatie != null && p.Organizatie.LocalitateId == localitate))
             .ToListAsync(ct);
@@ -389,13 +430,13 @@ public static class ContinutEndpoints
         var p = await db.Set<Parcurs>().AsNoTracking().Where(x => x.Id == id)
             .Select(x => new { x.Id, x.MaterieId, Materie = x.Materie.Denumire, x.Titlu, x.Descriere, x.Clasa, x.Vizibilitate, x.Publicat, x.Ordine, x.AutorId,
                 Autor = x.Autor == null ? null : x.Autor.Nume, x.OrganizatieId, Organizatie = x.Organizatie == null ? null : x.Organizatie.Nume,
-                Partajari = x.Partajari.Select(s => s.OrganizatieId).ToList(), Capitole = x.Capitole.Count })
+                Partajari = x.Partajari.Select(s => s.OrganizatieId).ToList(), Capitole = x.Capitole.Count, Intrebari = x.Intrebari.Count(q => q.Activa) })
             .SingleAsync(ct);
         // Only the author (or a platform admin) moves a Lecție to another home organisation, and only among the author's.
         var poateMuta = u.EsteAdmin() || (p.AutorId is not null && p.AutorId == u.Id());
         var posibile = await OrganizatiiPosibile(db, acces, u, p.AutorId, ct);
         return new ParcursEditabil(p.Id, p.MaterieId, p.Materie, p.Titlu, p.Descriere, p.Clasa, p.Vizibilitate, p.Publicat, p.Ordine, p.AutorId, p.Autor,
-            p.OrganizatieId, p.Organizatie, p.Partajari, p.Capitole, await acces.PoatePublicaPublicAsync(p.AutorId, p.OrganizatieId, ct), poateMuta, posibile);
+            p.OrganizatieId, p.Organizatie, p.Partajari, p.Capitole, p.Intrebari, await acces.PoatePublicaPublicAsync(p.AutorId, p.OrganizatieId, ct), poateMuta, posibile);
     }
 
     private static async Task Aplica(Parcurs p, ParcursEditare c, ClaimsPrincipal u, MarkAiDbContext db, AccesContinut acces, bool nou, CancellationToken ct)
@@ -436,16 +477,9 @@ public static class ContinutEndpoints
             p.Partajari.Add(new ParcursOrganizatie { OrganizatieId = id });
     }
 
-    private static IntrebareCompleta Completa(TriviaQuestion q, IEnumerable<TriviaOption> variante) =>
-        new(q.Id, q.Kind, q.Text, q.Explanation, q.Source, q.Active, q.NumericAnswer,
-            variante.Select(o => new VariantaCompleta(o.Id, o.Text, o.IsCorrect)).ToList());
-
-    private static Task PuneLaGenerare(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, ClaimsPrincipal user, int cursId,
-        bool laCerere, CancellationToken ct) =>
-        LimitaGenerariAi.PuneAsync(db, coada, cfg, user.Id(), user.EsteAdmin(), cursId, laCerere, ct);
-
-    private static string Amprenta(Curs c) =>
-        $"{c.Titlu}\u0001{c.Continut}\u0001{string.Join('\u0002', c.Materiale.Select(m => m.Titlu + "\u0003" + m.Text))}";
+    private static IntrebareCompleta Completa(Intrebare q) =>
+        new(q.Id, q.Tip, q.Text, q.Explicatie, q.Sursa, q.Activa, q.RaspunsNumeric,
+            q.Variante.OrderBy(o => o.Id).Select(o => new VariantaCompleta(o.Id, o.Text, o.Corecta)).ToList());
 
     private static void Aplica(Materie m, MaterieEditare c)
     {
@@ -475,13 +509,11 @@ public static class ContinutEndpoints
         curs.Publicat = c.Publicat ?? true;
     }
 
-    private static async Task<CursDetaliu> Detaliu(MarkAiDbContext db, int id, int uid, CancellationToken ct)
+    private static async Task<CursDetaliu> Detaliu(MarkAiDbContext db, int id, CancellationToken ct)
     {
         var c = await db.Curs.AsNoTracking().Include(x => x.Materie).Include(x => x.Parcurs).SingleOrDefaultAsync(x => x.Id == id, ct)
-            ?? throw new KeyNotFoundException("Lecția nu există.");
-        var p = await db.Set<ProgresCurs>().AsNoTracking().SingleOrDefaultAsync(x => x.CursId == id && x.UtilizatorId == uid, ct);
+            ?? throw new KeyNotFoundException("Capitolul nu există.");
         return new CursDetaliu(c.Id, c.MaterieId, c.Materie.Denumire, c.ParcursId, c.Parcurs.Titlu, c.Parcurs.Clasa, c.Titlu, c.Descriere, c.Capitol, c.Ordine,
-            c.VideoUrl, c.Materiale, c.Continut, c.Publicat,
-            p is null ? null : new ProgresCursDto(p.VideoVazut, p.MaterialeCitite, p.QuizPromovat, p.CompletatLa));
+            c.VideoUrl, c.Materiale, c.Continut, c.Publicat);
     }
 }

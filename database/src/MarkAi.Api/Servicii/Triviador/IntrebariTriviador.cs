@@ -1,11 +1,11 @@
 using MarkAi.Data;
-using MarkAi.Data.Trivia;
+using MarkAi.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Api.Servicii.Triviador;
 
-public sealed record IntrebareGrila(int Id, int? CursId, string Text, IReadOnlyList<string> Variante, int Corect);
-public sealed record IntrebareEstimare(int Id, int? CursId, string Text, int Raspuns);
+public sealed record IntrebareGrila(int Id, int? ParcursId, string Text, IReadOnlyList<string> Variante, int Corect);
+public sealed record IntrebareEstimare(int Id, int? ParcursId, string Text, int Raspuns);
 
 /// <summary>
 /// The questions of one room, with their answers; they never leave the server. A room draws from every active question of
@@ -17,27 +17,24 @@ public sealed class PachetIntrebari(List<IntrebareGrila> grila, List<IntrebareEs
     public List<IntrebareEstimare> Estimari { get; } = estimari;
     private readonly HashSet<int> _folosite = [];
 
-    /// <param name="cursIds">With a grade filter, only the questions of these chapters (otherwise every question of the subjects).</param>
-    public static async Task<PachetIntrebari> IncarcaAsync(MarkAiDbContext db, IReadOnlyCollection<int> materieIds, IReadOnlyCollection<int>? cursIds, CancellationToken ct)
+    /// <param name="parcursIds">With a grade filter, only the questions of these Lecții (otherwise every question of the subjects).</param>
+    public static async Task<PachetIntrebari> IncarcaAsync(MarkAiDbContext db, IReadOnlyCollection<int> materieIds, IReadOnlyCollection<int>? parcursIds, CancellationToken ct)
     {
-        var q0 = db.Set<TriviaQuestion>().AsNoTracking().Where(q => materieIds.Contains(q.SubjectId) && q.Active);
-        if (cursIds is not null) q0 = q0.Where(q => q.CourseId != null && cursIds.Contains(q.CourseId.Value));
+        var q0 = db.Set<Intrebare>().AsNoTracking().Include(q => q.Variante).Where(q => materieIds.Contains(q.MaterieId) && q.Activa);
+        if (parcursIds is not null) q0 = q0.Where(q => q.ParcursId != null && parcursIds.Contains(q.ParcursId.Value));
         var intrebari = await q0.ToListAsync(ct);
-        var ids = intrebari.Where(q => q.Kind == "grila").Select(q => q.Id).ToList();
-        var variante = (await db.Set<TriviaOption>().AsNoTracking().Where(o => ids.Contains(o.QuestionId)).OrderBy(o => o.Id).ToListAsync(ct))
-            .ToLookup(o => o.QuestionId);
-        var grila = intrebari.Where(q => q.Kind == "grila")
-            .Select(q => (q, v: variante[q.Id].ToList()))
-            .Where(t => t.v.Count is >= 2 and <= 4 && t.v.Count(o => o.IsCorrect) == 1)
-            .Select(t => new IntrebareGrila(t.q.Id, t.q.CourseId, t.q.Text, t.v.Select(o => o.Text).ToList(), t.v.FindIndex(o => o.IsCorrect)))
+        var grila = intrebari.Where(q => q.Tip == Intrebare.Grila)
+            .Select(q => (q, v: q.Variante.OrderBy(o => o.Id).ToList()))
+            .Where(t => t.v.Count is >= 2 and <= 4 && t.v.Count(o => o.Corecta) == 1)
+            .Select(t => new IntrebareGrila(t.q.Id, t.q.ParcursId, t.q.Text, t.v.Select(o => o.Text).ToList(), t.v.FindIndex(o => o.Corecta)))
             .ToList();
-        var estimari = intrebari.Where(q => q.Kind == "estimare" && q.NumericAnswer is not null)
-            .Select(q => new IntrebareEstimare(q.Id, q.CourseId, q.Text, q.NumericAnswer!.Value)).ToList();
+        var estimari = intrebari.Where(q => q.Tip == Intrebare.Estimare && q.RaspunsNumeric is not null)
+            .Select(q => new IntrebareEstimare(q.Id, q.ParcursId, q.Text, q.RaspunsNumeric!.Value)).ToList();
         return new PachetIntrebari(grila.Count > 0 ? grila : [.. GrilaDemo], estimari.Count > 0 ? estimari : [.. EstimariDemo]);
     }
 
-    /// <summary>A question not used yet in this room, preferably from the attacked island's lessons; starts over when all were used.</summary>
-    public T Alege<T>(List<T> lista, int[] cursIds, Func<T, int> id, Func<T, int?> curs, Random rnd)
+    /// <summary>A question not used yet in this room, preferably from the attacked island's Lecție; starts over when all were used.</summary>
+    public T Alege<T>(List<T> lista, int[] parcursIds, Func<T, int> id, Func<T, int?> parcurs, Random rnd)
     {
         var libere = lista.Where(q => !_folosite.Contains(id(q))).ToList();
         if (libere.Count == 0)
@@ -45,7 +42,7 @@ public sealed class PachetIntrebari(List<IntrebareGrila> grila, List<IntrebareEs
             foreach (var q in lista) _folosite.Remove(id(q));
             libere = lista;
         }
-        var dinInsula = cursIds.Length > 0 ? libere.Where(q => curs(q) is { } c && cursIds.Contains(c)).ToList() : [];
+        var dinInsula = parcursIds.Length > 0 ? libere.Where(q => parcurs(q) is { } p && parcursIds.Contains(p)).ToList() : [];
         var sursa = dinInsula.Count > 0 ? dinInsula : libere;
         var ales = sursa[rnd.Next(sursa.Count)];
         _folosite.Add(id(ales));

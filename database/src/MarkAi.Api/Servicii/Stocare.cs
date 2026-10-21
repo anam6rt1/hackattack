@@ -35,34 +35,34 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
 
     private string Radacina => Path.GetFullPath(Path.Combine(env.ContentRootPath, cfg["Stocare:Director"] ?? "uploads"));
 
-    /// <summary>Largest chapter file; its upload request may be a little larger (multipart framing).</summary>
-    public const int MaxFisierCapitolMb = 20;
+    /// <summary>Largest Lecție file (<c>Fisiere:MaxMb</c>, 20 by default); its upload request may be a little larger (multipart framing).</summary>
+    public int MaxFisierLectieMb => Math.Max(1, cfg.GetValue("Fisiere:MaxMb", 20));
 
     private static bool EsteZip(byte[] b) => Incepe(b, (byte)'P', (byte)'K', 3, 4);
-    private static readonly Dictionary<string, Tip> FisiereCapitol = new()
+    private static readonly Dictionary<string, Tip> FisiereLectie = new()
     {
         [".pdf"] = Documente[".pdf"],
         [".docx"] = new("application/vnd.openxmlformats-officedocument.wordprocessingml.document", EsteZip),
         [".pptx"] = new("application/vnd.openxmlformats-officedocument.presentationml.presentation", EsteZip),
     };
 
-    /// <summary>The folder of chapter files, for the orphan sweep.</summary>
-    public const string DirectorCapitole = "capitole";
+    /// <summary>The folder of Lecție files, for the orphan sweep.</summary>
+    public const string DirectorLectii = "lectii";
 
     public async Task<string> SalveazaPozaAsync(IFormFile f, CancellationToken ct) => (await Salveaza(f, "poze", Imagini, 5, null, ct)).Cheie;
 
     public async Task<string> SalveazaDovadaAsync(IFormFile f, CancellationToken ct) => (await Salveaza(f, "dovezi", Documente, 10, null, ct)).Cheie;
 
-    /// <summary>A chapter file: PDF, or DOCX/PPTX checked inside (a real Office document, no macros, no zip bomb).</summary>
-    public Task<FisierSalvat> SalveazaFisierCapitolAsync(IFormFile f, CancellationToken ct) =>
-        Salveaza(f, DirectorCapitole, FisiereCapitol, MaxFisierCapitolMb, VerificaFisierCapitol, ct);
+    /// <summary>A Lecție file: PDF, or DOCX/PPTX checked inside (a real Office document, no macros, no zip bomb).</summary>
+    public Task<FisierSalvat> SalveazaFisierLectieAsync(IFormFile f, CancellationToken ct) =>
+        Salveaza(f, DirectorLectii, FisiereLectie, MaxFisierLectieMb, VerificaFisierLectie, ct);
 
     private async Task<FisierSalvat> Salveaza(IFormFile f, string folder, Dictionary<string, Tip> permise, int maxMb,
         Action<string, string>? verificaContinut, CancellationToken ct)
     {
         var ext = Path.GetExtension(f.FileName).ToLowerInvariant();
         if (!permise.TryGetValue(ext, out var tip)) throw new CerereInvalida($"Tip de fișier nepermis. Acceptăm: {string.Join(", ", permise.Keys)}.");
-        if (f.Length == 0 || f.Length > maxMb * 1024 * 1024) throw new CerereInvalida($"Fișierul trebuie să aibă cel mult {maxMb} MB.");
+        if (f.Length == 0 || f.Length > (long)maxMb * 1024 * 1024) throw new CerereInvalida($"Fișierul trebuie să aibă cel mult {maxMb} MB.");
 
         var inceput = new byte[16];
         await using (var citire = f.OpenReadStream())
@@ -100,7 +100,7 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
     private const long MaxDezarhivatOcteti = 250L * 1024 * 1024;
     private const int MaxRaportCompresie = 200;
 
-    private static void VerificaFisierCapitol(string cale, string ext)
+    private static void VerificaFisierLectie(string cale, string ext)
     {
         if (ext == ".pdf") return; // the "%PDF-" signature was checked; PdfPig reads it later in the background
         var tip = ext == ".docx" ? "DOCX" : "PPTX";
@@ -156,14 +156,14 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
     }
 
     /// <summary>
-    /// A chapter file. A PDF may open in the browser's own viewer (<paramref name="inline"/>), still with no scripts of ours
+    /// A Lecție file. A PDF may open in the browser's own viewer (<paramref name="inline"/>), still with no scripts of ours
     /// and never framed; DOCX/PPTX are always downloaded under the uploader's file name.
     /// </summary>
-    public IResult ServesteFisierCapitol(HttpContext h, string cheie, string tip, string nume, bool inline)
+    public IResult ServesteFisierLectie(HttpContext h, string cheie, string tip, string nume, bool inline)
     {
         if (Cale(cheie) is not { } cale || !File.Exists(cale)) return Results.NotFound();
-        var mime = FisiereCapitol["." + tip].Mime;
-        if (!inline || tip != FisierCapitol.Pdf) return Results.File(cale, mime, fileDownloadName: nume, enableRangeProcessing: true);
+        var mime = FisiereLectie["." + tip].Mime;
+        if (!inline || tip != FisierLectie.Pdf) return Results.File(cale, mime, fileDownloadName: nume, enableRangeProcessing: true);
         // The CSP "sandbox" set for every API response stops browsers' PDF viewers, so a PDF shown inline gets a strict policy without it.
         h.Response.Headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'";
         h.Response.Headers.ContentDisposition = new ContentDispositionHeaderValue("inline") { FileNameStar = nume }.ToString();

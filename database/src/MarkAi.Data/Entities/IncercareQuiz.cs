@@ -1,8 +1,8 @@
 namespace MarkAi.Data.Entities;
 
 /// <summary>
-/// One quiz attempt on a lesson: a fixed random set of questions, answered one at a time. The correct answers are
-/// revealed only after the last one, and the lesson is passed (XP awarded) only with enough correct answers.
+/// One quiz attempt on a Lecție: a fixed random set of questions, answered one at a time. The correct answers are
+/// revealed only after the last one, and the Lecție is passed (XP awarded) only with enough correct answers.
 /// </summary>
 public class IncercareQuiz
 {
@@ -10,7 +10,7 @@ public class IncercareQuiz
 
     public int UtilizatorId { get; set; }
 
-    public int CursId { get; set; }
+    public int ParcursId { get; set; }
 
     public int[] IntrebariIds { get; set; } = [];
 
@@ -25,5 +25,5 @@ public class IncercareQuiz
 
     public virtual Utilizator Utilizator { get; set; } = null!;
 
-    public virtual Curs Curs { get; set; } = null!;
+    public virtual Parcurs Parcurs { get; set; } = null!;
 }

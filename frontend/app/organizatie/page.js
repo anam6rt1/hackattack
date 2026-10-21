@@ -8,6 +8,7 @@ import { API, api, dataOra } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import AlegeLoc from '@/components/AlegeLoc'
+import { useConfirmare } from '@/components/Confirmare'
 
 const ROL = { profesor: 'Profesor', elev: 'Elev' }
 
@@ -16,6 +17,7 @@ function Membru({ m, cale, admin, onSchimbat }) {
   const [respinge, setRespinge] = useState(false)
   const [motiv, setMotiv] = useState('')
   const [eroare, setEroare] = useState('')
+  const [confirma, fereastra] = useConfirmare()
 
   async function trimite(actiune, metoda = 'POST', corp) {
     setEroare('')
@@ -60,12 +62,15 @@ function Membru({ m, cale, admin, onSchimbat }) {
               Poate publica lecții vizibile pentru toți (altfel doar pentru organizație)
             </label>
           )}
-          <button className="tv-btn tv-gri" onClick={() => window.confirm(`Scoți persoana „${m.nume}” din organizație?`) && trimite('', 'DELETE')}>Scoate din organizație</button>
+          <button className="tv-btn tv-gri" onClick={async () => (await confirma({
+            titlu: 'Scoți persoana din organizație?', mesaj: `${m.nume} nu va mai face parte din organizație.`, da: 'Scoate', pericol: true,
+          })) && trimite('', 'DELETE')}>Scoate din organizație</button>
         </div>
       ) : (
         <p className="tv-indiciu">Stare: {m.stare}</p>
       )}
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
+      {fereastra}
     </article>
   )
 }

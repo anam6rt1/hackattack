@@ -2,12 +2,11 @@ using System.Text.Json;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
-using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 
 /// <summary>
-/// Idempotent reference data and starter content: roles, XP levels, the fixed tutoring price, themes,
-/// and the Romanian literature course imported from the frontend's JSON files. Safe to run repeatedly.
+/// Idempotent reference data and starter content: roles, XP levels, the fixed tutoring price, themes and drawing styles,
+/// and the Romanian literature Lecții (chapters + quiz questions) imported from the frontend's JSON files. Safe to run repeatedly.
 /// </summary>
 internal static class Seed
 {
@@ -27,7 +26,7 @@ internal static class Seed
         await using var db = DatabaseTools.Open(connection);
         await using var tx = await db.Database.BeginTransactionAsync();
 
-        foreach (var rol in new[] { "elev", "profesor", "admin" })
+        foreach (var rol in new[] { "elev", "profesor", "admin", "organizatie" })
             if (!await db.Roluri.AnyAsync(r => r.Nume == rol)) db.Roluri.Add(new Rol { Nume = rol });
 
         (int nivel, int xp, string titlu)[] niveluri =
@@ -42,6 +41,9 @@ internal static class Seed
         var interfata = await db.Interfata.SingleOrDefaultAsync(i => i.Cod == "insule");
         if (interfata is null)
             db.Interfata.Add(interfata = new Interfata { Cod = "insule", Nume = "Insule", Descriere = "Harta cu insule a bacului", Activa = true });
+        // Drawing styles chosen in the profile ("Acvatic" is the "insule" one above).
+        foreach (var (cod, nume, descriere) in new[] { ("realist", "Realist", "Apă, lumină și nori ca în realitate"), ("pixel", "Pixel", "Joc retro pe 16 biți") })
+            if (!await db.Interfata.AnyAsync(i => i.Cod == cod)) db.Interfata.Add(new Interfata { Cod = cod, Nume = nume, Descriere = descriere, Activa = true });
         foreach (var anotimp in Anotimpuri)
             foreach (var moment in Momente)
             {
@@ -112,14 +114,14 @@ internal static class Seed
                 await db.SaveChangesAsync();
             }
             foreach (var q in intrebari.GetValueOrDefault(id) ?? [])
-                await AdaugaGrila(db, materie.Id, curs.Id, q.Text, q.Variante, q.Corect, q.Explicatie);
+                await AdaugaGrila(db, materie.Id, curs.ParcursId, q.Text, q.Variante, q.Corect, q.Explicatie);
         }
 
         var triviador = Citeste<TriviadorJson>(dataDir, "intrebari-triviador.json");
         foreach (var q in triviador.Grila) await AdaugaGrila(db, materie.Id, null, q.Text, q.Variante, q.Corect, null);
         foreach (var q in triviador.Estimari)
-            if (!await db.Set<TriviaQuestion>().AnyAsync(x => x.SubjectId == materie.Id && x.Text == q.Text))
-                db.Add(new TriviaQuestion { SubjectId = materie.Id, Text = q.Text, Kind = "estimare", NumericAnswer = q.Raspuns });
+            if (!await db.Set<Intrebare>().AnyAsync(x => x.MaterieId == materie.Id && x.Text == q.Text))
+                db.Add(new Intrebare { MaterieId = materie.Id, Text = q.Text, Tip = Intrebare.Estimare, RaspunsNumeric = q.Raspuns });
         await db.SaveChangesAsync();
     }
 
@@ -156,7 +158,7 @@ internal static class Seed
                     });
                     await db.SaveChangesAsync();
                 }
-                foreach (var q in cj.Intrebari) await AdaugaGrila(db, materie.Id, curs.Id, q.Text, q.Variante, q.Corect, q.Explicatie);
+                foreach (var q in cj.Intrebari) await AdaugaGrila(db, materie.Id, curs.ParcursId, q.Text, q.Variante, q.Corect, q.Explicatie);
             }
 
             foreach (var completare in mj.Completari ?? [])
@@ -171,19 +173,21 @@ internal static class Seed
             }
 
             foreach (var e in mj.Estimari ?? [])
-                if (!await db.Set<TriviaQuestion>().AnyAsync(x => x.SubjectId == materie.Id && x.Text == e.Text))
-                    db.Add(new TriviaQuestion { SubjectId = materie.Id, Text = e.Text, Kind = "estimare", NumericAnswer = e.Raspuns });
+                if (!await db.Set<Intrebare>().AnyAsync(x => x.MaterieId == materie.Id && x.Text == e.Text))
+                    db.Add(new Intrebare { MaterieId = materie.Id, Text = e.Text, Tip = Intrebare.Estimare, RaspunsNumeric = e.Raspuns });
             await db.SaveChangesAsync();
         }
     }
 
-    private static async Task AdaugaGrila(MarkAiDbContext db, int materieId, int? cursId, string text, List<string> variante, int corect, string? explicatie)
+    /// <param name="parcursId">The Lecție whose quiz gets the question; null for the subject's Triviador-only questions.</param>
+    private static async Task AdaugaGrila(MarkAiDbContext db, int materieId, int? parcursId, string text, List<string> variante, int corect, string? explicatie)
     {
-        if (await db.Set<TriviaQuestion>().AnyAsync(x => x.SubjectId == materieId && x.CourseId == cursId && x.Text == text)) return;
-        var intrebare = new TriviaQuestion { SubjectId = materieId, CourseId = cursId, Text = text, Explanation = explicatie };
-        db.Add(intrebare);
-        await db.SaveChangesAsync();
-        db.AddRange(variante.Select((v, i) => new TriviaOption { QuestionId = intrebare.Id, Text = v, IsCorrect = i == corect }));
+        if (await db.Set<Intrebare>().AnyAsync(x => x.MaterieId == materieId && x.ParcursId == parcursId && x.Text == text)) return;
+        db.Add(new Intrebare
+        {
+            MaterieId = materieId, ParcursId = parcursId, Text = text, Explicatie = explicatie,
+            Variante = variante.Select((v, i) => new VariantaIntrebare { Text = v, Corecta = i == corect }).ToList(),
+        });
         await db.SaveChangesAsync();
     }
 

@@ -14,15 +14,17 @@ using UglyToad.PdfPig.Fonts.Standard14Fonts;
 using UglyToad.PdfPig.Writer;
 
 /// <summary>
-/// Chapter files: type checks from the content (renamed EXE, macros, zip bomb, a ZIP that is not Office), size and count
-/// limits, text extraction from PDF/DOCX/PPTX, one batched AI regeneration per chapter, who may download (outsiders get 404),
-/// inline PDF vs downloaded Office files, and cleanup on disk (file, chapter and Lecție deletion, orphan sweep).
+/// Lecție files: type checks from the content (renamed EXE, macros, zip bomb, a ZIP that is not Office), the configurable size
+/// limit (413 with a message), one file per type with confirmed replacement, text extraction from PDF/DOCX/PPTX, no automatic
+/// AI generation (only on request, with every chapter and file as material, within the per-account and platform question budget), who may download (outsiders get 404), inline PDF vs
+/// downloaded Office files, and cleanup on disk (replacement, file and Lecție deletion, orphan sweep).
 /// </summary>
 static class VerificariFisiere
 {
     public static readonly Dictionary<string, string?> Setari = new()
     {
-        ["Limite:AutentificariPeMinut"] = "200", ["Limite:CereriPeMinut"] = "2000",
+        ["Limite:AutentificariPeMinut"] = "200", ["Limite:CereriPeMinut"] = "2000", ["Fisiere:MaxMb"] = "3",
+        ["Limite:IntrebariAiPeZi"] = "5", ["Limite:IntrebariAiPeZiTotal"] = "7",
     };
 
     const string FrazaPdf = "Fraza cunoscuta din PDF despre Mihai Eminescu";
@@ -49,78 +51,102 @@ static class VerificariFisiere
         var procesor = h.Serviciu<ProcesorFisiere>();
         var stocare = h.Serviciu<Stocare>();
         await procesor.RuleazaOdataAsync(CancellationToken.None); // the first run also sweeps orphans; nothing is stored yet
+        h.Ai.Raspunde = (_, _, _) => """{"grila":[{"text":"Cine?","variante":["A","B","C","D"],"corect":0,"explicatie":"."}],"estimari":[]}""";
 
         var lectie = await Id(await irina.PostAsJsonAsync("/parcursuri", new { materieId = 1, titlu = "Lecție cu fișiere", clasa = "XII",
             vizibilitate = "organizatie", organizatieId = Harness.IdLiceu }));
-        var cap = await Capitol(irina, lectie, "Capitol cu fișiere");
-        // The chapter's own generation (on creation) is not what these checks are about.
-        await h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(CancellationToken.None);
+        await Capitol(irina, lectie, "Capitol cu fișiere");
 
         // Refused from the content, whatever the extension says.
         var exe = Encoding.ASCII.GetBytes("MZ\x90\0this program cannot be run in DOS mode").Concat(new byte[2000]).ToArray();
-        h.Check((await Incarca(irina, cap, exe, "tema.pdf")).StatusCode == HttpStatusCode.BadRequest, "a renamed EXE (.pdf) is refused");
-        h.Check((await Incarca(irina, cap, exe, "tema.docx")).StatusCode == HttpStatusCode.BadRequest, "a renamed EXE (.docx) is refused");
-        h.Check((await Incarca(irina, cap, exe, "tema.exe")).StatusCode == HttpStatusCode.BadRequest, "an .exe is refused");
-        h.Check((await Incarca(irina, cap, Docx(FrazaDocx), "tema.docm")).StatusCode == HttpStatusCode.BadRequest, "a .docm (macro type) is refused");
-        h.Check((await Incarca(irina, cap, Pptx(macro: true), "prezentare.pptx")).StatusCode == HttpStatusCode.BadRequest,
+        h.Check((await Incarca(irina, lectie, exe, "tema.pdf")).StatusCode == HttpStatusCode.BadRequest, "a renamed EXE (.pdf) is refused");
+        h.Check((await Incarca(irina, lectie, exe, "tema.docx")).StatusCode == HttpStatusCode.BadRequest, "a renamed EXE (.docx) is refused");
+        h.Check((await Incarca(irina, lectie, exe, "tema.exe")).StatusCode == HttpStatusCode.BadRequest, "an .exe is refused");
+        h.Check((await Incarca(irina, lectie, Docx(FrazaDocx), "tema.docm")).StatusCode == HttpStatusCode.BadRequest, "a .docm (macro type) is refused");
+        h.Check((await Incarca(irina, lectie, Pptx(macro: true), "prezentare.pptx")).StatusCode == HttpStatusCode.BadRequest,
             "a PPTX with a VBA project is refused");
-        h.Check((await Incarca(irina, cap, Docx(FrazaDocx, macroEnabled: true), "tema.docx")).StatusCode == HttpStatusCode.BadRequest,
+        h.Check((await Incarca(irina, lectie, Docx(FrazaDocx, macroEnabled: true), "tema.docx")).StatusCode == HttpStatusCode.BadRequest,
             "a macro-enabled DOCX renamed to .docx is refused");
-        h.Check((await Incarca(irina, cap, ZipBomba(), "bomba.docx")).StatusCode == HttpStatusCode.BadRequest, "a zip bomb is refused");
-        h.Check((await Incarca(irina, cap, ZipSimplu(), "arhiva.pptx")).StatusCode == HttpStatusCode.BadRequest, "a ZIP that is not a presentation is refused");
-        // Over the request limit the server answers 413 and closes the connection, often while the client is still sending.
-        HttpStatusCode? preaMare;
-        try { preaMare = (await Incarca(irina, cap, Pdf("x", umplutura: 21 * 1024 * 1024), "mare.pdf")).StatusCode; }
-        catch (HttpRequestException) { preaMare = null; }
-        h.Check(preaMare is null or HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge, "a file over 20 MB is refused");
-        h.Check(await h.Db(db => db.Set<FisierCapitol>().CountAsync()) == 0 && !stocare.Chei(Stocare.DirectorCapitole).Any(),
+        h.Check((await Incarca(irina, lectie, ZipBomba(), "bomba.docx")).StatusCode == HttpStatusCode.BadRequest, "a zip bomb is refused");
+        h.Check((await Incarca(irina, lectie, ZipSimplu(), "arhiva.pptx")).StatusCode == HttpStatusCode.BadRequest, "a ZIP that is not a presentation is refused");
+        // The limit comes from Fisiere:MaxMb (3 MB in this group). Over it: a 413 with a message, before the body is read.
+        var preaMare = await Incarca(irina, lectie, Pdf("x", umplutura: 5 * 1024 * 1024), "mare.pdf");
+        h.Check(preaMare.StatusCode == HttpStatusCode.RequestEntityTooLarge && (await preaMare.Content.ReadAsStringAsync()).Contains("cel mult 3 MB"),
+            "a file over the configured limit gets a 413 with a clear message");
+        var limita = await Incarca(irina, lectie, Pdf("x", umplutura: 3 * 1024 * 1024 + 100_000), "limita.pdf");
+        h.Check(limita.StatusCode == HttpStatusCode.BadRequest && (await limita.Content.ReadAsStringAsync()).Contains("cel mult 3 MB"),
+            "a file just over the limit (within the request margin) is refused by size");
+        h.Check(await h.Db(db => db.Set<FisierLectie>().CountAsync()) == 0 && !stocare.Chei(Stocare.DirectorLectii).Any(),
             "refused files leave no row and nothing on disk");
 
         // Who may upload.
-        h.Check((await Incarca(george, cap, Pdf(FrazaPdf), "a.pdf")).StatusCode == HttpStatusCode.Forbidden, "a student cannot upload");
-        h.Check((await Incarca(h.Anonim(), cap, Pdf(FrazaPdf), "a.pdf")).StatusCode == HttpStatusCode.Unauthorized, "anonymous cannot upload");
+        h.Check((await Incarca(george, lectie, Pdf(FrazaPdf), "a.pdf")).StatusCode == HttpStatusCode.Forbidden, "a student cannot upload");
+        h.Check((await Incarca(h.Anonim(), lectie, Pdf(FrazaPdf), "a.pdf")).StatusCode == HttpStatusCode.Unauthorized, "anonymous cannot upload");
 
         // Three real documents, one per type.
         var octetiPdf = Pdf(FrazaPdf);
-        var rPdf = await Incarca(irina, cap, octetiPdf, "../../etc/Curs: Eminescu*?.pdf");
+        var rPdf = await Incarca(irina, lectie, octetiPdf, "../../etc/Curs: Eminescu*?.pdf");
         h.Check(rPdf.StatusCode == HttpStatusCode.Created, "the author uploads a PDF");
         var pdf = await rPdf.Content.ReadFromJsonAsync<JsonElement>();
         h.Check(pdf.GetProperty("nume").GetString() == "Curs Eminescu.pdf",
             "the file name loses its folders and reserved characters");
         h.Check(pdf.GetProperty("stareText").GetString() == "in_asteptare", "text extraction starts in the background");
         var pdfId = pdf.GetProperty("id").GetInt32();
-        var docxId = await Id(await Incarca(director, cap, Docx(FrazaDocx), "Ștefan.docx"));
+        var docxId = await Id(await Incarca(director, lectie, Docx(FrazaDocx), "Ștefan.docx"));
         h.Check(docxId > 0, "the home organisation's admin uploads a DOCX");
-        var pptxId = await Id(await Incarca(irina, cap, Pptx(), "prezentare.pptx"));
-        var sha = await h.Db(db => db.Set<FisierCapitol>().Where(f => f.Id == pdfId).Select(f => f.Sha256).SingleAsync());
+        var pptxId = await Id(await Incarca(irina, lectie, Pptx(), "prezentare.pptx"));
+        var sha = await h.Db(db => db.Set<FisierLectie>().Where(f => f.Id == pdfId).Select(f => f.Sha256).SingleAsync());
         h.Check(sha == Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(octetiPdf)), "the SHA-256 of the content is stored");
 
-        // Extraction, then ONE regeneration for the three files, only after the quiet period.
-        var generariInainte = await h.Db(db => db.Set<GenerareAi>().CountAsync(g => g.CursId == cap));
+        // One file per type: a second PDF is refused unless the editor confirms the replacement.
+        var alDoilea = await Incarca(irina, lectie, Pdf("Alt PDF cu destul text pentru extragere"), "alt.pdf");
+        h.Check(alDoilea.StatusCode == HttpStatusCode.Conflict && (await alDoilea.Content.ReadAsStringAsync()).Contains("deja un fișier PDF"),
+            "a second PDF without confirmation is refused");
+        h.Check(stocare.Chei(Stocare.DirectorLectii).Count() == 3, "the refused second PDF is not kept on disk");
+
+        // Extraction only; nothing is generated until the professor asks.
         h.Ai.Apeluri.Clear();
         await procesor.RuleazaOdataAsync(CancellationToken.None);
-        var texte = await h.Db(db => db.Set<FisierCapitol>().Where(f => f.CursId == cap).ToDictionaryAsync(f => f.Id, f => (f.StareText, f.TextExtras)));
+        var texte = await h.Db(db => db.Set<FisierLectie>().Where(f => f.ParcursId == lectie).ToDictionaryAsync(f => f.Id, f => (f.StareText, f.TextExtras)));
         h.Check(texte[pdfId].StareText == "gata" && texte[pdfId].TextExtras!.Contains(FrazaPdf), "PDF text is extracted");
         h.Check(texte[docxId].StareText == "gata" && texte[docxId].TextExtras!.Contains(FrazaDocx), "DOCX text is extracted (with diacritics)");
         h.Check(texte[pptxId].StareText == "gata" && texte[pptxId].TextExtras!.Contains(FrazaPptx)
             && texte[pptxId].TextExtras!.IndexOf("doi", StringComparison.Ordinal) < texte[pptxId].TextExtras!.IndexOf("zece", StringComparison.Ordinal),
             "PPTX text is extracted, slides in number order (2 before 10)");
-        var editor = await irina.GetFromJsonAsync<JsonElement>($"/continut/cursuri/{cap}/fisiere");
-        h.Check(editor.GetProperty("regenerareProgramata").GetBoolean() && editor.GetProperty("elemente").EnumerateArray().All(f => f.GetProperty("caractereText").GetInt32() > 0),
-            "the editor sees the extracted text sizes and a pending regeneration");
-        h.Check(await h.Db(db => db.Set<GenerareAi>().CountAsync(g => g.CursId == cap)) == generariInainte, "no regeneration before the quiet period ends");
-        h.Ceas.Advance(TimeSpan.FromSeconds(61));
+        var editor = await irina.GetFromJsonAsync<JsonElement>($"/continut/parcursuri/{lectie}/fisiere");
+        h.Check(editor.GetProperty("maxMb").GetInt32() == 3 && editor.GetProperty("elemente").EnumerateArray().All(f => f.GetProperty("caractereText").GetInt32() > 0),
+            "the editor sees the extracted text sizes and the configured limit");
+        h.Ceas.Advance(TimeSpan.FromMinutes(5));
         await procesor.RuleazaOdataAsync(CancellationToken.None);
-        await procesor.RuleazaOdataAsync(CancellationToken.None);
-        h.Check(await h.Db(db => db.Set<GenerareAi>().CountAsync(g => g.CursId == cap)) == generariInainte + 1, "three files cost one generation");
+        await h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(CancellationToken.None);
+        h.Check(await h.Db(db => db.Set<GenerareAi>().CountAsync(g => g.ParcursId == lectie)) == 0 && h.Ai.Apeluri.IsEmpty,
+            "uploading files generates no questions by itself");
+        await irina.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 3 });
         await h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(CancellationToken.None);
         var prompt = string.Join("\n", h.Ai.Apeluri.Where(a => a.Scop == ScopAi.Intrebari).SelectMany(a => a.Mesaje).Select(m => m.Text));
-        h.Check(prompt.Contains(FrazaPdf) && prompt.Contains(FrazaDocx) && prompt.Contains(FrazaPptx) && prompt.Contains("## Fișier: prezentare.pptx"),
-            "the AI material includes the text of every file");
+        h.Check(prompt.Contains(FrazaPdf) && prompt.Contains(FrazaDocx) && prompt.Contains(FrazaPptx) && prompt.Contains("# Fișier: prezentare.pptx")
+            && prompt.Contains("Capitol cu fișiere") && prompt.Contains("Scrie 3 întrebări grilă"), "the AI material has every chapter and file, and the number asked");
+
+        // The AI budget counts questions asked, per account (5 here) and for the whole platform (7 here); admins count too.
+        var buget = await irina.GetFromJsonAsync<JsonElement>("/continut/buget-ai");
+        h.Check(buget.GetProperty("ramase").GetInt32() == 2 && buget.GetProperty("peZi").GetInt32() == 5, "the professor sees the AI questions they have left");
+        var pestePropriu = await irina.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 3 });
+        h.Check(pestePropriu.StatusCode == HttpStatusCode.Conflict && (await pestePropriu.Content.ReadAsStringAsync()).Contains("Îți mai rămân 2"),
+            "asking for more questions than the personal budget is refused, with what is left");
+        var pestePlatforma = await director.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 5 });
+        h.Check(pestePlatforma.StatusCode == HttpStatusCode.Conflict && (await pestePlatforma.Content.ReadAsStringAsync()).Contains("Îți mai rămân 4"),
+            "another account is capped by what the platform has left");
+        h.Check((await director.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 4 })).StatusCode == HttpStatusCode.Accepted,
+            "a request within the budget is accepted");
+        await h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(CancellationToken.None);
+        buget = await irina.GetFromJsonAsync<JsonElement>("/continut/buget-ai");
+        var dupa = await irina.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 1 });
+        h.Check(buget.GetProperty("ramase").GetInt32() == 0 && dupa.StatusCode == HttpStatusCode.Conflict,
+            "once the platform budget is spent, nobody can generate more");
 
         // Reading: members of the organisation see the files, outsiders do not even learn they exist.
-        var lista = await elena.GetFromJsonAsync<JsonElement>($"/cursuri/{cap}/fisiere");
-        h.Check(lista.GetProperty("total").GetInt32() == 3 && !lista.GetRawText().Contains("cheie") && !lista.GetRawText().Contains("capitole/"),
+        var lista = await elena.GetFromJsonAsync<JsonElement>($"/parcursuri/{lectie}/fisiere");
+        h.Check(lista.GetProperty("total").GetInt32() == 3 && !lista.GetRawText().Contains("cheie") && !lista.GetRawText().Contains("lectii/"),
             "a student of the organisation lists the files (no storage keys)");
         var inline = await elena.GetAsync($"/fisiere/{pdfId}");
         h.Check(inline.StatusCode == HttpStatusCode.OK && inline.Content.Headers.ContentType?.MediaType == "application/pdf"
@@ -135,46 +161,41 @@ static class VerificariFisiere
         h.Check(docx.Content.Headers.ContentDisposition?.DispositionType == "attachment" && docx.Content.Headers.ContentDisposition?.FileNameStar == "Ștefan.docx"
             && docx.Headers.GetValues("Content-Security-Policy").Single().Contains("sandbox"), "a DOCX is always downloaded, under its name, sandboxed");
         h.Check((await george.GetAsync($"/fisiere/{pdfId}")).StatusCode == HttpStatusCode.NotFound, "an outsider downloading an organisation-only file gets 404");
-        h.Check((await george.GetAsync($"/cursuri/{cap}/fisiere")).StatusCode == HttpStatusCode.NotFound, "an outsider cannot list them");
+        h.Check((await george.GetAsync($"/parcursuri/{lectie}/fisiere")).StatusCode == HttpStatusCode.NotFound, "an outsider cannot list them");
         h.Check((await h.Anonim().GetAsync($"/fisiere/{pdfId}")).StatusCode == HttpStatusCode.Unauthorized, "anonymous cannot download");
         h.Check((await elena.GetAsync("/fisiere/999999")).StatusCode == HttpStatusCode.NotFound, "an unknown file is 404");
         h.Check((await elena.DeleteAsync($"/fisiere/{pdfId}")).StatusCode == HttpStatusCode.Forbidden, "a student cannot delete a file");
-        h.Check((await george.GetAsync($"/continut/cursuri/{cap}/fisiere")).StatusCode == HttpStatusCode.Forbidden, "a student has no editor list");
+        h.Check((await george.GetAsync($"/continut/parcursuri/{lectie}/fisiere")).StatusCode == HttpStatusCode.Forbidden, "a student has no editor list");
 
-        // Limits: 20 MB passes, the 11th file of a chapter does not.
-        var mare = await Incarca(irina, cap, Pdf("x", umplutura: 20 * 1024 * 1024 - 2000), "mare.pdf");
-        h.Check(mare.StatusCode == HttpStatusCode.Created, "a file of almost 20 MB is accepted");
-        for (var i = 0; i < 6; i++) await Id(await Incarca(irina, cap, Pdf($"Fisier {i} cu text de test suficient"), $"f{i}.pdf"));
-        var alUnsprezecelea = await Incarca(irina, cap, Pdf("unsprezece"), "f11.pdf");
-        h.Check(alUnsprezecelea.StatusCode == HttpStatusCode.Conflict && (await alUnsprezecelea.Content.ReadAsStringAsync()).Contains("cel mult 10"),
-            "the 11th file of a chapter is refused");
-        h.Check(stocare.Chei(Stocare.DirectorCapitole).Count() == 10, "the refused 11th file is not kept on disk");
+        // Replacing: with confirmation the new PDF takes the old one's place (old row and stored file gone); near the limit passes.
+        var cheiePdf = await Cheie(h, pdfId);
+        var inlocuit = await Incarca(irina, lectie, Pdf("x", umplutura: 3 * 1024 * 1024 - 2000), "mare.pdf", inlocuieste: true);
+        h.Check(inlocuit.StatusCode == HttpStatusCode.Created, "a file of almost 3 MB replaces the PDF after confirmation");
+        var nouId = (await inlocuit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        h.Check(!File.Exists(stocare.CaleFisier(cheiePdf)) && await h.Db(db => db.Set<FisierLectie>().CountAsync(f => f.ParcursId == lectie && f.Tip == "pdf")) == 1
+            && (await elena.GetAsync($"/fisiere/{pdfId}")).StatusCode == HttpStatusCode.NotFound, "the replaced PDF is gone from disk and database");
         await procesor.RuleazaOdataAsync(CancellationToken.None);
-        h.Check(await h.Db(db => db.Set<FisierCapitol>().Where(f => f.CursId == cap && f.Nume == "mare.pdf").Select(f => f.StareText).SingleAsync()) is "eroare" or "fara_text",
+        h.Check(await h.Db(db => db.Set<FisierLectie>().Where(f => f.Id == nouId).Select(f => f.StareText).SingleAsync()) is "eroare" or "fara_text",
             "an unreadable PDF is kept for students, marked as having no text");
 
-        // Deleting a file removes it from disk and asks for a regeneration without its text.
-        var cheiePdf = await Cheie(h, pdfId);
-        h.Check((await irina.DeleteAsync($"/fisiere/{pdfId}")).StatusCode == HttpStatusCode.NoContent && !File.Exists(stocare.CaleFisier(cheiePdf)),
+        // Deleting a file removes it from disk; nothing is regenerated.
+        var cheieNou = await Cheie(h, nouId);
+        h.Check((await irina.DeleteAsync($"/fisiere/{nouId}")).StatusCode == HttpStatusCode.NoContent && !File.Exists(stocare.CaleFisier(cheieNou)),
             "deleting a file removes it from disk");
-        h.Check(procesor.AreRegenerareProgramata(cap), "deleting a file with text schedules a regeneration");
-        h.Check((await elena.GetAsync($"/fisiere/{pdfId}")).StatusCode == HttpStatusCode.NotFound, "a deleted file is gone");
+        h.Check((await elena.GetAsync($"/fisiere/{nouId}")).StatusCode == HttpStatusCode.NotFound, "a deleted file is gone");
 
-        // Deleting the chapter, then a Lecție, removes their files.
+        // Deleting a chapter keeps the Lecție's files; deleting the Lecție removes them.
+        var capitole = await irina.GetFromJsonAsync<JsonElement>($"/continut/cursuri?parcursId={lectie}");
+        await irina.DeleteAsync($"/cursuri/{capitole.GetProperty("elemente")[0].GetProperty("id").GetInt32()}");
+        h.Check(await h.Db(db => db.Set<FisierLectie>().CountAsync(f => f.ParcursId == lectie)) == 2, "deleting a chapter keeps the Lecție's files");
         var cheiDocx = await Cheie(h, docxId);
-        var stergere = await irina.DeleteAsync($"/cursuri/{cap}");
-        h.Check(stergere.StatusCode == HttpStatusCode.NoContent && !File.Exists(stocare.CaleFisier(cheiDocx)) && !stocare.Chei(Stocare.DirectorCapitole).Any()
-            && await h.Db(db => db.Set<FisierCapitol>().CountAsync()) == 0, "deleting a chapter removes its files from disk and database");
-        var cap2 = await Capitol(irina, lectie, "Alt capitol");
-        var f2 = await Id(await Incarca(irina, cap2, Docx(FrazaDocx), "a.docx"));
-        var cheieF2 = await Cheie(h, f2);
-        h.Check((await irina.DeleteAsync($"/parcursuri/{lectie}")).StatusCode == HttpStatusCode.NoContent && !File.Exists(stocare.CaleFisier(cheieF2)),
-            "deleting a Lecție removes its chapters' files");
-        await procesor.RuleazaOdataAsync(CancellationToken.None); // the scheduled regeneration of a deleted chapter is dropped quietly
+        h.Check((await irina.DeleteAsync($"/parcursuri/{lectie}")).StatusCode == HttpStatusCode.NoContent && !File.Exists(stocare.CaleFisier(cheiDocx))
+            && !stocare.Chei(Stocare.DirectorLectii).Any() && await h.Db(db => db.Set<FisierLectie>().CountAsync()) == 0,
+            "deleting a Lecție removes its files from disk and database");
 
         // Orphan sweep: a file no row points at goes once it is over an hour old; a fresh one (upload in progress) stays.
-        var vechi = stocare.CaleFisier($"{Stocare.DirectorCapitole}/orfan-vechi.pdf")!;
-        var nou = stocare.CaleFisier($"{Stocare.DirectorCapitole}/orfan-nou.pdf")!;
+        var vechi = stocare.CaleFisier($"{Stocare.DirectorLectii}/orfan-vechi.pdf")!;
+        var nou = stocare.CaleFisier($"{Stocare.DirectorLectii}/orfan-nou.pdf")!;
         Directory.CreateDirectory(Path.GetDirectoryName(vechi)!);
         await File.WriteAllBytesAsync(vechi, Pdf("orfan")); File.SetLastWriteTimeUtc(vechi, h.Ceas.GetUtcNow().UtcDateTime.AddHours(-3));
         await File.WriteAllBytesAsync(nou, Pdf("orfan")); File.SetLastWriteTimeUtc(nou, h.Ceas.GetUtcNow().UtcDateTime.AddHours(1));
@@ -183,16 +204,16 @@ static class VerificariFisiere
         h.Check(!File.Exists(vechi) && File.Exists(nou), "the orphan sweep removes old unreferenced files only");
     }
 
-    static async Task<HttpResponseMessage> Incarca(HttpClient c, int cursId, byte[] continut, string nume)
+    static async Task<HttpResponseMessage> Incarca(HttpClient c, int parcursId, byte[] continut, string nume, bool inlocuieste = false)
     {
         using var form = new MultipartFormDataContent();
         var fisier = new ByteArrayContent(continut);
         fisier.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         form.Add(fisier, "fisier", nume);
-        return await c.PostAsync($"/cursuri/{cursId}/fisiere", form);
+        return await c.PostAsync($"/parcursuri/{parcursId}/fisiere{(inlocuieste ? "?inlocuieste=true" : "")}", form);
     }
 
-    static Task<string> Cheie(Harness h, int fisierId) => h.Db(db => db.Set<FisierCapitol>().Where(f => f.Id == fisierId).Select(f => f.Cheie).SingleAsync());
+    static Task<string> Cheie(Harness h, int fisierId) => h.Db(db => db.Set<FisierLectie>().Where(f => f.Id == fisierId).Select(f => f.Cheie).SingleAsync());
 
     static async Task<int> Id(HttpResponseMessage r)
     {

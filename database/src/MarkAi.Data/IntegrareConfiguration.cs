@@ -39,25 +39,6 @@ internal static class IntegrareConfiguration
             e.HasIndex(x => new { x.MaterieId, x.Ordine }, "idx_curs_materie_id_ordine");
         });
 
-        model.Entity<ProgresCurs>(e =>
-        {
-            e.ToTable("progres_curs", "mark_ai");
-            e.HasKey(x => new { x.UtilizatorId, x.CursId }).HasName("progres_curs_pkey");
-            e.HasIndex(x => x.CursId, "idx_progres_curs_curs_id_fkey");
-            e.Property(x => x.UtilizatorId).HasColumnName("utilizator_id");
-            e.Property(x => x.CursId).HasColumnName("curs_id");
-            e.Property(x => x.VideoVazut).HasColumnName("video_vazut");
-            e.Property(x => x.MaterialeCitite).HasColumnName("materiale_citite");
-            e.Property(x => x.QuizPromovat).HasColumnName("quiz_promovat");
-            e.Property(x => x.CompletatLa).HasColumnName("completat_la");
-            e.Property(x => x.UltimaAccesare).HasColumnName("ultima_accesare").HasDefaultValueSql("now()");
-            e.HasOne(x => x.Utilizator).WithMany(u => u.ProgresCursuri)
-                .HasForeignKey(x => x.UtilizatorId)
-                .HasConstraintName("progres_curs_utilizator_id_fkey");
-            e.HasOne(x => x.Curs).WithMany(c => c.Progrese)
-                .HasForeignKey(x => x.CursId)
-                .HasConstraintName("progres_curs_curs_id_fkey");
-        });
 
         model.Entity<ProfilMentor>(e =>
         {

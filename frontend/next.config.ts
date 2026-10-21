@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 // The browser talks only to this site; /api/... is forwarded to the .NET API (database/src/MarkAi.Api).
 // Same origin means the login cookie is first-party on every device, including behind a public tunnel.
 const API_INTERN = process.env.API_INTERN_URL || "http://localhost:5080";
+// The API's upload limit per Lecție file (Fisiere__MaxMb in markai.env, as for the API; 20 by default).
+const MAX_FISIER_MB = Math.max(1, Number(process.env.Fisiere__MaxMb) || 20);
 
 const nextConfig: NextConfig = {
   async rewrites() {
@@ -10,9 +12,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     agentFeedback: true,
-    // /api/* requests are buffered up to this size (default 10 MB, even for a plain rewrite like ours). Chapter files are up to
-    // 20 MB and the API refuses larger requests itself (21 MB), so the proxy must let a little more through.
-    proxyClientMaxBodySize: "22mb",
+    // /api/* requests are buffered up to this size (default 10 MB, even for a plain rewrite like ours); a larger body is cut off
+    // silently. The API reads (and refuses with a clear 413) uploads up to 4 times its limit plus 1 MB, so the proxy passes as much.
+    proxyClientMaxBodySize: `${4 * (MAX_FISIER_MB + 1)}mb`,
   },
   cacheComponents: true,
   partialPrefetching: true,

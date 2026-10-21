@@ -17,25 +17,30 @@ static class VerificariInfrastructura
         h.Check(ReferenceEquals(h.Serviciu<TimeProvider>(), h.Ceas), "app uses the fake clock");
 
         using var admin = await h.Login("admin");
+        var lectie = await Harness.LectiePlatforma(admin);
         var creat = await admin.PostAsJsonAsync("/cursuri", new
         {
-            parcursId = await Harness.LectiePlatforma(admin), titlu = "Luceafărul", capitol = "Romantismul",
+            parcursId = lectie, titlu = "Luceafărul", capitol = "Romantismul",
             materiale = new[] { new { titlu = "Despre poem", text = "„Luceafărul” de Mihai Eminescu a apărut în 1883." } },
         });
         h.Check(creat.StatusCode == HttpStatusCode.Created, "course created");
-        var cursId = (await creat.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
 
         await Task.Delay(300);
-        var stare = await admin.GetFromJsonAsync<JsonElement>($"/cursuri/{cursId}/generare");
+        var stare = await admin.GetFromJsonAsync<JsonElement>($"/parcursuri/{lectie}/generare");
+        h.Check(stare.GetProperty("stare").GetString() == "necunoscuta" && h.Ai.Apeluri.IsEmpty, "creating a chapter generates no questions by itself");
+
+        var cerere = await admin.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 1 });
+        h.Check(cerere.StatusCode == HttpStatusCode.Accepted, "the professor asks for questions");
+        stare = await admin.GetFromJsonAsync<JsonElement>($"/parcursuri/{lectie}/generare");
         h.Check(stare.GetProperty("stare").GetString() == "in_asteptare" && h.Ai.Apeluri.IsEmpty, "question generation waits until a check runs the job");
 
         h.Ai.Raspunde = (_, _, _) => IntrebariAi;
         await h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(CancellationToken.None);
-        stare = await admin.GetFromJsonAsync<JsonElement>($"/cursuri/{cursId}/generare");
+        stare = await admin.GetFromJsonAsync<JsonElement>($"/parcursuri/{lectie}/generare");
         h.Check(stare.GetProperty("stare").GetString() == "gata" && stare.GetProperty("intrebariGenerate").GetInt32() == 1, "job run on demand generates questions");
         h.Check(h.Ai.Apeluri.TryPeek(out var apel) && apel.Scop == ScopAi.Intrebari && apel.Mesaje[0].Text.Contains("1883"),
-            "fake AI received the lesson material");
-        var intrebari = await admin.GetFromJsonAsync<JsonElement>($"/cursuri/{cursId}/intrebari/toate");
+            "fake AI received the Lecție's material");
+        var intrebari = await admin.GetFromJsonAsync<JsonElement>($"/continut/parcursuri/{lectie}/intrebari");
         h.Check(intrebari.GetProperty("elemente").GetArrayLength() == 2, "generated multiple-choice and estimate questions saved");
     }
 }

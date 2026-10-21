@@ -132,33 +132,32 @@ function Director({ utilizator }) {
         </p>
       </section>
 
-      <div className="tv-filtre" role="group" aria-label="Unde sunt profesorii">
-        {FILTRE.map(([v, t]) => (
-          <button key={v} type="button" className="tv-filtru" aria-pressed={filtru.unde === v} disabled={v === 'local' && !utilizator.judetId}
-            onClick={() => setFiltru({ ...filtru, unde: v })}>
-            {t}
-          </button>
-        ))}
-        {!utilizator.judetId && <Link href="/setari" className="tv-indiciu">Alege-ți județul în Setări ca să vezi profesorii din apropiere.</Link>}
-      </div>
-      <div className="tv-filtre" role="group" aria-label="Tipul ședinței">
-        {TIPURI_FILTRU.map(([v, t]) => (
-          <button key={v} type="button" className="tv-filtru" aria-pressed={filtru.tip === v} onClick={() => setFiltru({ ...filtru, tip: v })}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="tv-filtre">
-        <label className="tv-eticheta-camp">
-          <span>Materie</span>
-          <select className="tv-camp-text" value={filtru.materieId} onChange={(e) => setFiltru({ ...filtru, materieId: e.target.value })}>
-            <option value="">Toate</option>
+      {/* Toate filtrele într-o singură bară: unde, tipul ședinței, materia și opțiunile. */}
+      <div className="tv-bara-filtre">
+        <div className="tv-filtre" role="group" aria-label="Unde sunt profesorii">
+          {FILTRE.map(([v, t]) => (
+            <button key={v} type="button" className="tv-filtru" aria-pressed={filtru.unde === v} disabled={v === 'local' && !utilizator.judetId}
+              onClick={() => setFiltru({ ...filtru, unde: v })}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="tv-filtre" role="group" aria-label="Tipul ședinței">
+          {TIPURI_FILTRU.map(([v, t]) => (
+            <button key={v} type="button" className="tv-filtru" aria-pressed={filtru.tip === v} onClick={() => setFiltru({ ...filtru, tip: v })}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="tv-filtre">
+          <select className="tv-camp-text" aria-label="Materie" value={filtru.materieId} onChange={(e) => setFiltru({ ...filtru, materieId: e.target.value })}>
+            <option value="">Toate materiile</option>
             {materii.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
           </select>
-        </label>
-        <label className="tv-optiune"><input type="checkbox" checked={filtru.gratuit} onChange={(e) => setFiltru({ ...filtru, gratuit: e.target.checked })} /> Doar pro bono</label>
-        <label className="tv-optiune"><input type="checkbox" checked={filtru.saptamana} onChange={(e) => setFiltru({ ...filtru, saptamana: e.target.checked })} /> Locuri în următoarele 7 zile</label>
+          <label className="tv-optiune"><input type="checkbox" checked={filtru.gratuit} onChange={(e) => setFiltru({ ...filtru, gratuit: e.target.checked })} /> Doar pro bono</label>
+          <label className="tv-optiune"><input type="checkbox" checked={filtru.saptamana} onChange={(e) => setFiltru({ ...filtru, saptamana: e.target.checked })} /> Locuri în următoarele 7 zile</label>
+        </div>
+        {!utilizator.judetId && <Link href="/setari" className="tv-indiciu">Alege-ți județul în Setări ca să vezi profesorii din apropiere.</Link>}
       </div>
 
       {eroare && <p className="tv-eroare">{eroare}</p>}
@@ -195,14 +194,13 @@ function Director({ utilizator }) {
                       <div>
                         <b>{s.titlu}</b>
                         <small>
-                          {dataOra(s.inceputLa)} · {TIPURI_SEDINTA[s.tip]}{s.loc ? ` (${textLoc({ ...s.loc, judet: null })})` : ''} · {s.locuriLibere > 0 ? `${s.locuriLibere} din ${s.capacitate} locuri libere` : 'complet'} · {s.proBono ? 'gratuit' : pret ? `${pret.suma} ${pret.moneda}` : 'plătit'}
+                          {dataOra(s.inceputLa)} · {TIPURI_SEDINTA[s.tip]}{s.loc ? ` (${[textLoc({ ...s.loc, judet: null }), s.notaLoc].filter(Boolean).join(' · ')})` : ''} · {s.locuriLibere > 0 ? `${s.locuriLibere} din ${s.capacitate} locuri libere` : 'complet'} · {s.proBono ? 'gratuit' : pret ? `${pret.suma} ${pret.moneda}` : 'plătit'}
                         </small>
                       </div>
                       {s.rezervatDeMine ? (
                         <span className="tv-butoane">
                           <span className="tv-pastila tv-pastila-verde">Rezervat</span>
                           {s.linkIntalnire && <a className="tv-pastila tv-pastila-aur" href={s.linkIntalnire} target="_blank" rel="noreferrer">Intră în ședință</a>}
-                          {s.notaLoc && <span className="tv-pastila">{s.notaLoc}</span>}
                           {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={incarca} />}
                         </span>
                       ) : (

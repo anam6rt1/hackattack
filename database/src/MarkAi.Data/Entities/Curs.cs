@@ -39,11 +39,7 @@ public partial class Curs
 
     public virtual Utilizator? CreatDe { get; set; }
 
-    public virtual ICollection<ProgresCurs> Progrese { get; set; } = new List<ProgresCurs>();
-
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
-
-    public virtual ICollection<GrafCurs> GrafuriCurs { get; set; } = new List<GrafCurs>();
 
     public virtual Materie Materie { get; set; } = null!;
 
@@ -51,6 +47,5 @@ public partial class Curs
 
     public virtual ICollection<Sesiune> Sesiuni { get; set; } = new List<Sesiune>();
 
-    public virtual ICollection<FisierCapitol> Fisiere { get; set; } = new List<FisierCapitol>();
 }
 

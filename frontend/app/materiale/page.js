@@ -105,8 +105,8 @@ export default function PaginaMateriale() {
                 <svg viewBox="40 20 260 160" aria-hidden="true" dangerouslySetInnerHTML={{ __html: insulaSVG({ x: 170, y: 100, seed: 7 + i * 13, semn: SEMNE[i % SEMNE.length] }) }} />
                 <h3>{m.denumire}</h3>
                 {m.descriere && <p className="tv-indiciu">{m.descriere}</p>}
-                <div className="tv-bara tv-bara-verde"><i style={{ width: `${m.numarCursuri ? (m.cursuriCompletate / m.numarCursuri) * 100 : 0}%` }} /></div>
-                <span className="tv-cine">{m.cursuriCompletate} din {m.numarCursuri} capitole terminate</span>
+                <div className="tv-bara tv-bara-verde"><i style={{ width: `${m.numarLectii ? (m.lectiiCompletate / m.numarLectii) * 100 : 0}%` }} /></div>
+                <span className="tv-cine">{m.lectiiCompletate} din {m.numarLectii} {m.numarLectii === 1 ? 'lecție terminată' : 'lecții terminate'}</span>
               </Link>
             ))}
             {materii?.length === 0 && <p className="tv-gol">Încă nu există materii.</p>}

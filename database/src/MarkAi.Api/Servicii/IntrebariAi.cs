@@ -5,73 +5,84 @@ using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
-using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Api.Servicii;
 
 public record StareGenerare(string Stare, string? Mesaj, int IntrebariGenerate, DateTime Actualizat);
 
-/// <summary>Courses waiting for AI question generation, plus the latest status of each (in memory).</summary>
+/// <summary>Lecții waiting for AI question generation (with the number of questions asked), plus the latest status of each (in memory).</summary>
 public sealed class CoadaIntrebari
 {
-    private readonly Channel<int> _coada = Channel.CreateUnbounded<int>();
+    private readonly Channel<(int ParcursId, int Numar)> _coada = Channel.CreateUnbounded<(int, int)>();
     private readonly ConcurrentDictionary<int, StareGenerare> _stari = new();
 
-    public void Adauga(int cursId)
+    public void Adauga(int parcursId, int numar)
     {
-        _stari[cursId] = new StareGenerare("in_asteptare", null, 0, DateTime.UtcNow);
-        _coada.Writer.TryWrite(cursId);
+        _stari[parcursId] = new StareGenerare("in_asteptare", null, 0, DateTime.UtcNow);
+        _coada.Writer.TryWrite((parcursId, numar));
     }
 
-    public StareGenerare? Stare(int cursId) => _stari.GetValueOrDefault(cursId);
+    public StareGenerare? Stare(int parcursId) => _stari.GetValueOrDefault(parcursId);
 
-    /// <summary>Generation was not queued (e.g. the editor's daily limit); the editor sees the reason.</summary>
-    public void Refuza(int cursId, string mesaj) => _stari[cursId] = new StareGenerare("eroare", mesaj, 0, DateTime.UtcNow);
+    /// <summary>True while a generation for the Lecție is queued or running.</summary>
+    public bool InLucru(int parcursId) => Stare(parcursId)?.Stare is "in_asteptare" or "in_lucru";
 
-    internal void Actualizeaza(int cursId, StareGenerare stare) => _stari[cursId] = stare;
+    internal void Actualizeaza(int parcursId, StareGenerare stare) => _stari[parcursId] = stare;
 
-    internal IAsyncEnumerable<int> Citeste(CancellationToken ct) => _coada.Reader.ReadAllAsync(ct);
+    internal IAsyncEnumerable<(int ParcursId, int Numar)> Citeste(CancellationToken ct) => _coada.Reader.ReadAllAsync(ct);
 
-    internal bool IncearcaCiteste(out int cursId) => _coada.Reader.TryRead(out cursId);
+    internal bool IncearcaCiteste(out (int ParcursId, int Numar) cerere) => _coada.Reader.TryRead(out cerere);
 }
 
+/// <summary>AI questions the user may still ask for in the last 24 hours: their own budget, capped by what the platform has left.</summary>
+public record BugetAi(int Ramase, int PeZi);
+
 /// <summary>
-/// Queues AI question generation within the editor's daily limit (<c>Limite:GenerariAiPeZi</c>; admins are not limited).
-/// Over the limit, an explicit "regenerate" is refused; an automatic one (after an edit or a file upload) is skipped and
-/// the editor sees why in the generation status.
+/// Queues an AI question generation a professor asked for. Spending is limited by questions asked, not by clicks: each account
+/// (admins too) may ask for <c>Limite:IntrebariAiPeZi</c> questions in 24 hours, and the whole platform for
+/// <c>Limite:IntrebariAiPeZiTotal</c>. Questions are generated only on request, never automatically.
 /// </summary>
 public static class LimitaGenerariAi
 {
-    /// <param name="uid">Who is charged; null only for content whose uploader no longer exists (then <paramref name="admin"/> is true).</param>
-    public static async Task PuneAsync(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, int? uid, bool admin, int cursId,
-        bool laCerere, CancellationToken ct)
+    public const int MaxIntrebariPeCerere = 20;
+
+    public static async Task<BugetAi> BugetAsync(MarkAiDbContext db, IConfiguration cfg, int uid, CancellationToken ct)
     {
-        if (!admin)
-        {
-            var limita = cfg.GetValue("Limite:GenerariAiPeZi", 10);
-            var deLa = DateTime.UtcNow.AddHours(-24);
-            if (await db.Set<GenerareAi>().CountAsync(g => g.UtilizatorId == uid && g.CreatLa >= deLa, ct) >= limita)
-            {
-                var mesaj = $"Ai folosit cele {limita} generări de întrebări AI din ultimele 24 de ore. Poți edita întrebările manual sau reîncerca mâine.";
-                if (laCerere) throw new Conflict(mesaj);
-                coada.Refuza(cursId, mesaj);
-                return;
-            }
-        }
-        if (uid is not null)
-        {
-            db.Add(new GenerareAi { UtilizatorId = uid.Value, CursId = cursId, CreatLa = DateTime.UtcNow });
-            await db.SaveChangesAsync(ct);
-        }
-        coada.Adauga(cursId);
+        var peZi = cfg.GetValue("Limite:IntrebariAiPeZi", 30);
+        var total = cfg.GetValue("Limite:IntrebariAiPeZiTotal", 300);
+        var deLa = DateTime.UtcNow.AddHours(-24);
+        var recente = db.Set<GenerareAi>().Where(g => g.CreatLa >= deLa);
+        var ale = await recente.Where(g => g.UtilizatorId == uid).SumAsync(g => g.Numar, ct);
+        var toate = await recente.SumAsync(g => g.Numar, ct);
+        return new BugetAi(Math.Max(0, Math.Min(peZi - ale, total - toate)), peZi);
+    }
+
+    public static async Task PuneAsync(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, int uid, int parcursId, int numar,
+        CancellationToken ct)
+    {
+        if (numar is < 1 or > MaxIntrebariPeCerere) throw new CerereInvalida($"Poți genera între 1 și {MaxIntrebariPeCerere} întrebări odată.");
+        if (coada.InLucru(parcursId)) throw new Conflict("Întrebările acestei lecții se generează deja. Așteaptă să se termine.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // One budget check at a time, so two requests at once cannot both spend the last questions.
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(hashtext('mark_ai.generare_ai'))", ct);
+        var buget = await BugetAsync(db, cfg, uid, ct);
+        if (buget.Ramase == 0)
+            throw new Conflict("Ai folosit întrebările AI disponibile în ultimele 24 de ore. Poți scrie sau edita întrebările manual sau reîncerca mâine.");
+        if (numar > buget.Ramase)
+            throw new Conflict($"Îți mai rămân {buget.Ramase} întrebări AI în ultimele 24 de ore. Cere cel mult {buget.Ramase}.");
+        db.Add(new GenerareAi { UtilizatorId = uid, ParcursId = parcursId, Numar = numar, CreatLa = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        coada.Adauga(parcursId, numar);
     }
 }
 
 /// <summary>
-/// Generates quiz questions for a course with Claude when the course is created or its content changes.
-/// Previous AI questions are deactivated (not deleted, since past trivia rounds may reference them);
-/// questions written by people are left untouched.
+/// Generates quiz questions for a Lecție with the AI model, from the notes of all its chapters and the text of its files.
+/// New questions are ADDED to the Lecție's quiz (the professor edits or deletes any of them afterwards); the model is shown the
+/// existing ones so it does not repeat them. Estimation questions (Triviador's tie-breaks) are topped up to
+/// <c>Claude:IntrebariEstimare</c> per Lecție.
 /// </summary>
 public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactory scopes, IConfiguration cfg, ModelAi ai, ILogger<GeneratorIntrebari> log)
     : BackgroundService
@@ -81,106 +92,119 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
         Scrii întrebări de verificare în limba română, cu diacritice, strict pe baza materialului primit.
         Întrebările grilă au exact 4 variante plauzibile, o singură variantă corectă, iar poziția variantei corecte variază.
         Explicația are 1–2 propoziții și spune de ce răspunsul este corect.
+        Nu repeta întrebările care există deja.
         Întrebările de estimare cer un număr întreg (de exemplu un an) care apare explicit în material;
         dacă materialul nu conține astfel de numere, lista de estimări rămâne goală.
         """;
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        await foreach (var cursId in coada.Citeste(ct)) await ProceseazaAsync(cursId, ct);
+        await foreach (var cerere in coada.Citeste(ct)) await ProceseazaAsync(cerere.ParcursId, cerere.Numar, ct);
     }
 
-    /// <summary>Processes the courses queued so far, then returns. The integration checks call this instead of running the service.</summary>
+    /// <summary>Processes the Lecții queued so far, then returns. The integration checks call this instead of running the service.</summary>
     public async Task RuleazaOdataAsync(CancellationToken ct)
     {
-        while (coada.IncearcaCiteste(out var cursId)) await ProceseazaAsync(cursId, ct);
+        while (coada.IncearcaCiteste(out var cerere)) await ProceseazaAsync(cerere.ParcursId, cerere.Numar, ct);
     }
 
-    private async Task ProceseazaAsync(int cursId, CancellationToken ct)
+    private async Task ProceseazaAsync(int parcursId, int numar, CancellationToken ct)
     {
-        coada.Actualizeaza(cursId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
+        coada.Actualizeaza(parcursId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
         try
         {
-            var n = await GenereazaAsync(cursId, ct);
-            coada.Actualizeaza(cursId, new StareGenerare("gata", null, n, DateTime.UtcNow));
+            var n = await GenereazaAsync(parcursId, numar, ct);
+            coada.Actualizeaza(parcursId, new StareGenerare("gata", null, n, DateTime.UtcNow));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            log.LogError(ex, "AI question generation failed for course {CursId}", cursId);
-            coada.Actualizeaza(cursId, new StareGenerare("eroare", ex is ConfigurareLipsa ? ex.Message : "Generarea a eșuat. Încearcă din nou.", 0, DateTime.UtcNow));
+            if (ex is EroareGenerare) log.LogWarning("AI question generation for Lecție {ParcursId}: {Mesaj}", parcursId, ex.Message);
+            else log.LogError(ex, "AI question generation failed for Lecție {ParcursId}", parcursId);
+            coada.Actualizeaza(parcursId, new StareGenerare("eroare", ex is EroareGenerare ? ex.Message : "Generarea a eșuat. Încearcă din nou.", 0, DateTime.UtcNow));
         }
     }
 
-    private sealed class ConfigurareLipsa(string mesaj) : Exception(mesaj);
+    /// <summary>A failure the professor can act on; its message is shown in the editor.</summary>
+    private sealed class EroareGenerare(string mesaj) : Exception(mesaj);
 
-    private async Task<int> GenereazaAsync(int cursId, CancellationToken ct)
+    private async Task<int> GenereazaAsync(int parcursId, int numar, CancellationToken ct)
     {
-        var model = ai.Activ ?? throw new ConfigurareLipsa("Generarea AI nu este configurată (setează ANTHROPIC_API_KEY sau GEMINI_API_KEY pe server).");
+        var model = ai.Activ ?? throw new EroareGenerare("Generarea AI nu este configurată (setează ANTHROPIC_API_KEY sau GEMINI_API_KEY pe server).");
 
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
-        var curs = await db.Curs.Include(c => c.Materie).AsNoTracking().SingleOrDefaultAsync(c => c.Id == cursId, ct);
-        if (curs is null) return 0;
+        var lectie = await db.Set<Parcurs>().AsNoTracking().Where(p => p.Id == parcursId)
+            .Select(p => new { p.Id, p.MaterieId, p.Titlu, Materie = p.Materie.Denumire }).SingleOrDefaultAsync(ct);
+        if (lectie is null) return 0;
 
-        var material = string.Join("\n\n", curs.Materiale.Select(m => $"## {m.Titlu}\n{m.Text}"));
-        if (!string.IsNullOrWhiteSpace(curs.Continut)) material += "\n\n" + curs.Continut;
-        material += await TextFisiereAsync(db, cursId, ct);
-        if (string.IsNullOrWhiteSpace(material)) throw new ConfigurareLipsa("Capitolul nu are materiale (text sau fișiere cu text) din care să fie generate întrebări.");
+        var material = await MaterialAsync(db, parcursId, ct);
+        if (string.IsNullOrWhiteSpace(material))
+            throw new EroareGenerare("Lecția nu are materiale (notițe în capitole sau fișiere cu text) din care să fie generate întrebări.");
 
-        var grila = cfg.GetValue("Claude:IntrebariGrila", 8);
-        var estimari = cfg.GetValue("Claude:IntrebariEstimare", 2);
+        var existente = await db.Set<Intrebare>().AsNoTracking().Where(q => q.ParcursId == parcursId && q.Activa)
+            .OrderByDescending(q => q.Id).Select(q => new { q.Tip, q.Text }).Take(200).ToListAsync(ct);
+        var estimari = Math.Max(0, cfg.GetValue("Claude:IntrebariEstimare", 2) - existente.Count(q => q.Tip == Intrebare.Estimare));
+        var deEvitat = existente.Count == 0 ? "" : $"""
+
+            Întrebări care există deja (nu le repeta):
+            {string.Join("\n", existente.Select(q => "- " + q.Text))}
+            """;
         var prompt = $"""
-            Materie: {curs.Materie.Denumire}
-            Capitol: {curs.Capitol ?? "-"}
-            Curs: {curs.Titlu}
+            Materie: {lectie.Materie}
+            Lecție: {lectie.Titlu}
 
             <material>
             {material}
             </material>
+            {deEvitat}
 
-            Scrie {grila} întrebări grilă și cel mult {estimari} întrebări de estimare despre acest material.
+            Scrie {numar} întrebări grilă și cel mult {estimari} întrebări de estimare despre acest material.
             """;
 
         var text = await model.JsonAsync(ScopAi.Intrebari, Sistem, [new MesajAi(true, prompt)], Schema, 16000, ct);
-        var rezultat = JsonSerializer.Deserialize<RezultatAi>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-            ?? throw new InvalidOperationException("Răspuns gol.");
+        var rezultat = JsonSerializer.Deserialize<RezultatAi>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        // A reply without the lists (e.g. "{}") counts as no questions, not as a crash.
+        var valide = (rezultat?.Grila ?? []).OfType<GrilaAi>().Where(q => q.Variante?.Count == 4 && q.Corect is >= 0 and <= 3
+            && !string.IsNullOrWhiteSpace(q.Text) && q.Variante.All(v => !string.IsNullOrWhiteSpace(v))).Take(numar).ToList();
+        if (valide.Count == 0) throw new EroareGenerare("Modelul AI nu a propus nicio întrebare validă. Încearcă din nou.");
 
-        var valide = rezultat.Grila.Where(q => q.Variante.Count == 4 && q.Corect is >= 0 and <= 3
-            && !string.IsNullOrWhiteSpace(q.Text) && q.Variante.All(v => !string.IsNullOrWhiteSpace(v))).ToList();
-        if (valide.Count == 0) throw new InvalidOperationException("Nicio întrebare validă.");
-
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.Set<TriviaQuestion>().Where(q => q.CourseId == cursId && q.Source == "ai" && q.Active)
-            .ExecuteUpdateAsync(s => s.SetProperty(q => q.Active, false), ct);
         foreach (var q in valide)
-        {
-            var intrebare = new TriviaQuestion { SubjectId = curs.MaterieId, CourseId = cursId, Text = q.Text.Trim(), Explanation = q.Explicatie?.Trim(), Source = "ai" };
-            db.Add(intrebare);
-            await db.SaveChangesAsync(ct);
-            db.AddRange(q.Variante.Select((v, i) => new TriviaOption { QuestionId = intrebare.Id, Text = v.Trim(), IsCorrect = i == q.Corect }));
-        }
-        foreach (var e in rezultat.Estimari.Where(e => !string.IsNullOrWhiteSpace(e.Text)).Take(estimari))
-            db.Add(new TriviaQuestion { SubjectId = curs.MaterieId, CourseId = cursId, Text = e.Text.Trim(), Kind = "estimare", NumericAnswer = e.Raspuns, Source = "ai" });
+            db.Add(new Intrebare
+            {
+                MaterieId = lectie.MaterieId, ParcursId = parcursId, Text = q.Text.Trim(), Explicatie = q.Explicatie?.Trim(), Sursa = Intrebare.SursaAi,
+                Variante = q.Variante!.Select((v, i) => new VariantaIntrebare { Text = v.Trim(), Corecta = i == q.Corect }).ToList(),
+            });
+        foreach (var e in (rezultat?.Estimari ?? []).OfType<EstimareAi>().Where(e => !string.IsNullOrWhiteSpace(e.Text)).Take(estimari))
+            db.Add(new Intrebare { MaterieId = lectie.MaterieId, ParcursId = parcursId, Text = e.Text.Trim(), Tip = Intrebare.Estimare, RaspunsNumeric = e.Raspuns, Sursa = Intrebare.SursaAi });
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
         return valide.Count;
     }
 
-    // The extracted text of the chapter's files, oldest first, within Fisiere:MaxCaractereText in total.
-    private async Task<string> TextFisiereAsync(MarkAiDbContext db, int cursId, CancellationToken ct)
+    // The notes of every chapter (in the recommended order), then the extracted text of the Lecție's files, within
+    // Claude:MaxCaractereMaterial (120 000) in total; each file within Fisiere:MaxCaractereText.
+    private async Task<string> MaterialAsync(MarkAiDbContext db, int parcursId, CancellationToken ct)
     {
-        var ramase = cfg.GetValue("Fisiere:MaxCaractereText", 60_000);
-        var fisiere = await db.Set<FisierCapitol>().AsNoTracking().Where(f => f.CursId == cursId && f.StareText == FisierCapitol.Gata)
-            .OrderBy(f => f.Id).Select(f => new { f.Nume, f.TextExtras }).ToListAsync(ct);
+        var ramase = cfg.GetValue("Claude:MaxCaractereMaterial", 120_000);
         var text = new System.Text.StringBuilder();
-        foreach (var f in fisiere.Where(f => !string.IsNullOrWhiteSpace(f.TextExtras)))
+        void Adauga(string titlu, string? continut)
         {
-            if (ramase <= 0) break;
-            var parte = f.TextExtras!.Length <= ramase ? f.TextExtras : f.TextExtras[..ramase];
-            text.Append($"\n\n## Fișier: {f.Nume}\n{parte}");
+            if (string.IsNullOrWhiteSpace(continut) || ramase <= 0) return;
+            var parte = continut.Length <= ramase ? continut : continut[..ramase];
+            text.Append($"\n\n# {titlu}\n{parte}");
             ramase -= parte.Length;
         }
-        return text.ToString();
+
+        var capitole = await db.Curs.AsNoTracking().Where(c => c.ParcursId == parcursId).OrderBy(c => c.Ordine).ThenBy(c => c.Id).ToListAsync(ct);
+        foreach (var c in capitole)
+        {
+            var notite = string.Join("\n\n", c.Materiale.Select(m => $"## {m.Titlu}\n{m.Text}"));
+            if (!string.IsNullOrWhiteSpace(c.Continut)) notite += "\n\n" + c.Continut;
+            Adauga($"Capitol: {c.Titlu}", notite);
+        }
+        var fisiere = await db.Set<FisierLectie>().AsNoTracking().Where(f => f.ParcursId == parcursId && f.StareText == FisierLectie.Gata)
+            .OrderBy(f => f.Id).Select(f => new { f.Nume, f.TextExtras }).ToListAsync(ct);
+        foreach (var f in fisiere) Adauga($"Fișier: {f.Nume}", f.TextExtras);
+        return text.ToString().Trim();
     }
 
     private static readonly Dictionary<string, JsonElement> Schema = new()
@@ -225,7 +249,7 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
         }),
     };
 
-    private sealed record RezultatAi(List<GrilaAi> Grila, List<EstimareAi> Estimari);
-    private sealed record GrilaAi(string Text, List<string> Variante, int Corect, string? Explicatie);
+    private sealed record RezultatAi(List<GrilaAi?>? Grila, List<EstimareAi?>? Estimari);
+    private sealed record GrilaAi(string Text, List<string>? Variante, int Corect, string? Explicatie);
     private sealed record EstimareAi(string Text, int Raspuns);
 }

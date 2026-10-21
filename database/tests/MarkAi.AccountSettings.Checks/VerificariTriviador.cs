@@ -225,6 +225,7 @@ static class VerificariTriviador
             grila = Enumerable.Range(1, 6).Select(i => new { text = $"Întrebarea {i}", variante = new[] { "Altă variantă A", Bun, "Altă variantă B", "Altă variantă C" }, corect = 1, explicatie = "-" }),
             estimari = new[] { new { text = "În ce an a apărut „Luceafărul”?", raspuns = 1883 }, new { text = "În ce an a apărut „Ion”?", raspuns = 1920 } },
         });
+        (await admin.PostAsJsonAsync($"/parcursuri/{lectie}/genereaza-intrebari", new { numar = 6 })).EnsureSuccessStatusCode();
         await h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(CancellationToken.None);
     }
 

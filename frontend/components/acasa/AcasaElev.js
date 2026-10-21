@@ -27,7 +27,7 @@ export default function AcasaElev({ utilizator }) {
   if (eroare) return <Incarcare text={eroare} />
   if (!progres) return <Incarcare />
 
-  const { nivel, materii, ultimulCurs, cursuriCompletate } = progres
+  const { nivel, materii, ultimaLectie, lectiiCompletate } = progres
   const pana = nivel.xpUrmatorNivel ? nivel.xpUrmatorNivel - nivel.xpNivel : 1
   const procent = nivel.xpUrmatorNivel ? Math.round(((nivel.xpTotal - nivel.xpNivel) / pana) * 100) : 100
 
@@ -37,7 +37,7 @@ export default function AcasaElev({ utilizator }) {
         <section className="tv-erou">
           <span className="tv-erou-pill">Acasă</span>
           <h1>Salut, {utilizator.nume.split(' ')[0]}!</h1>
-          <p>{ultimulCurs ? `Data trecută ai lucrat la „${ultimulCurs.titlu}”.` : 'Alege o materie și o lecție: fiecare capitol e o insulă, cu notițe, video și un test scurt.'}</p>
+          <p>{ultimaLectie ? `Data trecută ai lucrat la „${ultimaLectie.capitol ?? ultimaLectie.titlu}”.` : 'Alege o materie și o lecție: fiecare capitol e o insulă cu notițe și video, iar lecția se termină cu un test.'}</p>
           <svg className="tv-decor" viewBox="0 0 520 220" aria-hidden="true" dangerouslySetInnerHTML={{ __html: DECOR }} />
         </section>
 
@@ -57,20 +57,20 @@ export default function AcasaElev({ utilizator }) {
               </div>
               <p className="tv-indiciu">
                 {nivel.xpUrmatorNivel
-                  ? `Mai ai ${nivel.xpUrmatorNivel - nivel.xpTotal} XP până la „${nivel.titluUrmator}”. Fiecare capitol terminat îți aduce 100 XP.`
+                  ? `Mai ai ${nivel.xpUrmatorNivel - nivel.xpTotal} XP până la „${nivel.titluUrmator}”. Fiecare lecție terminată îți aduce 100 XP.`
                   : 'Ai atins cel mai înalt nivel. Felicitări!'}
               </p>
             </div>
 
             <div className="tv-cutie tv-panou-lat">
-              <h3>{ultimulCurs && !ultimulCurs.completat ? 'Continuă de unde ai rămas' : 'Următorul pas'}</h3>
-              {ultimulCurs ? (
-                <Link className="tv-rand" href={`/parcurs/${ultimulCurs.parcursId}`}>
+              <h3>{ultimaLectie && !ultimaLectie.completata ? 'Continuă de unde ai rămas' : 'Următorul pas'}</h3>
+              {ultimaLectie ? (
+                <Link className="tv-rand" href={`/parcurs/${ultimaLectie.parcursId}`}>
                   <div>
-                    <b>{ultimulCurs.titlu}</b>
-                    <small>{ultimulCurs.materie} · {ultimulCurs.parcurs}</small>
+                    <b>{ultimaLectie.titlu}</b>
+                    <small>{ultimaLectie.materie}{ultimaLectie.capitol ? ` · ultimul capitol: ${ultimaLectie.capitol}` : ''}</small>
                   </div>
-                  <span className={`tv-pastila ${ultimulCurs.completat ? 'tv-pastila-verde' : 'tv-pastila-aur'}`}>{ultimulCurs.completat ? 'Terminat' : 'În lucru'}</span>
+                  <span className={`tv-pastila ${ultimaLectie.completata ? 'tv-pastila-verde' : 'tv-pastila-aur'}`}>{ultimaLectie.completata ? 'Terminată' : 'În lucru'}</span>
                 </Link>
               ) : (
                 <p>Deschide Materiale, alege o lecție și începe cu orice capitol de pe hartă.</p>
@@ -78,7 +78,7 @@ export default function AcasaElev({ utilizator }) {
               <div className="tv-butoane">
                 <Link className="tv-btn" href="/materiale">Mergi la materiale</Link>
                 <Link className="tv-btn tv-aur" href="/joc">Joacă Triviador</Link>
-                {cursuriCompletate.length > 0 && <Link className="tv-btn tv-gri" href="/antrenament">Recapitulează</Link>}
+                {lectiiCompletate.length > 0 && <Link className="tv-btn tv-gri" href="/antrenament">Recapitulează</Link>}
               </div>
             </div>
           </div>
@@ -92,9 +92,9 @@ export default function AcasaElev({ utilizator }) {
                     <Link className="tv-rand" href={`/materiale/${m.materieId}`}>
                       <div>
                         <b>{m.denumire}</b>
-                        <small>{m.cursuriCompletate} din {m.totalCursuri} capitole · {m.puncte} puncte</small>
+                        <small>{m.lectiiCompletate} din {m.totalLectii} lecții · {m.puncte} puncte</small>
                         <div className="tv-bara tv-bara-verde" style={{ marginTop: 6 }}>
-                          <i style={{ width: `${m.totalCursuri ? (m.cursuriCompletate / m.totalCursuri) * 100 : 0}%` }} />
+                          <i style={{ width: `${m.totalLectii ? (m.lectiiCompletate / m.totalLectii) * 100 : 0}%` }} />
                         </div>
                       </div>
                     </Link>

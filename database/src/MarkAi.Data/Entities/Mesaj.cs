@@ -19,8 +19,5 @@ public partial class Mesaj
 
     public virtual Sesiune Sesiune { get; set; } = null!;
 
-    public virtual ICollection<SmsLog> JurnaleSms { get; set; } = new List<SmsLog>();
-
-    public virtual ICollection<TablaPas> PasiTabla { get; set; } = new List<TablaPas>();
 }
 

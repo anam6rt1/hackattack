@@ -1,0 +1,2150 @@
+{
+ "materii": [
+  {
+   "cod": "matematica",
+   "denumire": "Matematică",
+   "descriere": "Algebră, geometrie și analiză matematică pentru liceu și bacalaureat.",
+   "profesor": {
+    "username": "profesor-matematica",
+    "nume": "Mihai Ionescu"
+   },
+   "lectii": [
+    {
+     "titlu": "Mulțimi și elemente de logică matematică",
+     "clasa": "IX",
+     "descriere": "Numerele reale, propozițiile logice și inducția matematică.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Mulțimea numerelor reale",
+       "notite": [
+        {
+         "titlu": "Numere reale",
+         "text": "Numerele reale cuprind numerele raționale și pe cele iraționale. Între oricare două numere reale există o infinitate de alte numere reale."
+        },
+        {
+         "titlu": "Modulul",
+         "text": "Modulul unui număr real x este distanța de la x la 0 pe axă: |x| = x dacă x ≥ 0 și |x| = −x dacă x < 0."
+        }
+       ]
+      },
+      {
+       "titlu": "Propoziții și operații logice",
+       "notite": [
+        {
+         "titlu": "Propoziții",
+         "text": "O propoziție este un enunț care este fie adevărat, fie fals. Operațiile logice de bază sunt negația, conjuncția („și”), disjuncția („sau”), implicația și echivalența."
+        }
+       ]
+      },
+      {
+       "titlu": "Inducția matematică",
+       "notite": [
+        {
+         "titlu": "Metoda",
+         "text": "Pentru a demonstra că P(n) este adevărată pentru orice n ≥ n0, verificăm întâi P(n0), apoi arătăm că din P(k) rezultă P(k + 1)."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cât este |−7|?",
+       "variante": [
+        "7",
+        "−7",
+        "0",
+        "49"
+       ],
+       "corect": 0,
+       "explicatie": "Modulul este distanța până la 0, deci |−7| = 7."
+      },
+      {
+       "text": "Care dintre numerele următoare este irațional?",
+       "variante": [
+        "1/3",
+        "0,25",
+        "−5",
+        "√2"
+       ],
+       "corect": 3,
+       "explicatie": "√2 nu se poate scrie ca raport de două numere întregi."
+      },
+      {
+       "text": "Conjuncția „p și q” este adevărată atunci când:",
+       "variante": [
+        "ambele sunt false",
+        "p este falsă",
+        "ambele propoziții sunt adevărate",
+        "cel puțin una este adevărată"
+       ],
+       "corect": 2,
+       "explicatie": "Conjuncția cere ca ambele propoziții să fie adevărate."
+      },
+      {
+       "text": "Primul pas al inducției matematice este:",
+       "variante": [
+        "alegerea unui contraexemplu",
+        "verificarea pentru n0",
+        "presupunerea pentru n = k",
+        "demonstrarea pentru n = k + 1"
+       ],
+       "corect": 1,
+       "explicatie": "Se verifică întâi propoziția pentru valoarea de start n0."
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Funcția de gradul al II-lea",
+     "clasa": "IX",
+     "descriere": "Parabola, ecuația de gradul al II-lea și relațiile lui Viète.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Graficul funcției de gradul al II-lea",
+       "notite": [
+        {
+         "titlu": "Parabola",
+         "text": "f(x) = ax² + bx + c, cu a ≠ 0. Graficul este o parabolă cu vârful V(−b/2a, −Δ/4a), unde Δ = b² − 4ac. Dacă a > 0, ramurile parabolei sunt în sus."
+        }
+       ]
+      },
+      {
+       "titlu": "Ecuația de gradul al II-lea",
+       "notite": [
+        {
+         "titlu": "Formula",
+         "text": "Soluțiile sunt x = (−b ± √Δ)/2a. Dacă Δ > 0 există două soluții reale distincte, dacă Δ = 0 o soluție dublă, iar dacă Δ < 0 nicio soluție reală."
+        }
+       ]
+      },
+      {
+       "titlu": "Relațiile lui Viète",
+       "notite": [
+        {
+         "titlu": "Suma și produsul",
+         "text": "Pentru rădăcinile x1 și x2: x1 + x2 = −b/a și x1 · x2 = c/a."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Pentru ecuația x² − 5x + 6 = 0, suma rădăcinilor este:",
+       "variante": [
+        "−6",
+        "5",
+        "−5",
+        "6"
+       ],
+       "corect": 1,
+       "explicatie": "x1 + x2 = −b/a = 5."
+      },
+      {
+       "text": "Dacă Δ < 0, ecuația de gradul al II-lea:",
+       "variante": [
+        "nu are soluții reale",
+        "are o soluție dublă",
+        "are două soluții reale distincte",
+        "are o infinitate de soluții"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Abscisa vârfului parabolei y = x² − 4x + 1 este:",
+       "variante": [
+        "−2",
+        "4",
+        "1",
+        "2"
+       ],
+       "corect": 3,
+       "explicatie": "x_V = −b/2a = 4/2 = 2."
+      },
+      {
+       "text": "Pentru a < 0, ramurile parabolei sunt:",
+       "variante": [
+        "orizontale",
+        "în funcție de c",
+        "în jos",
+        "în sus"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Puteri, radicali și logaritmi",
+     "clasa": "X",
+     "descriere": "Regulile de calcul cu puteri, radicali și logaritmi.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Puteri cu exponent real",
+       "notite": [
+        {
+         "titlu": "Reguli",
+         "text": "a^m · a^n = a^(m+n), (a^m)^n = a^(m·n), iar a^0 = 1 pentru a ≠ 0."
+        }
+       ]
+      },
+      {
+       "titlu": "Radicali",
+       "notite": [
+        {
+         "titlu": "Proprietăți",
+         "text": "√(a·b) = √a · √b pentru a, b ≥ 0. Scoaterea factorilor de sub radical: √50 = √(25 · 2) = 5√2."
+        }
+       ]
+      },
+      {
+       "titlu": "Logaritmi",
+       "notite": [
+        {
+         "titlu": "Definiție",
+         "text": "log_a b = c înseamnă a^c = b, cu a > 0, a ≠ 1 și b > 0. Logaritmul unui produs este suma logaritmilor: log_a(xy) = log_a x + log_a y."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cât este 2³ · 2²?",
+       "variante": [
+        "64",
+        "10",
+        "12",
+        "32"
+       ],
+       "corect": 3,
+       "explicatie": "2^(3+2) = 2^5 = 32."
+      },
+      {
+       "text": "log₂ 8 este egal cu:",
+       "variante": [
+        "2",
+        "8",
+        "3",
+        "4"
+       ],
+       "corect": 2,
+       "explicatie": "2³ = 8."
+      },
+      {
+       "text": "√50 se scrie simplificat:",
+       "variante": [
+        "10√5",
+        "5√2",
+        "2√5",
+        "25√2"
+       ],
+       "corect": 1,
+       "explicatie": "√50 = √(25 · 2) = 5√2."
+      },
+      {
+       "text": "log_a(xy) este egal cu:",
+       "variante": [
+        "log_a x + log_a y",
+        "log_a x · log_a y",
+        "log_a x − log_a y",
+        "x · log_a y"
+       ],
+       "corect": 0,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Numere complexe",
+     "clasa": "X",
+     "descriere": "Forma algebrică, conjugatul și modulul unui număr complex.",
+     "vizibilitate": "organizatie",
+     "capitole": [
+      {
+       "titlu": "Forma algebrică",
+       "notite": [
+        {
+         "titlu": "Definiție",
+         "text": "Un număr complex are forma z = a + bi, cu a și b reale și i² = −1. a este partea reală, iar b partea imaginară."
+        }
+       ]
+      },
+      {
+       "titlu": "Modulul și conjugatul",
+       "notite": [
+        {
+         "titlu": "Formule",
+         "text": "Conjugatul lui z = a + bi este a − bi. Modulul lui z este |z| = √(a² + b²)."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cât este i²?",
+       "variante": [
+        "0",
+        "−1",
+        "1",
+        "i"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Modulul lui z = 3 + 4i este:",
+       "variante": [
+        "5",
+        "7",
+        "25",
+        "1"
+       ],
+       "corect": 0,
+       "explicatie": "|z| = √(9 + 16) = 5."
+      },
+      {
+       "text": "Conjugatul lui 2 − 5i este:",
+       "variante": [
+        "−2 + 5i",
+        "−2 − 5i",
+        "5 − 2i",
+        "2 + 5i"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Partea reală a lui z = −1 + 6i este:",
+       "variante": [
+        "6i",
+        "1",
+        "−1",
+        "6"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Matrice și determinanți",
+     "clasa": "XI",
+     "descriere": "Operații cu matrice, determinanți și sisteme de ecuații liniare.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Operații cu matrice",
+       "notite": [
+        {
+         "titlu": "Adunare și înmulțire",
+         "text": "Două matrice se adună element cu element dacă au aceleași dimensiuni. Produsul AB există când numărul de coloane ale lui A este egal cu numărul de linii ale lui B."
+        }
+       ]
+      },
+      {
+       "titlu": "Determinanți",
+       "notite": [
+        {
+         "titlu": "Ordinul 2",
+         "text": "Pentru matricea cu liniile (a, b) și (c, d), determinantul este ad − bc. O matrice pătratică este inversabilă dacă și numai dacă determinantul ei este nenul."
+        }
+       ]
+      },
+      {
+       "titlu": "Sisteme de ecuații liniare",
+       "notite": [
+        {
+         "titlu": "Regula lui Cramer",
+         "text": "Un sistem liniar pătratic cu determinantul nenul este compatibil determinat (are soluție unică), iar soluția se poate afla cu regula lui Cramer."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Determinantul matricei cu liniile (2, 1) și (3, 4) este:",
+       "variante": [
+        "−5",
+        "5",
+        "11",
+        "8"
+       ],
+       "corect": 1,
+       "explicatie": "2 · 4 − 1 · 3 = 5."
+      },
+      {
+       "text": "O matrice pătratică este inversabilă dacă:",
+       "variante": [
+        "determinantul ei este nenul",
+        "are toate elementele pozitive",
+        "este simetrică",
+        "are o linie nulă"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Produsul AB există dacă:",
+       "variante": [
+        "A și B au aceleași dimensiuni",
+        "A este pătratică",
+        "B este pătratică",
+        "numărul de coloane al lui A este egal cu numărul de linii al lui B"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Un sistem liniar pătratic cu determinantul nenul este:",
+       "variante": [
+        "compatibil nedeterminat",
+        "fără soluții reale",
+        "compatibil determinat",
+        "incompatibil"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Primitive și integrala definită",
+     "clasa": "XII",
+     "descriere": "Primitive, formula Leibniz–Newton și calculul ariilor.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Primitive",
+       "notite": [
+        {
+         "titlu": "Definiție",
+         "text": "F este o primitivă a lui f dacă F′ = f. O primitivă a lui xⁿ (n ≠ −1) este xⁿ⁺¹/(n + 1)."
+        }
+       ]
+      },
+      {
+       "titlu": "Integrala definită",
+       "notite": [
+        {
+         "titlu": "Leibniz–Newton",
+         "text": "Integrala de la a la b din f(x) dx este F(b) − F(a), unde F este o primitivă a lui f."
+        }
+       ]
+      },
+      {
+       "titlu": "Aria unei suprafețe plane",
+       "notite": [
+        {
+         "titlu": "Aplicație",
+         "text": "Aria subgraficului unei funcții continue și pozitive pe [a, b] este egală cu integrala funcției de la a la b."
+        }
+       ]
+      }
+     ],
+     "intrebari": [],
+     "fisiere": []
+    }
+   ]
+  },
+  {
+   "cod": "romana",
+   "denumire": "Limba și literatura română",
+   "descriere": "Operele de bac, de la Harap-Alb la Moromeții.",
+   "profesor": {
+    "username": "profesor-romana",
+    "nume": "Elena Marinescu"
+   },
+   "lectii": [
+    {
+     "titlu": "Literatura populară: balada „Miorița”",
+     "clasa": "IX",
+     "descriere": "Specia baladei populare și semnificațiile „Mioriței”.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Specia baladei",
+       "notite": [
+        {
+         "titlu": "Balada populară",
+         "text": "Balada populară este o specie a genului epic în versuri, în care narațiunea se îmbină cu elemente lirice și dramatice. „Miorița” a fost culeasă și publicată de Vasile Alecsandri."
+        }
+       ]
+      },
+      {
+       "titlu": "Motive și semnificații",
+       "notite": [
+        {
+         "titlu": "Motivele",
+         "text": "Motivele principale sunt mioara năzdrăvană, testamentul ciobanului și alegoria moarte–nuntă. Ciobanul moldovean își acceptă destinul cu seninătate."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cine a cules și publicat balada „Miorița”?",
+       "variante": [
+        "Mihai Eminescu",
+        "Ion Creangă",
+        "Lucian Blaga",
+        "Vasile Alecsandri"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Balada populară aparține genului:",
+       "variante": [
+        "dramatic",
+        "științific",
+        "epic",
+        "liric"
+       ],
+       "corect": 2,
+       "explicatie": "Balada are subiect și personaje, deci aparține genului epic."
+      },
+      {
+       "text": "Ce motiv central apare în „Miorița”?",
+       "variante": [
+        "lupta cu zmeul",
+        "alegoria moarte–nuntă",
+        "călătoria în timp",
+        "iubirea dintre un muritor și un astru"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Cine îl avertizează pe ciobanul moldovean de complot?",
+       "variante": [
+        "mioara năzdrăvană",
+        "câinele cel mai bărbătesc",
+        "un vrăjitor",
+        "măicuța bătrână"
+       ],
+       "corect": 0,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "„Amintiri din copilărie” de Ion Creangă",
+     "clasa": "IX",
+     "descriere": "Opera memorialistică și personajul Nică.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Opera memorialistică",
+       "notite": [
+        {
+         "titlu": "Amintirile",
+         "text": "„Amintiri din copilărie” este o operă cu caracter autobiografic, în care Ion Creangă își evocă, cu umor și nostalgie, copilăria din Humulești."
+        }
+       ]
+      },
+      {
+       "titlu": "Personajul Nică",
+       "notite": [
+        {
+         "titlu": "Nică",
+         "text": "Nică este copilul neastâmpărat, curios și năzdrăvan. Printre întâmplările celebre se numără furtul cireșelor, scăldatul și prinderea muștelor cu ceaslovul."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Satul copilăriei lui Ion Creangă este:",
+       "variante": [
+        "Mirosloveni",
+        "Humulești",
+        "Ipotești",
+        "Lancrăm"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Ce fel de operă este „Amintiri din copilărie”?",
+       "variante": [
+        "memorialistică, cu caracter autobiografic",
+        "roman de dragoste",
+        "dramă istorică",
+        "poezie lirică"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Cum se numește copilul din „Amintiri din copilărie”?",
+       "variante": [
+        "Ionel",
+        "Fănică",
+        "Ghiță",
+        "Nică"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Ce întâmplare apare în „Amintiri din copilărie”?",
+       "variante": [
+        "lupta cu Spânul",
+        "călătoria la mare",
+        "furtul cireșelor",
+        "căutarea comorii"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Nuvela istorică: „Alexandru Lăpușneanul”",
+     "clasa": "X",
+     "descriere": "Nuvela romantică a lui Costache Negruzzi și personajul domnitorului tiran.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Nuvela istorică",
+       "notite": [
+        {
+         "titlu": "Context",
+         "text": "Costache Negruzzi a publicat nuvela în 1840, în „Dacia literară”. Subiectul este inspirat din letopisețul lui Grigore Ureche, iar nuvela are patru capitole, fiecare cu un motto."
+        }
+       ]
+      },
+      {
+       "titlu": "Personajul Lăpușneanul",
+       "notite": [
+        {
+         "titlu": "Tiranul",
+         "text": "Alexandru Lăpușneanul este un domnitor tiran, crud și disimulat, construit în manieră romantică. Replica „Dacă voi nu mă vreți, eu vă vreu...” arată voința lui de a domni."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cine a scris nuvela „Alexandru Lăpușneanul”?",
+       "variante": [
+        "Costache Negruzzi",
+        "Mihail Sadoveanu",
+        "Ion Luca Caragiale",
+        "Ioan Slavici"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "În ce revistă a apărut nuvela, în 1840?",
+       "variante": [
+        "„Convorbiri literare”",
+        "„Sburătorul”",
+        "„Gândirea”",
+        "„Dacia literară”"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Câte capitole are nuvela?",
+       "variante": [
+        "cinci",
+        "două",
+        "patru",
+        "trei"
+       ],
+       "corect": 2,
+       "explicatie": "Fiecare dintre cele patru capitole are un motto."
+      },
+      {
+       "text": "Din letopisețul cărui cronicar este inspirat subiectul?",
+       "variante": [
+        "Constantin Cantacuzino",
+        "Grigore Ureche",
+        "Ion Neculce",
+        "Dimitrie Cantemir"
+       ],
+       "corect": 1,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Comedia: „O scrisoare pierdută”",
+     "clasa": "XI",
+     "descriere": "Conflictul, personajele și tipurile de comic la I. L. Caragiale.",
+     "vizibilitate": "organizatie",
+     "capitole": [
+      {
+       "titlu": "Conflictul comediei",
+       "notite": [
+        {
+         "titlu": "Subiectul",
+         "text": "Comedia lui I. L. Caragiale, jucată în 1884, are în centru pierderea unei scrisori de amor, folosită ca armă de șantaj în campania electorală dintr-o capitală de județ."
+        }
+       ]
+      },
+      {
+       "titlu": "Personajele și comicul",
+       "notite": [
+        {
+         "titlu": "Tipuri umane",
+         "text": "Personajele sunt tipuri: Cațavencu (demagogul), Farfuridi și Brânzovenescu, Tipătescu și Zoe, Agamiță Dandanache. Comicul este de situație, de limbaj, de caracter și de nume."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cine a scris „O scrisoare pierdută”?",
+       "variante": [
+        "Camil Petrescu",
+        "I. L. Caragiale",
+        "Vasile Alecsandri",
+        "Marin Sorescu"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Ce personaj folosește scrisoarea pentru șantaj?",
+       "variante": [
+        "Nae Cațavencu",
+        "Farfuridi",
+        "Ghiță Pristanda",
+        "Agamiță Dandanache"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Cine este ales deputat la finalul comediei?",
+       "variante": [
+        "Nae Cațavencu",
+        "Farfuridi",
+        "Tipătescu",
+        "Agamiță Dandanache"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Specia literară a operei este:",
+       "variante": [
+        "drama",
+        "nuvela",
+        "comedia",
+        "tragedia"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Romanul psihologic: „Ultima noapte de dragoste, întâia noapte de război”",
+     "clasa": "XII",
+     "descriere": "Romanul subiectiv al lui Camil Petrescu.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Romanul subiectiv",
+       "notite": [
+        {
+         "titlu": "Narațiunea",
+         "text": "Romanul lui Camil Petrescu (1930) este narat la persoana I de Ștefan Gheorghidiu. Este un roman al experienței, cu analiză psihologică și timp subiectiv."
+        }
+       ]
+      },
+      {
+       "titlu": "Iubire și război",
+       "notite": [
+        {
+         "titlu": "Cele două părți",
+         "text": "Prima parte urmărește gelozia lui Gheorghidiu față de Ela; a doua, experiența frontului din Primul Război Mondial, care relativizează drama iubirii."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cine este autorul romanului?",
+       "variante": [
+        "Camil Petrescu",
+        "Liviu Rebreanu",
+        "George Călinescu",
+        "Marin Preda"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "La ce persoană este narat romanul?",
+       "variante": [
+        "persoana a II-a",
+        "persoana a III-a",
+        "nu are narator",
+        "persoana I"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Cum se numește soția lui Ștefan Gheorghidiu?",
+       "variante": [
+        "Ana",
+        "Vitoria",
+        "Ela",
+        "Otilia"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Ce război apare în a doua parte a romanului?",
+       "variante": [
+        "Războiul Crimeii",
+        "Primul Război Mondial",
+        "Al Doilea Război Mondial",
+        "Războiul de Independență"
+       ],
+       "corect": 1,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Poezia modernistă: Lucian Blaga",
+     "clasa": "XII",
+     "descriere": "Arta poetică și cunoașterea luciferică.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "„Eu nu strivesc corola de minuni a lumii”",
+       "notite": [
+        {
+         "titlu": "Arta poetică",
+         "text": "Poezia deschide volumul „Poemele luminii” (1919) și este o artă poetică: poetul alege să sporească misterul lumii prin iubire și poezie."
+        }
+       ]
+      },
+      {
+       "titlu": "Cunoașterea luciferică",
+       "notite": [
+        {
+         "titlu": "Două tipuri de cunoaștere",
+         "text": "Blaga distinge cunoașterea paradisiacă, ce încearcă să lămurească misterul, de cea luciferică, ce îl adâncește. Lumina proprie a poetului „sporește a lumii taină”."
+        }
+       ]
+      }
+     ],
+     "intrebari": [],
+     "fisiere": []
+    }
+   ]
+  },
+  {
+   "cod": "fizica",
+   "denumire": "Fizică",
+   "descriere": "Mecanică, termodinamică, electricitate, oscilații și fizică modernă.",
+   "profesor": {
+    "username": "profesor-fizica",
+    "nume": "Andrei Dumitrescu"
+   },
+   "lectii": [
+    {
+     "titlu": "Mișcarea rectilinie",
+     "clasa": "IX",
+     "descriere": "Mărimi cinematice, mișcarea uniformă și cea uniform variată.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Mărimi cinematice",
+       "notite": [
+        {
+         "titlu": "Viteza",
+         "text": "Viteza medie este raportul dintre distanța parcursă și durata mișcării: v = d/t. Unitatea de măsură în SI este m/s."
+        }
+       ]
+      },
+      {
+       "titlu": "Mișcarea rectilinie uniformă",
+       "notite": [
+        {
+         "titlu": "Legea mișcării",
+         "text": "Viteza este constantă, iar legea mișcării este x = x0 + v · t."
+        }
+       ]
+      },
+      {
+       "titlu": "Mișcarea rectilinie uniform variată",
+       "notite": [
+        {
+         "titlu": "Accelerația constantă",
+         "text": "v = v0 + a · t și x = x0 + v0 · t + a · t²/2. Ecuația lui Galilei: v² = v0² + 2a · Δx."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Unitatea de măsură a vitezei în SI este:",
+       "variante": [
+        "N",
+        "m/s",
+        "km/h",
+        "m/s²"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Un mobil parcurge 100 m în 20 s, cu viteză constantă. Viteza lui este:",
+       "variante": [
+        "5 m/s",
+        "2000 m/s",
+        "0,2 m/s",
+        "80 m/s"
+       ],
+       "corect": 0,
+       "explicatie": "v = d/t = 100/20 = 5 m/s."
+      },
+      {
+       "text": "În mișcarea rectilinie uniform variată este constantă:",
+       "variante": [
+        "viteza",
+        "poziția",
+        "distanța parcursă",
+        "accelerația"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Ecuația lui Galilei este:",
+       "variante": [
+        "x = v · t",
+        "p = m · v",
+        "v² = v0² + 2a · Δx",
+        "F = m · a"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Principiile mecanicii newtoniene",
+     "clasa": "IX",
+     "descriere": "Inerția, principiul fundamental și acțiunea și reacțiunea.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Principiul inerției",
+       "notite": [
+        {
+         "titlu": "Enunț",
+         "text": "Un corp își păstrează starea de repaus sau de mișcare rectilinie uniformă cât timp asupra lui nu acționează forțe sau forțele care acționează se compensează."
+        }
+       ]
+      },
+      {
+       "titlu": "Principiul fundamental",
+       "notite": [
+        {
+         "titlu": "F = m · a",
+         "text": "Forța rezultantă este egală cu produsul dintre masă și accelerație. Unitatea de măsură a forței este newtonul (N)."
+        }
+       ]
+      },
+      {
+       "titlu": "Acțiune și reacțiune",
+       "notite": [
+        {
+         "titlu": "Enunț",
+         "text": "Când un corp acționează asupra altuia cu o forță, al doilea acționează asupra primului cu o forță egală în modul și de sens opus."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Expresia principiului fundamental al dinamicii este:",
+       "variante": [
+        "F = m · a",
+        "E = m · c²",
+        "p = F/S",
+        "v = d/t"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Unitatea de măsură a forței este:",
+       "variante": [
+        "joule-ul",
+        "watt-ul",
+        "pascalul",
+        "newtonul"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Ce forță rezultantă acționează asupra unui corp de 2 kg cu accelerația 3 m/s²?",
+       "variante": [
+        "5 N",
+        "0,67 N",
+        "6 N",
+        "1,5 N"
+       ],
+       "corect": 2,
+       "explicatie": "F = m · a = 2 · 3 = 6 N."
+      },
+      {
+       "text": "Forțele de acțiune și reacțiune:",
+       "variante": [
+        "apar doar în repaus",
+        "sunt egale în modul și de sens opus",
+        "acționează asupra aceluiași corp",
+        "au același sens"
+       ],
+       "corect": 1,
+       "explicatie": "Ele acționează asupra unor corpuri diferite, deci nu se anulează."
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Termodinamică",
+     "clasa": "X",
+     "descriere": "Gazul ideal, principiul I și motoarele termice.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Gazul ideal",
+       "notite": [
+        {
+         "titlu": "Ecuația de stare",
+         "text": "p · V = ν · R · T, unde ν este numărul de moli, R ≈ 8,31 J/(mol · K), iar T este temperatura absolută, în kelvin."
+        }
+       ]
+      },
+      {
+       "titlu": "Principiul I al termodinamicii",
+       "notite": [
+        {
+         "titlu": "Enunț",
+         "text": "Căldura primită de sistem este egală cu variația energiei interne plus lucrul mecanic efectuat de sistem: Q = ΔU + L."
+        }
+       ]
+      },
+      {
+       "titlu": "Motoare termice",
+       "notite": [
+        {
+         "titlu": "Randamentul",
+         "text": "Randamentul unui motor termic este η = L/Q_primit și este întotdeauna mai mic decât 1. Ciclul Carnot are randamentul maxim posibil între două temperaturi date."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Ecuația de stare a gazului ideal este:",
+       "variante": [
+        "p = ρ · g · h",
+        "Q = m · c · Δt",
+        "U = R · I",
+        "p · V = ν · R · T"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Principiul I al termodinamicii se scrie:",
+       "variante": [
+        "p · V = const.",
+        "η = 1",
+        "Q = ΔU + L",
+        "F = m · a"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Randamentul unui motor termic real este:",
+       "variante": [
+        "negativ",
+        "mai mic decât 1",
+        "egal cu 1",
+        "mai mare decât 1"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Temperatura absolută se măsoară în:",
+       "variante": [
+        "kelvin",
+        "grade Celsius",
+        "jouli",
+        "pascali"
+       ],
+       "corect": 0,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Curentul electric continuu",
+     "clasa": "X",
+     "descriere": "Legea lui Ohm, legile lui Kirchhoff, energia și puterea electrică.",
+     "vizibilitate": "organizatie",
+     "capitole": [
+      {
+       "titlu": "Legea lui Ohm",
+       "notite": [
+        {
+         "titlu": "Enunț",
+         "text": "Pentru o porțiune de circuit, intensitatea curentului este I = U/R. Unitatea de măsură a rezistenței electrice este ohmul (Ω)."
+        }
+       ]
+      },
+      {
+       "titlu": "Legile lui Kirchhoff",
+       "notite": [
+        {
+         "titlu": "Nodul și ochiul",
+         "text": "Prima lege: suma intensităților curenților care intră într-un nod este egală cu suma celor care ies din nod. A doua lege se aplică pe ochiurile rețelei."
+        }
+       ]
+      },
+      {
+       "titlu": "Energia și puterea electrică",
+       "notite": [
+        {
+         "titlu": "Formule",
+         "text": "Puterea electrică este P = U · I și se măsoară în wați (W). Energia consumată este W = P · t."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Legea lui Ohm pentru o porțiune de circuit este:",
+       "variante": [
+        "R = U · I",
+        "P = U/I",
+        "I = U/R",
+        "U = I/R"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Ce intensitate are curentul printr-un rezistor de 10 Ω la tensiunea de 20 V?",
+       "variante": [
+        "30 A",
+        "2 A",
+        "200 A",
+        "0,5 A"
+       ],
+       "corect": 1,
+       "explicatie": "I = U/R = 20/10 = 2 A."
+      },
+      {
+       "text": "Puterea electrică se calculează cu formula:",
+       "variante": [
+        "P = U · I",
+        "P = U/I",
+        "P = R/I",
+        "P = I/t"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Prima lege a lui Kirchhoff se referă la:",
+       "variante": [
+        "ochiurile rețelei",
+        "rezistența internă",
+        "câmpul magnetic",
+        "nodurile rețelei"
+       ],
+       "corect": 3,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Oscilații și unde mecanice",
+     "clasa": "XI",
+     "descriere": "Oscilatorul armonic, pendulul gravitațional și undele mecanice.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Oscilatorul armonic",
+       "notite": [
+        {
+         "titlu": "Mărimi",
+         "text": "Elongația este y = A · sin(ωt + φ0). Perioada T este durata unei oscilații complete, iar frecvența este ν = 1/T."
+        }
+       ]
+      },
+      {
+       "titlu": "Pendulul gravitațional",
+       "notite": [
+        {
+         "titlu": "Perioada",
+         "text": "Pentru oscilații mici, perioada pendulului este T = 2π√(l/g) și nu depinde de masa corpului."
+        }
+       ]
+      },
+      {
+       "titlu": "Unde mecanice",
+       "notite": [
+        {
+         "titlu": "Propagarea",
+         "text": "Unda mecanică transportă energie fără transport de substanță. Lungimea de undă este λ = v · T."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Frecvența unei oscilații este legată de perioadă prin relația:",
+       "variante": [
+        "ν = 2T",
+        "ν = T²",
+        "ν = 1/T",
+        "ν = T"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Perioada pendulului gravitațional (oscilații mici) depinde de:",
+       "variante": [
+        "materialul firului",
+        "lungimea firului și accelerația gravitațională",
+        "masa corpului",
+        "culoarea corpului"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "O undă mecanică transportă:",
+       "variante": [
+        "energie, fără transport de substanță",
+        "substanță, fără energie",
+        "sarcină electrică",
+        "doar căldură"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Lungimea de undă se calculează cu:",
+       "variante": [
+        "λ = v/T",
+        "λ = T/v",
+        "λ = v + T",
+        "λ = v · T"
+       ],
+       "corect": 3,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Fizică atomică și nucleară",
+     "clasa": "XII",
+     "descriere": "Efectul fotoelectric, modelul Bohr și radioactivitatea.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Efectul fotoelectric",
+       "notite": [
+        {
+         "titlu": "Fotonii",
+         "text": "Lumina cu frecvența peste un anumit prag scoate electroni dintr-un metal. Einstein a explicat efectul prin fotoni cu energia E = h · ν."
+        }
+       ]
+      },
+      {
+       "titlu": "Modelul atomic Bohr",
+       "notite": [
+        {
+         "titlu": "Orbite staționare",
+         "text": "Electronii se mișcă pe orbite staționare fără să radieze; atomul emite sau absoarbe un foton la trecerea electronului între două niveluri de energie."
+        }
+       ]
+      },
+      {
+       "titlu": "Radioactivitatea",
+       "notite": [
+        {
+         "titlu": "Dezintegrarea",
+         "text": "Nucleele instabile se dezintegrează prin emisie alfa, beta sau gama. Timpul de înjumătățire este durata în care se dezintegrează jumătate din nucleele unei probe."
+        }
+       ]
+      }
+     ],
+     "intrebari": [],
+     "fisiere": []
+    }
+   ]
+  },
+  {
+   "cod": "geografie",
+   "denumire": "Geografie",
+   "descriere": "Geografie fizică, umană și geografia României.",
+   "profesor": {
+    "username": "profesor-geografie",
+    "nume": "Ioana Stan"
+   },
+   "lectii": [
+    {
+     "titlu": "Pământul, planetă a Sistemului Solar",
+     "clasa": "IX",
+     "descriere": "Forma și mișcările Pământului, coordonatele geografice.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Forma și mișcările Pământului",
+       "notite": [
+        {
+         "titlu": "Mișcările",
+         "text": "Pământul are forma de geoid. Mișcarea de rotație (circa 24 de ore) produce alternanța zi–noapte, iar mișcarea de revoluție (circa 365 de zile) produce anotimpurile, împreună cu înclinarea axei."
+        }
+       ]
+      },
+      {
+       "titlu": "Coordonatele geografice",
+       "notite": [
+        {
+         "titlu": "Latitudine și longitudine",
+         "text": "Latitudinea se măsoară de la Ecuator spre poli (0–90° nord sau sud), iar longitudinea de la meridianul Greenwich (0–180° est sau vest)."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Alternanța zi–noapte este produsă de mișcarea de:",
+       "variante": [
+        "rotație",
+        "revoluție",
+        "precesie",
+        "translație a Lunii"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Latitudinea se măsoară față de:",
+       "variante": [
+        "meridianul Greenwich",
+        "Polul Nord",
+        "Tropicul Racului",
+        "Ecuator"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Forma reală a Pământului se numește:",
+       "variante": [
+        "cilindru",
+        "elipsă plană",
+        "geoid",
+        "sferă perfectă"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Aproximativ câte zile durează mișcarea de revoluție a Pământului?",
+       "variante": [
+        "180",
+        "365",
+        "24",
+        "30"
+       ],
+       "corect": 1,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Atmosfera și clima",
+     "clasa": "IX",
+     "descriere": "Straturile atmosferei, elementele climatice și zonele climatice.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Structura atmosferei",
+       "notite": [
+        {
+         "titlu": "Straturile",
+         "text": "Troposfera este stratul inferior, în care au loc fenomenele meteorologice. Deasupra ei se află stratosfera, care conține stratul de ozon."
+        }
+       ]
+      },
+      {
+       "titlu": "Elementele climatice",
+       "notite": [
+        {
+         "titlu": "Elemente",
+         "text": "Principalele elemente climatice sunt temperatura aerului, presiunea atmosferică, vântul și precipitațiile. În troposferă temperatura scade, în medie, cu circa 0,6 °C la fiecare 100 m altitudine."
+        }
+       ]
+      },
+      {
+       "titlu": "Zonele climatice",
+       "notite": [
+        {
+         "titlu": "Zonele",
+         "text": "Pe Pământ se disting zona caldă (ecuatorială și tropicală), zonele temperate și zonele reci (polare)."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Fenomenele meteorologice au loc în:",
+       "variante": [
+        "mezosferă",
+        "termosferă",
+        "troposferă",
+        "stratosferă"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Stratul de ozon se află în:",
+       "variante": [
+        "hidrosferă",
+        "stratosferă",
+        "troposferă",
+        "litosferă"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "În troposferă, odată cu altitudinea, temperatura:",
+       "variante": [
+        "scade",
+        "crește",
+        "rămâne constantă",
+        "se dublează"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Care dintre următoarele NU este un element climatic?",
+       "variante": [
+        "temperatura aerului",
+        "precipitațiile",
+        "vântul",
+        "relieful"
+       ],
+       "corect": 3,
+       "explicatie": "Relieful este un factor care influențează clima, nu un element climatic."
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Geografia populației",
+     "clasa": "X",
+     "descriere": "Numărul și distribuția populației, mișcarea naturală și migrațiile.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Numărul și distribuția populației",
+       "notite": [
+        {
+         "titlu": "Densitatea",
+         "text": "Populația lumii depășește 8 miliarde de locuitori. Densitatea populației este numărul de locuitori pe kilometru pătrat."
+        }
+       ]
+      },
+      {
+       "titlu": "Mișcarea naturală",
+       "notite": [
+        {
+         "titlu": "Bilanțul natural",
+         "text": "Bilanțul natural este diferența dintre natalitate și mortalitate. Când mortalitatea este mai mare, populația scade natural."
+        }
+       ]
+      },
+      {
+       "titlu": "Migrațiile",
+       "notite": [
+        {
+         "titlu": "Tipuri",
+         "text": "Migrațiile pot fi interne sau externe, temporare sau definitive. Cauzele sunt economice, politice, sociale sau de mediu."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Densitatea populației se exprimă în:",
+       "variante": [
+        "locuitori/km²",
+        "km²/locuitor",
+        "locuitori/an",
+        "‰"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Bilanțul natural este diferența dintre:",
+       "variante": [
+        "emigrare și imigrare",
+        "populația urbană și cea rurală",
+        "numărul bărbaților și al femeilor",
+        "natalitate și mortalitate"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Populația lumii este, în prezent, de:",
+       "variante": [
+        "circa 500 de milioane",
+        "peste 20 de miliarde",
+        "peste 8 miliarde de locuitori",
+        "circa 2 miliarde"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Plecarea cuiva din România pentru a lucra în Italia este o migrație:",
+       "variante": [
+        "rurală",
+        "externă",
+        "internă",
+        "naturală"
+       ],
+       "corect": 1,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Probleme fundamentale ale lumii contemporane",
+     "clasa": "XI",
+     "descriere": "Globalizarea, resursele și mediul.",
+     "vizibilitate": "organizatie",
+     "capitole": [
+      {
+       "titlu": "Globalizarea",
+       "notite": [
+        {
+         "titlu": "Definiție",
+         "text": "Globalizarea este creșterea legăturilor economice, culturale și politice dintre state. Companiile multinaționale și comerțul internațional sunt motoarele ei."
+        }
+       ]
+      },
+      {
+       "titlu": "Resursele și mediul",
+       "notite": [
+        {
+         "titlu": "Resurse",
+         "text": "Resursele neregenerabile (petrol, gaze naturale, cărbune) se epuizează; cele regenerabile (solară, eoliană, hidro) se refac. Arderea combustibililor fosili contribuie la încălzirea globală."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Care dintre resursele următoare este regenerabilă?",
+       "variante": [
+        "energia solară",
+        "petrolul",
+        "cărbunele",
+        "gazele naturale"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Încălzirea globală este accentuată de:",
+       "variante": [
+        "împădurire",
+        "energia eoliană",
+        "reciclare",
+        "arderea combustibililor fosili"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Un motor al globalizării îl reprezintă:",
+       "variante": [
+        "agricultura de subzistență",
+        "izolarea culturală",
+        "companiile multinaționale",
+        "granițele închise"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Petrolul este o resursă:",
+       "variante": [
+        "care se reface anual",
+        "neregenerabilă",
+        "regenerabilă",
+        "inepuizabilă"
+       ],
+       "corect": 1,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Relieful României",
+     "clasa": "XII",
+     "descriere": "Carpații, dealurile, podișurile, câmpiile și Delta Dunării.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Carpații",
+       "notite": [
+        {
+         "titlu": "Lanțul carpatic",
+         "text": "Carpații românești au circa 910 km și se împart în Carpații Orientali, Meridionali și Occidentali. Cel mai înalt vârf este Moldoveanu (2544 m), în Munții Făgăraș."
+        }
+       ]
+      },
+      {
+       "titlu": "Dealurile, podișurile și câmpiile",
+       "notite": [
+        {
+         "titlu": "Unități",
+         "text": "Podișul Transilvaniei se află în interiorul arcului carpatic. Câmpia Română, în sudul țării, este cea mai întinsă câmpie a României."
+        }
+       ]
+      },
+      {
+       "titlu": "Delta Dunării",
+       "notite": [
+        {
+         "titlu": "Delta",
+         "text": "Delta Dunării este cea mai nouă unitate de relief a României și face parte din patrimoniul mondial UNESCO. Dunărea se varsă în Marea Neagră prin brațele Chilia, Sulina și Sfântu Gheorghe."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Cel mai înalt vârf din România este:",
+       "variante": [
+        "Negoiu",
+        "Omu",
+        "Pietrosul Rodnei",
+        "Moldoveanu"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "În ce munți se află vârful Moldoveanu?",
+       "variante": [
+        "Munții Apuseni",
+        "Munții Rodnei",
+        "Munții Făgăraș",
+        "Munții Bucegi"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Care dintre următoarele NU este un braț al Dunării în Deltă?",
+       "variante": [
+        "Sfântu Gheorghe",
+        "Mureș",
+        "Chilia",
+        "Sulina"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Cea mai nouă unitate de relief a României este:",
+       "variante": [
+        "Delta Dunării",
+        "Carpații Orientali",
+        "Podișul Dobrogei",
+        "Câmpia de Vest"
+       ],
+       "corect": 0,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "Hidrografia și clima României",
+     "clasa": "XII",
+     "descriere": "Dunărea, râurile și clima temperat-continentală a României.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Dunărea",
+       "notite": [
+        {
+         "titlu": "Fluviul",
+         "text": "Dunărea străbate sau mărginește România pe circa 1075 km și formează defileul de la Porțile de Fier, la granița cu Serbia."
+        }
+       ]
+      },
+      {
+       "titlu": "Clima României",
+       "notite": [
+        {
+         "titlu": "Influențe",
+         "text": "România are o climă temperat-continentală, cu influențe oceanice în vest, continentale excesive în est și pontice lângă Marea Neagră."
+        }
+       ]
+      }
+     ],
+     "intrebari": [],
+     "fisiere": []
+    }
+   ]
+  },
+  {
+   "cod": "istorie",
+   "denumire": "Istorie",
+   "descriere": "De la Antichitate la România contemporană.",
+   "profesor": {
+    "username": "profesor-istorie",
+    "nume": "Radu Georgescu"
+   },
+   "lectii": [
+    {
+     "titlu": "Antichitatea: Atena și Roma",
+     "clasa": "IX",
+     "descriere": "Democrația ateniană și trecerea Romei de la Republică la Imperiu.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Democrația ateniană",
+       "notite": [
+        {
+         "titlu": "Reformele",
+         "text": "La Atena, reformele lui Clistene (508–507 î.Hr.) au pus bazele democrației. Adunarea poporului (Ecclesia) lua deciziile importante ale cetății."
+        }
+       ]
+      },
+      {
+       "titlu": "Roma: de la Republică la Imperiu",
+       "notite": [
+        {
+         "titlu": "Instituțiile",
+         "text": "Republica romană era condusă de doi consuli aleși anual și de Senat. În anul 27 î.Hr., Octavian a primit titlul de Augustus, iar Roma a devenit imperiu."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Reformele cărui om politic, din 508–507 î.Hr., au pus bazele democrației ateniene?",
+       "variante": [
+        "Augustus",
+        "Clistene",
+        "Iulius Cezar",
+        "Leonidas"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Câți consuli conduceau anual Republica romană?",
+       "variante": [
+        "doi",
+        "unul",
+        "trei",
+        "zece"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Primul împărat roman a fost:",
+       "variante": [
+        "Traian",
+        "Nero",
+        "Iulius Cezar",
+        "Augustus"
+       ],
+       "corect": 3,
+       "explicatie": "Octavian a primit titlul de Augustus în 27 î.Hr."
+      },
+      {
+       "text": "Adunarea poporului la Atena se numea:",
+       "variante": [
+        "Forum",
+        "Comițiile centuriate",
+        "Ecclesia",
+        "Senat"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": [
+      {
+       "tip": "pdf",
+       "nume": "Fișă de lucru - Atena și Roma.pdf",
+       "text": "Fișă de lucru: Atena și Roma\n1. Explicați rolul Adunării poporului (Ecclesia) în democrația ateniană.\n2. Ce reforme a făcut Clistene în 508–507 î.Hr.?\n3. Comparați Republica romană (doi consuli, Senat) cu Imperiul lui Augustus (din 27 î.Hr.).\n4. Numiți două instituții ale Republicii romane."
+      },
+      {
+       "tip": "docx",
+       "nume": "Rezumat - democrația ateniană.docx",
+       "text": "Rezumat: democrația ateniană\nDemocrația ateniană s-a format treptat. Solon a început reformele, iar Clistene (508–507 î.Hr.) a împărțit cetățenii în zece triburi și a creat Sfatul celor 500.\nÎn timpul lui Pericle (secolul V î.Hr.), democrația a ajuns la apogeu. Femeile, sclavii și metecii nu aveau drepturi politice."
+      }
+     ]
+    },
+    {
+     "titlu": "Geto-dacii și romanizarea",
+     "clasa": "IX",
+     "descriere": "Statul dac, războaiele daco-romane și romanizarea.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Statul dac",
+       "notite": [
+        {
+         "titlu": "Burebista și Decebal",
+         "text": "Burebista (82–44 î.Hr.) a unificat triburile geto-dacice. Decebal a condus Dacia în războaiele cu Imperiul Roman."
+        }
+       ]
+      },
+      {
+       "titlu": "Războaiele daco-romane",
+       "notite": [
+        {
+         "titlu": "Cucerirea",
+         "text": "Împăratul Traian a purtat două războaie împotriva dacilor (101–102 și 105–106). În anul 106, cea mai mare parte a Daciei a devenit provincie romană."
+        }
+       ]
+      },
+      {
+       "titlu": "Romanizarea",
+       "notite": [
+        {
+         "titlu": "Procesul",
+         "text": "Romanizarea a însemnat preluarea limbii latine și a modului de viață roman de către populația dacă. Retragerea aureliană a avut loc între 271 și 275."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Ce rege a unificat triburile geto-dacice în secolul I î.Hr.?",
+       "variante": [
+        "Decebal",
+        "Dromihete",
+        "Traian",
+        "Burebista"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "În ce an a devenit Dacia provincie romană?",
+       "variante": [
+        "271",
+        "44 î.Hr.",
+        "106",
+        "101"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Ce împărat roman a cucerit Dacia?",
+       "variante": [
+        "Hadrian",
+        "Traian",
+        "Augustus",
+        "Aurelian"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Retragerea aureliană a avut loc în anii:",
+       "variante": [
+        "271–275",
+        "101–102",
+        "105–106",
+        "330–337"
+       ],
+       "corect": 0,
+       "explicatie": null
+      }
+     ],
+     "fisiere": [
+      {
+       "tip": "pdf",
+       "nume": "Cronologie - războaiele daco-romane.pdf",
+       "text": "Cronologie: războaiele daco-romane\n82–44 î.Hr.: domnia lui Burebista.\n87–106 d.Hr.: domnia lui Decebal.\n101–102: primul război daco-roman.\n105–106: al doilea război daco-roman; Dacia devine provincie romană.\n271–275: retragerea aureliană."
+      },
+      {
+       "tip": "docx",
+       "nume": "Fișă - romanizarea.docx",
+       "text": "Fișă: romanizarea\nRomanizarea este procesul prin care populația dacă a preluat limba latină și modul de viață roman.\nFactori: colonizarea, armata, administrația, urbanizarea și creștinismul.\nRezultatul: formarea poporului român și a limbii române, limbă romanică."
+      }
+     ]
+    },
+    {
+     "titlu": "Țările Române în Evul Mediu",
+     "clasa": "X",
+     "descriere": "Formarea statelor medievale și marii domnitori.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Formarea statelor medievale",
+       "notite": [
+        {
+         "titlu": "Întemeierea",
+         "text": "Țara Românească și-a câștigat independența după bătălia de la Posada (1330), sub Basarab I, iar Moldova a devenit independentă în 1359, sub Bogdan I."
+        }
+       ]
+      },
+      {
+       "titlu": "Mircea cel Bătrân și Ștefan cel Mare",
+       "notite": [
+        {
+         "titlu": "Lupta antiotomană",
+         "text": "Mircea cel Bătrân (1386–1418) i-a învins pe otomani la Rovine (1395). Ștefan cel Mare (1457–1504) a câștigat bătălia de la Vaslui (1475)."
+        }
+       ]
+      },
+      {
+       "titlu": "Mihai Viteazul",
+       "notite": [
+        {
+         "titlu": "Unirea din 1600",
+         "text": "În 1600, Mihai Viteazul a realizat prima unire politică a Țării Românești, Transilvaniei și Moldovei."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Bătălia de la Posada (1330) este legată de numele lui:",
+       "variante": [
+        "Vlad Țepeș",
+        "Basarab I",
+        "Bogdan I",
+        "Mihai Viteazul"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Ștefan cel Mare i-a învins pe otomani la:",
+       "variante": [
+        "Vaslui (1475)",
+        "Rovine (1395)",
+        "Călugăreni (1595)",
+        "Mohács (1526)"
+       ],
+       "corect": 0,
+       "explicatie": null
+      },
+      {
+       "text": "Prima unire politică a celor trei țări române a avut loc în:",
+       "variante": [
+        "1859",
+        "1918",
+        "1475",
+        "1600"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "Moldova a devenit independentă în 1359, sub:",
+       "variante": [
+        "Mircea cel Bătrân",
+        "Petru Rareș",
+        "Bogdan I",
+        "Basarab I"
+       ],
+       "corect": 2,
+       "explicatie": null
+      }
+     ],
+     "fisiere": [
+      {
+       "tip": "pdf",
+       "nume": "Domnitori - Evul Mediu românesc.pdf",
+       "text": "Domnitori ai Evului Mediu românesc\nBasarab I: bătălia de la Posada (1330).\nBogdan I: independența Moldovei (1359).\nMircea cel Bătrân (1386–1418): Rovine, 1395.\nȘtefan cel Mare (1457–1504): Vaslui, 1475.\nMihai Viteazul: unirea din 1600."
+      },
+      {
+       "tip": "docx",
+       "nume": "Întrebări de recapitulare - Evul Mediu.docx",
+       "text": "Întrebări de recapitulare: Evul Mediu\n1. Ce importanță a avut bătălia de la Posada?\n2. Cine a întemeiat statul independent Moldova?\n3. Care au fost marile victorii antiotomane ale lui Mircea cel Bătrân și Ștefan cel Mare?\n4. De ce este importantă unirea din 1600?"
+      }
+     ]
+    },
+    {
+     "titlu": "Formarea României moderne",
+     "clasa": "XI",
+     "descriere": "Revoluția de la 1848, Unirea Principatelor și Independența.",
+     "vizibilitate": "organizatie",
+     "capitole": [
+      {
+       "titlu": "Revoluția de la 1848",
+       "notite": [
+        {
+         "titlu": "Revoluțiile",
+         "text": "În 1848 au avut loc revoluții în Moldova, Țara Românească și Transilvania. Proclamația de la Islaz cerea, printre altele, egalitatea în drepturi și împroprietărirea țăranilor."
+        }
+       ]
+      },
+      {
+       "titlu": "Unirea Principatelor",
+       "notite": [
+        {
+         "titlu": "Dubla alegere",
+         "text": "Alexandru Ioan Cuza a fost ales domn al Moldovei la 5 ianuarie 1859 și al Țării Românești la 24 ianuarie 1859."
+        }
+       ]
+      },
+      {
+       "titlu": "Independența",
+       "notite": [
+        {
+         "titlu": "1877–1878",
+         "text": "România și-a proclamat independența la 9 mai 1877, iar aceasta a fost recunoscută la Congresul de la Berlin (1878)."
+        }
+       ]
+      }
+     ],
+     "intrebari": [
+      {
+       "text": "Când a fost ales Alexandru Ioan Cuza domn al Țării Românești?",
+       "variante": [
+        "1 decembrie 1918",
+        "9 mai 1877",
+        "5 ianuarie 1866",
+        "24 ianuarie 1859"
+       ],
+       "corect": 3,
+       "explicatie": null
+      },
+      {
+       "text": "În ce an și-a proclamat România independența?",
+       "variante": [
+        "1918",
+        "1848",
+        "1877",
+        "1859"
+       ],
+       "corect": 2,
+       "explicatie": null
+      },
+      {
+       "text": "Programul revoluției din Țara Românească a fost:",
+       "variante": [
+        "Constituția din 1923",
+        "Proclamația de la Islaz",
+        "Tratatul de la Trianon",
+        "Regulamentul Organic"
+       ],
+       "corect": 1,
+       "explicatie": null
+      },
+      {
+       "text": "Independența României a fost recunoscută la:",
+       "variante": [
+        "Congresul de la Berlin",
+        "Conferința de pace de la Paris (1919)",
+        "Tratatul de la Adrianopol",
+        "Congresul de la Viena"
+       ],
+       "corect": 0,
+       "explicatie": null
+      }
+     ],
+     "fisiere": []
+    },
+    {
+     "titlu": "România în secolul XX",
+     "clasa": "XII",
+     "descriere": "Marea Unire, regimul comunist și Revoluția din 1989.",
+     "vizibilitate": "public",
+     "capitole": [
+      {
+       "titlu": "Marea Unire",
+       "notite": [
+        {
+         "titlu": "1918",
+         "text": "La 1 decembrie 1918, Adunarea de la Alba Iulia a proclamat unirea Transilvaniei cu România, după unirea Basarabiei (martie 1918) și a Bucovinei (noiembrie 1918)."
+        }
+       ]
+      },
+      {
+       "titlu": "Regimul comunist",
+       "notite": [
+        {
+         "titlu": "1947–1989",
+         "text": "După abdicarea regelui Mihai, la 30 decembrie 1947, România a devenit republică populară, sub regim comunist. Nicolae Ceaușescu a condus țara între 1965 și 1989."
+        }
+       ]
+      },
+      {
+       "titlu": "Revoluția din 1989",
+       "notite": [
+        {
+         "titlu": "Căderea regimului",
+         "text": "În decembrie 1989, revoluția începută la Timișoara a dus la căderea regimului comunist."
+        }
+       ]
+      }
+     ],
+     "intrebari": [],
+     "fisiere": []
+    }
+   ]
+  }
+ ]
+}

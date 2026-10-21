@@ -47,8 +47,8 @@ export default function PaginaMaterie() {
         <section className="tv-erou">
           <Link href="/materiale" className="tv-erou-pill">← Materii</Link>
           <h1>{materie.denumire}</h1>
-          <p>Alege o lecție. Fiecare lecție e o hartă cu insule, câte una pentru fiecare capitol; poți începe cu orice capitol.</p>
-          <span className="tv-pastila tv-pastila-aur">{materie.cursuriCompletate} din {materie.numarCursuri} capitole terminate</span>
+          <p>Alege o lecție. Fiecare lecție e o hartă cu insule, câte una pentru fiecare capitol; poți începe cu orice capitol. Lecția e terminată când treci testul ei.</p>
+          <span className="tv-pastila tv-pastila-aur">{materie.lectiiCompletate} din {materie.numarLectii} {materie.numarLectii === 1 ? 'lecție terminată' : 'lecții terminate'}</span>
         </section>
         <div className="tv-coala">
           <div className="tv-filtre" role="group" aria-label="Filtru după clasă">
@@ -79,8 +79,8 @@ export default function PaginaMaterie() {
                 {l.descriere && <p className="tv-indiciu">{l.descriere}</p>}
                 <span className="tv-cine">{l.autor ?? 'Autor necunoscut'}{l.organizatie ? ` · ${l.organizatie}` : ' · conținut al platformei'}</span>
                 {l.loc && <span className="tv-cine">{l.loc}{l.inLocalitateaTa ? ' · în localitatea ta' : ''}</span>}
-                <div className="tv-bara tv-bara-verde"><i style={{ width: `${l.numarCapitole ? (l.capitoleCompletate / l.numarCapitole) * 100 : 0}%` }} /></div>
-                <span className="tv-cine">{l.capitoleCompletate} din {l.numarCapitole} {l.numarCapitole === 1 ? 'capitol terminat' : 'capitole terminate'}</span>
+                <span className="tv-cine">{l.numarCapitole} {l.numarCapitole === 1 ? 'capitol' : 'capitole'}</span>
+                {l.completata && <span className="tv-pastila tv-pastila-verde">Terminată ✓</span>}
               </Link>
             ))}
           </div>

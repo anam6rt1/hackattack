@@ -2,63 +2,59 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Data.Servicii;
 
-public enum ActivitateCurs { Video, Materiale, Quiz }
-
-public record RezultatProgres(bool VideoVazut, bool MaterialeCitite, bool QuizPromovat, DateTime? CompletatLa, int XpCastigat);
+public record RezultatProgres(DateTime? PromovatLa, int XpCastigat);
 
 public record NivelCurent(int Nivel, string Titlu, int XpTotal, int XpNivel, int? XpUrmatorNivel, string? TitluUrmator);
 
 /// <summary>
-/// Course progress and XP. A course is completed when its quiz is passed; the XP for it is awarded once
-/// per user and course, guarded by the unique reward key in the database (safe under concurrent requests).
+/// Lecție progress and XP. A Lecție is completed only by passing its quiz; the XP for it is awarded once per user and Lecție,
+/// guarded by the unique reward key in the database (safe under concurrent requests). Reading a chapter only records where
+/// the student left off.
 /// </summary>
 public sealed class ProgresService(MarkAiDbContext db)
 {
-    public const int XpCurs = 100;
-    public const int PuncteMaterieCurs = 10;
+    public const int XpLectie = 100;
+    public const int PuncteMaterieLectie = 10;
 
-    public static string CheieRecompensaCurs(int cursId, int utilizatorId) => $"curs:{cursId}:utilizator:{utilizatorId}";
+    public static string CheieRecompensaLectie(int parcursId, int utilizatorId) => $"lectie:{parcursId}:utilizator:{utilizatorId}";
 
-    public async Task<RezultatProgres> MarcheazaAsync(int utilizatorId, int cursId, ActivitateCurs activitate, CancellationToken ct = default)
+    /// <summary>Records that the student read this chapter (the map recommends the one after the last read; "continue" leads there).</summary>
+    public async Task AcceseazaAsync(int utilizatorId, int cursId, CancellationToken ct = default)
     {
-        var materieId = await db.Curs.Where(c => c.Id == cursId && c.Publicat && c.Parcurs.Publicat).Select(c => (int?)c.MaterieId).SingleOrDefaultAsync(ct)
-            ?? throw new KeyNotFoundException("Cursul nu există.");
+        var parcursId = await db.Curs.Where(c => c.Id == cursId).Select(c => (int?)c.ParcursId).SingleOrDefaultAsync(ct)
+            ?? throw new KeyNotFoundException("Capitolul nu există.");
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO mark_ai.progres_lectie (utilizator_id, parcurs_id, ultimul_curs_id, ultima_accesare)
+            VALUES ({utilizatorId}, {parcursId}, {cursId}, now())
+            ON CONFLICT (utilizator_id, parcurs_id) DO UPDATE SET ultimul_curs_id = excluded.ultimul_curs_id, ultima_accesare = now()
+            """, ct);
+    }
+
+    /// <summary>The student passed the Lecție's quiz: completion time kept from the first pass, XP awarded once.</summary>
+    public async Task<RezultatProgres> PromoveazaAsync(int utilizatorId, int parcursId, CancellationToken ct = default)
+    {
+        var materieId = await db.Set<Entities.Parcurs>().Where(p => p.Id == parcursId && p.Publicat).Select(p => (int?)p.MaterieId).SingleOrDefaultAsync(ct)
+            ?? throw new KeyNotFoundException("Lecția nu există.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var video = activitate == ActivitateCurs.Video;
-        var materiale = activitate == ActivitateCurs.Materiale;
-        var quiz = activitate == ActivitateCurs.Quiz;
-        // Upsert: flags only ever turn on; completion time is kept from the first pass.
         await db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO mark_ai.progres_curs (utilizator_id, curs_id, video_vazut, materiale_citite, quiz_promovat, completat_la, ultima_accesare)
-            VALUES ({utilizatorId}, {cursId}, {video}, {materiale}, {quiz}, CASE WHEN {quiz} THEN now() END, now())
-            ON CONFLICT (utilizator_id, curs_id) DO UPDATE SET
-                video_vazut = progres_curs.video_vazut OR excluded.video_vazut,
-                materiale_citite = progres_curs.materiale_citite OR excluded.materiale_citite,
-                quiz_promovat = progres_curs.quiz_promovat OR excluded.quiz_promovat,
-                completat_la = COALESCE(progres_curs.completat_la, excluded.completat_la),
+            INSERT INTO mark_ai.progres_lectie (utilizator_id, parcurs_id, promovat_la, ultima_accesare)
+            VALUES ({utilizatorId}, {parcursId}, now(), now())
+            ON CONFLICT (utilizator_id, parcurs_id) DO UPDATE SET
+                promovat_la = COALESCE(progres_lectie.promovat_la, excluded.promovat_la),
                 ultima_accesare = now()
             """, ct);
-
-        var xp = 0;
-        if (quiz)
-        {
-            await db.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO mark_ai.utilizator_materie (utilizator_id, materie_id) VALUES ({utilizatorId}, {materieId})
-                ON CONFLICT DO NOTHING
-                """, ct);
-            var cheie = CheieRecompensaCurs(cursId, utilizatorId);
-            xp = await db.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO mark_ai.eveniment_recompensa (utilizator_id, materie_id, xp_acordat, puncte_materie, tip_eveniment, cheie_unica)
-                VALUES ({utilizatorId}, {materieId}, {XpCurs}, {PuncteMaterieCurs}, 'curs_completat', {cheie})
-                ON CONFLICT (cheie_unica) DO NOTHING
-                """, ct) == 1 ? XpCurs : 0;
-        }
+        var cheie = CheieRecompensaLectie(parcursId, utilizatorId);
+        var xp = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO mark_ai.eveniment_recompensa (utilizator_id, materie_id, xp_acordat, puncte_materie, tip_eveniment, cheie_unica)
+            VALUES ({utilizatorId}, {materieId}, {XpLectie}, {PuncteMaterieLectie}, 'lectie_completata', {cheie})
+            ON CONFLICT (cheie_unica) DO NOTHING
+            """, ct) == 1 ? XpLectie : 0;
         await tx.CommitAsync(ct);
 
-        var p = await db.Set<Entities.ProgresCurs>().AsNoTracking()
-            .SingleAsync(x => x.UtilizatorId == utilizatorId && x.CursId == cursId, ct);
-        return new RezultatProgres(p.VideoVazut, p.MaterialeCitite, p.QuizPromovat, p.CompletatLa, xp);
+        var promovatLa = await db.Set<Entities.ProgresLectie>().Where(x => x.UtilizatorId == utilizatorId && x.ParcursId == parcursId)
+            .Select(x => x.PromovatLa).SingleAsync(ct);
+        return new RezultatProgres(promovatLa, xp);
     }
 
     public async Task<NivelCurent> NivelAsync(int utilizatorId, CancellationToken ct = default)

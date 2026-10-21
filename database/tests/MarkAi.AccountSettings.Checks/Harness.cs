@@ -152,7 +152,7 @@ public sealed class Harness : IAsyncDisposable
             .UseNpgsql(conexiune, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "mark_ai")).Options;
         await using var db = new MarkAiDbContext(optiuni);
         await db.Database.MigrateAsync();
-        var roles = new[] { new Rol { Nume = "elev" }, new Rol { Nume = "profesor" }, new Rol { Nume = "admin" } };
+        var roles = new[] { new Rol { Nume = "elev" }, new Rol { Nume = "profesor" }, new Rol { Nume = "admin" }, new Rol { Nume = "organizatie" } };
         var subjects = new[] { new Materie { Denumire = "Limba și literatura română" }, new Materie { Denumire = "Matematică" }, new Materie { Denumire = "Biologie" } };
         db.AddRange(roles); db.AddRange(subjects); await db.SaveChangesAsync();
         foreach (var (username, fullName, role) in new[] { ("george", "George Pavel", 0), ("irina", "Irina Marin", 1), ("admin", "Administrator", 2) })

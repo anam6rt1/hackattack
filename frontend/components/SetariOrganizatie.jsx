@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { profesorAprobat } from '@/lib/sesiune'
 import AlegeLoc from '@/components/AlegeLoc'
 import AlegeOrganizatie from '@/components/AlegeOrganizatie'
+import { useConfirmare } from '@/components/Confirmare'
 
 const STARI = { in_asteptare: 'cerere în așteptare', aprobat: 'membru', respins: 'cerere respinsă', expirat: 'cerere expirată' }
 
@@ -49,6 +50,7 @@ function LocPredare() {
 }
 
 export default function SetariOrganizatie({ utilizator, onSchimbat }) {
+  const [confirma, fereastra] = useConfirmare()
   const elev = utilizator.rol === 'elev'
   const [localitate, setLocalitate] = useState(utilizator.localitateId ? undefined : null)
   const [apartenente, setApartenente] = useState(null)
@@ -95,7 +97,9 @@ export default function SetariOrganizatie({ utilizator, onSchimbat }) {
       elev ? 'Cererea a fost trimisă. Un profesor sau administratorul organizației o va confirma.' : 'Cererea a fost trimisă administratorului organizației.')
   }
 
-  const iese = (a) => window.confirm(a.stare === 'aprobat' ? `Ieși din „${a.organizatie}”?` : `Retragi cererea la „${a.organizatie}”?`)
+  const iese = async (a) => (await confirma(a.stare === 'aprobat'
+    ? { titlu: 'Ieși din organizație?', mesaj: `Nu vei mai face parte din „${a.organizatie}”. Poți cere din nou să intri.`, da: 'Ieși', pericol: true }
+    : { titlu: 'Retragi cererea?', mesaj: `Cererea ta la „${a.organizatie}” se anulează.`, da: 'Retrage cererea', pericol: true }))
     && schimba(() => api(`/utilizatori/me/organizatii/${a.organizatieId}`, { metoda: 'DELETE' }), 'Gata.')
   const administrata = utilizator.organizatieAdministrata?.id
 
@@ -150,6 +154,7 @@ export default function SetariOrganizatie({ utilizator, onSchimbat }) {
       )}
       {elev && <p className="tv-indiciu">Un elev poate face parte dintr-o singură organizație; cererea expiră după 7 zile dacă nu o confirmă nimeni.</p>}
       {mesajOrg && <p className={mesajOrg.ok ? 'tv-succes' : 'tv-eroare'}>{mesajOrg.text}</p>}
+      {fereastra}
     </div>
   )
 }

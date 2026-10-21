@@ -4,7 +4,6 @@ using MarkAi.Api.Infrastructura;
 using MarkAi.Api.Servicii.Mesagerie;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
-using MarkAi.Data.Trivia;
 using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Api.Servicii;
@@ -52,17 +51,16 @@ public sealed class CoduriVerificare(MarkAiDbContext db, OptiuniJwt jwt, TimePro
 /// <summary>
 /// Hard deletion of an account and everything that belongs to it, in one transaction, then its uploaded files.
 /// Used for accounts that never became active (unconfirmed email, applications not approved in time), so it refuses
-/// accounts with bookings or trivia history instead of deleting other people's data with them.
+/// accounts with bookings or an approved organisation instead of deleting other people's data with them.
 /// </summary>
 public sealed class StergereCont(MarkAiDbContext db, Stocare stocare, Posta posta, ILogger<StergereCont> log)
 {
     public async Task<bool> StergeAsync(int utilizatorId, Email? notificare, CancellationToken ct)
     {
         if (await db.Rezervari.AnyAsync(r => r.ElevId == utilizatorId, ct) || await db.CamereTutoring.AnyAsync(c => c.MentorId == utilizatorId, ct)
-            || await db.Set<TriviaParticipant>().AnyAsync(p => p.UserId == utilizatorId, ct) || await db.Set<TriviaRoom>().AnyAsync(r => r.HostId == utilizatorId, ct)
             || await db.Set<Organizatie>().AnyAsync(o => o.AdminId == utilizatorId && o.Stare == Organizatie.Aprobata, ct))
         {
-            log.LogWarning("Account {Id} not deleted: it has bookings, trivia history or runs an approved organisation", utilizatorId);
+            log.LogWarning("Account {Id} not deleted: it has bookings or runs an approved organisation", utilizatorId);
             return false;
         }
         var fisiere = await db.ProfiluriMentor.Where(p => p.UtilizatorId == utilizatorId).Select(p => new[] { p.PozaUrl, p.DovadaCalificareUrl }).SingleOrDefaultAsync(ct) ?? [];
@@ -73,12 +71,8 @@ public sealed class StergereCont(MarkAiDbContext db, Stocare stocare, Posta post
             // quiz attempts and codes cascade; authored lessons and "verified by" are set to NULL by their foreign keys.
             var u = utilizatorId;
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.mesaj WHERE sesiune_id IN (SELECT id FROM mark_ai.sesiune WHERE utilizator_id = {u})", ct);
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.sms_log WHERE sesiune_id IN (SELECT id FROM mark_ai.sesiune WHERE utilizator_id = {u})", ct);
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.tabla_pas WHERE sesiune_id IN (SELECT id FROM mark_ai.sesiune WHERE utilizator_id = {u})", ct);
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.eveniment_recompensa WHERE utilizator_id = {u} OR sesiune_id IN (SELECT id FROM mark_ai.sesiune WHERE utilizator_id = {u})", ct);
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.sesiune WHERE utilizator_id = {u}", ct);
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.utilizator_realizare WHERE utilizator_id = {u}", ct);
-            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.graf WHERE owner_id = {u}", ct);
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.profil_mentor WHERE utilizator_id = {u}", ct);
             // An organisation that was never approved goes with its admin (its member requests cascade).
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.organizatie WHERE admin_id = {u}", ct);

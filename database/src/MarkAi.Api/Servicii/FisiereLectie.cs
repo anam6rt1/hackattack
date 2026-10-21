@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -13,7 +12,7 @@ using UglyToad.PdfPig;
 namespace MarkAi.Api.Servicii;
 
 /// <summary>
-/// The text of a chapter file, for AI question generation: PDF through PdfPig, DOCX/PPTX by reading the text nodes of their
+/// The text of a Lecție file, for AI question generation: PDF through PdfPig, DOCX/PPTX by reading the text nodes of their
 /// XML (no Office needed). Stops at <paramref name="maxCaractere"/>; scanned PDFs (images only) give no text.
 /// </summary>
 public static partial class ExtragereText
@@ -29,9 +28,9 @@ public static partial class ExtragereText
         var text = new StringBuilder();
         switch (tip)
         {
-            case FisierCapitol.Pdf: Pdf(cale, text, maxCaractere); break;
-            case FisierCapitol.Docx: Office(cale, ["word/document.xml"], NsWord, "t", text, maxCaractere); break;
-            case FisierCapitol.Pptx:
+            case FisierLectie.Pdf: Pdf(cale, text, maxCaractere); break;
+            case FisierLectie.Docx: Office(cale, ["word/document.xml"], NsWord, "t", text, maxCaractere); break;
+            case FisierLectie.Pptx:
                 using (var zip = ZipFile.OpenRead(cale))
                 {
                     var slide = zip.Entries.Select(e => (e.FullName, Nr: SlideNr().Match(e.FullName)))
@@ -97,33 +96,20 @@ public static partial class ExtragereText
 }
 
 /// <summary>
-/// Background work for chapter files:
-/// <list type="bullet">
-/// <item>extracts the text of each uploaded file (one at a time, with a time limit);</item>
-/// <item>queues ONE AI question regeneration per chapter, <c>Fisiere:IntarziereRegenerareSecunde</c> (60) after its last file
-/// change, so several uploads count once against the editor's daily limit;</item>
-/// <item>hourly, removes stored chapter files that no database row points at (left by a crash between disk and database).</item>
-/// </list>
-/// Files still waiting after a restart are picked up again at start.
+/// Background work for Lecție files: extracts the text of each uploaded file (one at a time, with a time limit), and hourly
+/// removes stored files that no database row points at (left by a crash between disk and database). Files still waiting
+/// after a restart are picked up again at start. Questions are generated only when the professor asks (see <see cref="GeneratorIntrebari"/>).
 /// </summary>
-public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare, CoadaIntrebari coada, IConfiguration cfg, TimeProvider ceas,
+public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare, IConfiguration cfg, TimeProvider ceas,
     ILogger<ProcesorFisiere> log) : BackgroundService
 {
     private readonly Channel<int> _fisiere = Channel.CreateUnbounded<int>();
-    private readonly ConcurrentDictionary<int, (DateTime Scadent, int? UtilizatorId)> _regenerari = new();
     private DateTime _ultimaCuratare = DateTime.MinValue;
 
     private int MaxCaractere => cfg.GetValue("Fisiere:MaxCaractereText", 60_000);
-    private TimeSpan Intarziere => TimeSpan.FromSeconds(cfg.GetValue("Fisiere:IntarziereRegenerareSecunde", 60));
     private DateTime Acum => ceas.GetUtcNow().UtcDateTime;
 
     public void Extrage(int fisierId) => _fisiere.Writer.TryWrite(fisierId);
-
-    /// <summary>Asks for a regeneration of the chapter's AI questions; each new call pushes it back. Charged to <paramref name="utilizatorId"/>.</summary>
-    public void ProgrameazaRegenerare(int cursId, int? utilizatorId) => _regenerari[cursId] = (Acum + Intarziere, utilizatorId);
-
-    /// <summary>Chapters with a regeneration waiting (the editor sees "questions will be regenerated").</summary>
-    public bool AreRegenerareProgramata(int cursId) => _regenerari.ContainsKey(cursId);
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -132,30 +118,24 @@ public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare
             using (var scope = scopes.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
-                foreach (var id in await db.Set<FisierCapitol>().Where(f => f.StareText == FisierCapitol.InAsteptare).Select(f => f.Id).ToListAsync(ct))
+                foreach (var id in await db.Set<FisierLectie>().Where(f => f.StareText == FisierLectie.InAsteptare).Select(f => f.Id).ToListAsync(ct))
                     Extrage(id);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException) { log.LogError(ex, "Could not reload the waiting chapter files"); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { log.LogError(ex, "Could not reload the waiting Lecție files"); }
 
         while (!ct.IsCancellationRequested)
         {
             try { await RuleazaOdataAsync(ct); }
-            catch (Exception ex) when (ex is not OperationCanceledException) { log.LogError(ex, "Chapter file processing failed"); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { log.LogError(ex, "Lecție file processing failed"); }
             await Task.WhenAny(_fisiere.Reader.WaitToReadAsync(ct).AsTask(), Task.Delay(TimeSpan.FromSeconds(5), ceas, ct));
         }
     }
 
-    /// <summary>Extracts the files queued so far, queues the regenerations that are due, sweeps orphans when an hour has passed.</summary>
+    /// <summary>Extracts the files queued so far, then sweeps orphans when an hour has passed.</summary>
     public async Task RuleazaOdataAsync(CancellationToken ct)
     {
         while (_fisiere.Reader.TryRead(out var id)) await ExtrageAsync(id, ct);
-        foreach (var (cursId, (scadent, uid)) in _regenerari.Where(r => r.Value.Scadent <= Acum).ToList())
-        {
-            // Removed only if it was not pushed back meanwhile.
-            if (!((ICollection<KeyValuePair<int, (DateTime, int?)>>)_regenerari).Remove(new(cursId, (scadent, uid)))) continue;
-            await RegenereazaAsync(cursId, uid, ct);
-        }
         if (Acum - _ultimaCuratare >= TimeSpan.FromHours(1)) { _ultimaCuratare = Acum; await CurataOrfaneAsync(ct); }
     }
 
@@ -163,52 +143,41 @@ public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
-        var f = await db.Set<FisierCapitol>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == fisierId && x.StareText == FisierCapitol.InAsteptare, ct);
-        if (f is null || stocare.CaleFisier(f.Cheie) is not { } cale) return; // deleted meanwhile
+        var f = await db.Set<FisierLectie>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == fisierId && x.StareText == FisierLectie.InAsteptare, ct);
+        if (f is null || stocare.CaleFisier(f.Cheie) is not { } cale) return; // deleted or replaced meanwhile
 
         string stare; string? text = null;
         try
         {
             // PdfPig cannot be cancelled; a file that takes too long is given up (its thread finishes on its own).
             text = await Task.Run(() => ExtragereText.Extrage(cale, f.Tip, MaxCaractere), ct).WaitAsync(TimeSpan.FromSeconds(60), ct);
-            stare = text.Length >= 20 ? FisierCapitol.Gata : FisierCapitol.FaraText;
-            if (stare == FisierCapitol.FaraText) text = null;
+            stare = text.Length >= 20 ? FisierLectie.Gata : FisierLectie.FaraText;
+            if (stare == FisierLectie.FaraText) text = null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            log.LogWarning(ex, "Text extraction failed for chapter file {Id} ({Tip})", f.Id, f.Tip);
-            stare = FisierCapitol.Eroare;
+            log.LogWarning(ex, "Text extraction failed for Lecție file {Id} ({Tip})", f.Id, f.Tip);
+            stare = FisierLectie.Eroare;
         }
-        var actualizate = await db.Set<FisierCapitol>().Where(x => x.Id == fisierId && x.StareText == FisierCapitol.InAsteptare)
+        await db.Set<FisierLectie>().Where(x => x.Id == fisierId && x.StareText == FisierLectie.InAsteptare)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StareText, stare).SetProperty(x => x.TextExtras, text), ct);
-        log.LogInformation("Chapter file {Id}: text {Stare} ({Caractere} characters)", f.Id, stare, text?.Length ?? 0);
-        if (actualizate > 0 && stare == FisierCapitol.Gata) ProgrameazaRegenerare(f.CursId, f.IncarcatDeId);
-    }
-
-    private async Task RegenereazaAsync(int cursId, int? uid, CancellationToken ct)
-    {
-        using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
-        if (!await db.Curs.AnyAsync(c => c.Id == cursId, ct)) return;
-        // Without the uploader (account deleted), the chapter's content is the platform's: no personal limit applies.
-        var admin = uid is null || await db.Set<UtilizatorRol>().AnyAsync(r => r.UtilizatorId == uid && r.Rol.Nume == Roluri.Admin, ct);
-        await LimitaGenerariAi.PuneAsync(db, coada, cfg, uid, admin, cursId, laCerere: false, ct);
+        log.LogInformation("Lecție file {Id}: text {Stare} ({Caractere} characters)", f.Id, stare, text?.Length ?? 0);
     }
 
     private async Task CurataOrfaneAsync(CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
-        var cunoscute = (await db.Set<FisierCapitol>().Select(f => f.Cheie).ToListAsync(ct)).ToHashSet();
+        var cunoscute = (await db.Set<FisierLectie>().Select(f => f.Cheie).ToListAsync(ct)).ToHashSet();
         // An hour of margin: an upload in progress has its file on disk before its row is saved.
         var vechi = Acum - TimeSpan.FromHours(1);
         var sterse = 0;
-        foreach (var (cheie, modificatLa) in stocare.Chei(Stocare.DirectorCapitole).ToList())
+        foreach (var (cheie, modificatLa) in stocare.Chei(Stocare.DirectorLectii).ToList())
         {
             if (cunoscute.Contains(cheie) || modificatLa > vechi) continue;
             stocare.Sterge(cheie);
             sterse++;
         }
-        if (sterse > 0) log.LogInformation("Removed {Count} orphan chapter files", sterse);
+        if (sterse > 0) log.LogInformation("Removed {Count} orphan Lecție files", sterse);
     }
 }
