@@ -444,6 +444,7 @@ public static class ContinutEndpoints
         p.Titlu = Validare.Obligatoriu(c.Titlu, "Titlu", 200);
         p.Descriere = Validare.Optional(c.Descriere, 1000);
         p.Clasa = Parcurs.Clase.Contains(c.Clasa) ? c.Clasa : throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+        var vecheVizibilitate = nou ? null : p.Vizibilitate;
         p.Vizibilitate = c.Vizibilitate is Parcurs.Public or Parcurs.DoarOrganizatie ? c.Vizibilitate
             : throw new CerereInvalida("Vizibilitatea trebuie să fie „public” sau „organizatie”.");
         p.Publicat = c.Publicat ?? true;
@@ -464,6 +465,11 @@ public static class ContinutEndpoints
         }
         if (p.Vizibilitate == Parcurs.DoarOrganizatie && p.OrganizatieId is null)
             throw new CerereInvalida("O lecție vizibilă doar în organizație trebuie să aibă o organizație.");
+        // An author who left (or was removed from) the home organisation stays the author, but the organisation's Lecție stays
+        // the organisation's: only its admin (or the platform admin) may make an organisation-only one public.
+        if (p.Vizibilitate == Parcurs.Public && vecheVizibilitate == Parcurs.DoarOrganizatie && p.OrganizatieId is { } casa
+            && p.AutorId == u.Id() && !u.EsteAdmin() && aleAutorului.All(o => o.Id != casa))
+            throw new Conflict("Lecția e doar a organizației și rămâne așa: nu mai faci parte din ea. Administratorul organizației o poate face publică.");
         if (p.Vizibilitate == Parcurs.Public && !await acces.PoatePublicaPublicAsync(p.AutorId, p.OrganizatieId, ct))
             throw new Conflict("Organizația nu permite publicarea acestei lecții pentru toți. Poate fi vizibilă doar în organizație.");
 

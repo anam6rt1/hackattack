@@ -1,16 +1,20 @@
 'use client'
 // /organizatie
-// - Administratorul organizației: cererile profesorilor și elevilor, membrii, cine poate publica lecții public, datele organizației.
+// - Administratorul organizației: cererile profesorilor și elevilor, membrii (căutare după nume, email sau utilizator și filtre după
+//   stare, clasă, materie), cine poate publica lecții public, datele organizației; poate aproba din nou un profesor căruia
+//   administratorul platformei i-a retras aprobarea.
 // - Profesorii aprobați: cererile elevilor din organizațiile în care predau (le pot aproba sau respinge).
 
 import { useCallback, useEffect, useState } from 'react'
 import { API, api, dataOra } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
+import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
 import AlegeLoc from '@/components/AlegeLoc'
 import { useConfirmare } from '@/components/Confirmare'
 
 const ROL = { profesor: 'Profesor', elev: 'Elev' }
+const STARE = { aprobat: 'Membru', in_asteptare: 'Cerere în așteptare', respins: 'Cerere respinsă', expirat: 'Cerere expirată' }
 
 // Un membru sau o cerere. cale = de unde se decide (organizația mea sau elevii unei organizații).
 function Membru({ m, cale, admin, onSchimbat }) {
@@ -36,6 +40,9 @@ function Membru({ m, cale, admin, onSchimbat }) {
       <p>{m.email} · @{m.username}</p>
       {m.materii?.length > 0 && <p>{m.materii.join(', ')}</p>}
       {m.descriere && <p className="tv-indiciu">{m.descriere}</p>}
+      {admin && m.profesorRetras && (
+        <p className="tv-eroare">Administratorul platformei i-a retras aprobarea de profesor: nu apare la Profesori și nu poate programa ședințe.</p>
+      )}
       {admin && m.areDovada && (
         <a className="tv-pastila" href={`${API}/organizatia-mea/membri/${m.utilizatorId}/dovada`} target="_blank" rel="noreferrer">Descarcă dovada calificării</a>
       )}
@@ -56,6 +63,11 @@ function Membru({ m, cale, admin, onSchimbat }) {
         )
       ) : admin && m.stare === 'aprobat' ? (
         <div className="tv-form">
+          {m.profesorRetras && (
+            <button className="tv-btn" onClick={async () => (await confirma({
+              titlu: 'Îl aprobi din nou ca profesor?', mesaj: `${m.nume} va putea programa din nou ședințe și va apărea la Profesori.`, da: 'Aprobă din nou',
+            })) && trimite('reaprobare')}>Aprobă din nou</button>
+          )}
           {m.rol === 'profesor' && (
             <label className="tv-bifa">
               <input type="checkbox" checked={m.poatePublicaPublic} onChange={(e) => trimite('publicare', 'PUT', { poatePublicaPublic: e.target.checked })} />
@@ -67,7 +79,7 @@ function Membru({ m, cale, admin, onSchimbat }) {
           })) && trimite('', 'DELETE')}>Scoate din organizație</button>
         </div>
       ) : (
-        <p className="tv-indiciu">Stare: {m.stare}</p>
+        <p className="tv-indiciu">{STARE[m.stare] ?? m.stare}</p>
       )}
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
       {fereastra}
@@ -88,16 +100,66 @@ const TABURI = [
   { id: 'detalii', nume: 'Organizația' },
 ]
 
+const FILTRE_GOALE = { q: '', stare: 'aprobat', clasa: '', materieId: '' }
+
+// Căutarea și filtrele unei liste de membri; textul ajunge în filtru după o scurtă pauză.
+function FiltreMembri({ tab, filtre, setFiltre, materii }) {
+  const [text, setText] = useState(filtre.q ?? '')
+  useEffect(() => {
+    const t = setTimeout(() => setFiltre((f) => (f.q === text.trim() ? f : { ...f, q: text.trim() })), 300)
+    return () => clearTimeout(t)
+  }, [text, setFiltre])
+  return (
+    <div className="tv-bara-filtre">
+      <input type="search" className="tv-camp-text" aria-label="Caută un membru" placeholder="Caută după nume, email sau utilizator" maxLength={100}
+        value={text} onChange={(e) => setText(e.target.value)} />
+      {tab !== 'cereri' && (
+        <select className="tv-camp-text" aria-label="Stare" value={filtre.stare} onChange={(e) => setFiltre({ ...filtre, stare: e.target.value })}>
+          {Object.entries(STARE).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+          <option value="">Toate stările</option>
+        </select>
+      )}
+      {tab === 'elevi' && (
+        <select className="tv-camp-text" aria-label="Clasa" value={filtre.clasa} onChange={(e) => setFiltre({ ...filtre, clasa: e.target.value })}>
+          <option value="">Toate clasele</option>
+          {CLASE.filter((c) => c !== 'Bac').map((c) => <option key={c} value={c}>{numeClasa(c)}</option>)}
+        </select>
+      )}
+      {tab === 'profesori' && (
+        <select className="tv-camp-text" aria-label="Materie" value={filtre.materieId} onChange={(e) => setFiltre({ ...filtre, materieId: e.target.value })}>
+          <option value="">Toate materiile</option>
+          {materii.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
+        </select>
+      )}
+    </div>
+  )
+}
+
 function PanouAdmin({ org, onSchimbat }) {
   const [tab, setTab] = useState('cereri')
   const [membri, setMembri] = useState(null)
   const [mesaj, setMesaj] = useState(null)
+  const [filtre, setFiltre] = useState(FILTRE_GOALE)
+  const [materii, setMaterii] = useState([])
 
+  useEffect(() => {
+    api('/materii').then((r) => setMaterii(r.elemente)).catch(() => {})
+  }, [])
   const incarca = useCallback(() => {
-    const filtru = { cereri: '?stare=in_asteptare', profesori: '?rol=profesor&stare=aprobat', elevi: '?rol=elev&stare=aprobat' }[tab]
-    if (filtru) api('/organizatia-mea/membri' + filtru).then((r) => setMembri(r.elemente)).catch(() => setMembri([]))
-  }, [tab])
+    if (tab === 'detalii') return
+    const q = new URLSearchParams()
+    if (tab === 'cereri') q.set('stare', 'in_asteptare')
+    else {
+      q.set('rol', tab === 'profesori' ? 'profesor' : 'elev')
+      if (filtre.stare) q.set('stare', filtre.stare)
+      if (tab === 'elevi' && filtre.clasa) q.set('clasa', filtre.clasa)
+      if (tab === 'profesori' && filtre.materieId) q.set('materieId', filtre.materieId)
+    }
+    if (filtre.q) q.set('q', filtre.q)
+    api('/organizatia-mea/membri?' + q).then((r) => setMembri(r.elemente)).catch(() => setMembri([]))
+  }, [tab, filtre])
   useEffect(() => incarca(), [incarca])
+  const cuFiltre = !!(filtre.q || filtre.clasa || filtre.materieId || filtre.stare !== 'aprobat')
 
   async function salveaza(e) {
     e.preventDefault()
@@ -116,14 +178,16 @@ function PanouAdmin({ org, onSchimbat }) {
     <>
       <div className="tv-taburi" role="tablist" style={{ maxWidth: 560 }}>
         {TABURI.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'tv-tab-activ' : ''} onClick={() => { setMembri(null); setTab(t.id) }}>
+          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'tv-tab-activ' : ''}
+            onClick={() => { setMembri(null); setFiltre(FILTRE_GOALE); setTab(t.id) }}>
             {t.nume}{t.id === 'cereri' && org.cereri > 0 ? ` (${org.cereri})` : ''}
           </button>
         ))}
       </div>
-      {tab === 'cereri' && <Lista membri={membri} gol="Nicio cerere în așteptare. Cererile expiră singure după 7 zile." cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
-      {tab === 'profesori' && <Lista membri={membri} gol="Niciun profesor aprobat încă." cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
-      {tab === 'elevi' && <Lista membri={membri} gol="Niciun elev în organizație încă." cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
+      {tab !== 'detalii' && <FiltreMembri key={tab} tab={tab} filtre={filtre} setFiltre={setFiltre} materii={materii} />}
+      {tab === 'cereri' && <Lista membri={membri} gol={filtre.q ? 'Nicio cerere nu se potrivește căutării.' : 'Nicio cerere în așteptare. Cererile expiră singure după 7 zile.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
+      {tab === 'profesori' && <Lista membri={membri} gol={cuFiltre ? 'Niciun profesor nu se potrivește căutării și filtrelor.' : 'Niciun profesor aprobat încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
+      {tab === 'elevi' && <Lista membri={membri} gol={cuFiltre ? 'Niciun elev nu se potrivește căutării și filtrelor.' : 'Niciun elev în organizație încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
       {tab === 'detalii' && (
         <form className="tv-form tv-cutie" onSubmit={salveaza} style={{ maxWidth: 640 }}>
           <label className="tv-eticheta-camp"><span>Numele organizației</span><input className="tv-camp-text" name="nume" defaultValue={org.nume} required maxLength={200} /></label>

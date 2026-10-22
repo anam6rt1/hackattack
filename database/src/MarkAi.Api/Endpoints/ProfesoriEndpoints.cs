@@ -38,8 +38,10 @@ public record SlotProfesor(SlotDto Slot, IReadOnlyList<ElevRezervare> Elevi);
 public record CastiguriDto(decimal Total, decimal InAsteptare, string Moneda);
 public record PanouProfesor(ProfesorDto Profil, decimal OnorariuNegociat, string Moneda, PretDto? Pret, IReadOnlyList<SlotProfesor> Sloturi, CastiguriDto Castiguri);
 
+/// <param name="RetrasLa">When the platform admin withdrew the approval (null = not withdrawn).</param>
 public record CerereProfesor(int Id, string Nume, string Username, string Email, string? Telefon, string? Descriere, string? PozaUrl,
-    bool AreDovada, string Stare, string? MotivRespingere, decimal OnorariuNegociat, IReadOnlyList<MaterieScurta> Materii, DateTime CreatLa);
+    bool AreDovada, string Stare, string? MotivRespingere, decimal OnorariuNegociat, IReadOnlyList<MaterieScurta> Materii, DateTime CreatLa,
+    DateTime? RetrasLa = null);
 public record Aprobare(decimal OnorariuNegociat);
 public record Respingere(string Motiv);
 
@@ -214,15 +216,24 @@ public static class ProfesoriEndpoints
             var cereri = await q.OrderBy(m => m.Utilizator.CreatLa)
                 .Select(m => new CerereProfesor(m.UtilizatorId, m.Utilizator.Nume, m.Utilizator.Username, m.Utilizator.Email, m.Utilizator.Telefon,
                     m.Descriere, m.PozaUrl == null ? null : $"/profesori/{m.UtilizatorId}/poza", m.DovadaCalificareUrl != null, m.StareVerificare,
-                    m.MotivRespingere, m.OnorariuNegociat, m.Materii.Select(x => new MaterieScurta(x.MaterieId, x.Materie.Denumire)).ToList(), m.Utilizator.CreatLa))
+                    m.MotivRespingere, m.OnorariuNegociat, m.Materii.Select(x => new MaterieScurta(x.MaterieId, x.Materie.Denumire)).ToList(), m.Utilizator.CreatLa,
+                    m.RetrasLa))
                 .ToListAsync(ct);
             return Lista<CerereProfesor>.Din(cereri);
         });
         admin.MapGet("/profesori/{id:int}/dovada", async (int id, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
             stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.DovadaCalificareUrl).SingleOrDefaultAsync(ct),
                 $"dovada-calificare-{id}"));
-        // Professors are approved by the admins of their organisations (OrganizatiiEndpoints); the platform admin sees the
-        // list and sets the fee each professor receives for paid tutoring.
+        // Professors are approved by the admins of their organisations (OrganizatiiEndpoints) and stay approved after leaving them;
+        // the platform admin sees the list, sets the fee each professor receives for paid tutoring, and may withdraw an approval
+        // (their upcoming sessions are cancelled) or give it back.
+        admin.MapPost("/profesori/{id:int}/retragere", async (int id, DecizieMembru c, ServiciuOrganizatii org, CancellationToken ct) =>
+            Results.Ok(new { sedinteAnulate = await org.RetrageAsync(id, c.Motiv, ct) }));
+        admin.MapPost("/profesori/{id:int}/reaprobare", async (int id, HttpContext h, ServiciuOrganizatii org, CancellationToken ct) =>
+        {
+            await org.ReaprobaAsync(id, null, h.User.Id(), ct);
+            return Results.NoContent();
+        });
         admin.MapPut("/profesori/{id:int}/onorariu", async (int id, Aprobare c, MarkAiDbContext db, CancellationToken ct) =>
         {
             var m = await Profil(db, id, ct);

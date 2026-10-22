@@ -9,8 +9,10 @@ namespace MarkAi.Api.Servicii;
 
 /// <summary>
 /// Organisation memberships: requests, decisions, notifications, and the professor's approval state, which is derived from
-/// them (approved in at least one approved organisation, or admin of one) and kept in <see cref="ProfilMentor.StareVerificare"/>,
-/// so everything that already checks "approved professor" keeps working.
+/// them and kept in <see cref="ProfilMentor.StareVerificare"/>, so everything that already checks "approved professor" keeps
+/// working: approved once an approved organisation approves them (or they run one), and from then on approved even when they
+/// leave or are removed (plan 2); only a platform admin withdraws it (<see cref="RetrageAsync"/>), after which only an
+/// organisation's approval given later counts.
 /// </summary>
 public sealed class ServiciuOrganizatii(MarkAiDbContext db, Posta posta, TimeProvider ceas)
 {
@@ -23,21 +25,80 @@ public sealed class ServiciuOrganizatii(MarkAiDbContext db, Posta posta, TimePro
     {
         var p = await db.ProfiluriMentor.SingleOrDefaultAsync(x => x.UtilizatorId == utilizatorId, ct);
         if (p is null) return;
+        var retras = p.RetrasLa;
+        if (retras is null && p.StareVerificare == RezervareService.MentorAprobat) return;
         var membri = await db.Set<MembruOrganizatie>().Where(m => m.UtilizatorId == utilizatorId && m.Rol == MembruOrganizatie.RolProfesor)
             .Select(m => new { m.Stare, OrgStare = m.Organizatie.Stare, m.MotivRespingere, m.DecisLa }).ToListAsync(ct);
-        var org = await db.Set<Organizatie>().Where(o => o.AdminId == utilizatorId).Select(o => (string?)o.Stare).SingleOrDefaultAsync(ct);
-        if (org == Organizatie.Aprobata || membri.Any(m => m.Stare == MembruOrganizatie.Aprobat && m.OrgStare == Organizatie.Aprobata))
+        var org = await db.Set<Organizatie>().Where(o => o.AdminId == utilizatorId).Select(o => new { o.Stare, o.DecisLa }).SingleOrDefaultAsync(ct);
+        bool Dupa(DateTime? decis) => retras is null || decis > retras;
+        if ((org?.Stare == Organizatie.Aprobata && Dupa(org.DecisLa))
+            || membri.Any(m => m.Stare == MembruOrganizatie.Aprobat && m.OrgStare == Organizatie.Aprobata && Dupa(m.DecisLa)))
         {
-            (p.StareVerificare, p.MotivRespingere) = (RezervareService.MentorAprobat, null);
+            (p.StareVerificare, p.MotivRespingere, p.RetrasLa) = (RezervareService.MentorAprobat, null, null);
             p.ActivatLa ??= Acum();
         }
-        else if (org == Organizatie.InAsteptare || membri.Any(m => m.Stare == MembruOrganizatie.InAsteptare))
+        // Withdrawn by the platform admin: stays so, with the admin's reason, until an organisation approves them again.
+        else if (retras is not null) return;
+        else if (org?.Stare == Organizatie.InAsteptare || membri.Any(m => m.Stare == MembruOrganizatie.InAsteptare))
             (p.StareVerificare, p.MotivRespingere) = (Endpoints.AutentificareEndpoints.StareInAsteptare, null);
         else
             (p.StareVerificare, p.MotivRespingere) = (Endpoints.AutentificareEndpoints.StareRespins,
                 membri.Where(m => m.MotivRespingere != null).OrderByDescending(m => m.DecisLa).Select(m => m.MotivRespingere).FirstOrDefault()
                 ?? "Nicio organizație nu a aprobat încă cererea ta. Poți cere să intri în altă organizație.");
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A platform admin withdraws a professor's approval: refused with the reason (shown to them), and their upcoming sessions
+    /// cancelled, bookings included, the way a professor cancels a session; the professor and the booked students are told.
+    /// </summary>
+    /// <returns>How many sessions were cancelled.</returns>
+    public async Task<int> RetrageAsync(int profesorId, string? motiv, CancellationToken ct)
+    {
+        var p = await db.ProfiluriMentor.Include(x => x.Utilizator).SingleOrDefaultAsync(x => x.UtilizatorId == profesorId, ct)
+            ?? throw new KeyNotFoundException("Profesorul nu există.");
+        if (p.StareVerificare != RezervareService.MentorAprobat) throw new Conflict("Profesorul nu este aprobat acum.");
+        var acum = Acum();
+        (p.StareVerificare, p.MotivRespingere, p.RetrasLa) = (Endpoints.AutentificareEndpoints.StareRespins, Validare.Obligatoriu(motiv, "Motivul", 500), acum);
+        var sedinte = await db.CamereTutoring.Include(s => s.Rezervari).ThenInclude(r => r.ComisionMentor).Include(s => s.Rezervari).ThenInclude(r => r.Elev)
+            .Where(s => s.MentorId == profesorId && s.Status == RezervareService.SlotDeschis && s.InceputLa > acum).ToListAsync(ct);
+        foreach (var s in sedinte)
+        {
+            s.Status = "anulata";
+            foreach (var r in s.Rezervari.Where(r => r.Status == RezervareService.RezervareConfirmata))
+            {
+                r.Status = RezervareService.RezervareAnulata;
+                if (r.ComisionMentor is not null) r.ComisionMentor.Status = "anulat";
+                posta.Pune(Sabloane.Notificare(r.Elev.Email, "O ședință a fost anulată", $"„{s.Titlu}” a fost anulată",
+                    $"Ședința cu {p.Utilizator.Nume} din {s.InceputLa:dd.MM.yyyy} nu mai are loc. Rezervarea ta a fost anulată."), "sedinta_anulata");
+            }
+        }
+        posta.Pune(Sabloane.Notificare(p.Utilizator.Email, "Aprobarea ta de profesor a fost retrasă", "Aprobarea ta de profesor a fost retrasă",
+            $"Motiv: {p.MotivRespingere}", "Ședințele tale viitoare au fost anulate. O organizație te poate aproba din nou."), "profesor_retras");
+        await db.SaveChangesAsync(ct);
+        return sedinte.Count;
+    }
+
+    /// <summary>
+    /// Approves a withdrawn professor again: the platform admin directly (<paramref name="membru"/> null), or the admin of an
+    /// organisation the professor is an approved member of (the approval is dated now, so it counts after the withdrawal).
+    /// </summary>
+    public async Task ReaprobaAsync(int profesorId, MembruOrganizatie? membru, int decidentId, CancellationToken ct)
+    {
+        var p = await db.ProfiluriMentor.Include(x => x.Utilizator).SingleOrDefaultAsync(x => x.UtilizatorId == profesorId, ct)
+            ?? throw new KeyNotFoundException("Profesorul nu există.");
+        if (p.RetrasLa is null) throw new Conflict("Aprobarea acestui profesor nu a fost retrasă.");
+        if (membru is null) (p.StareVerificare, p.MotivRespingere, p.RetrasLa) = (RezervareService.MentorAprobat, null, null);
+        else
+        {
+            if (membru.Rol != MembruOrganizatie.RolProfesor || membru.Stare != MembruOrganizatie.Aprobat)
+                throw new CerereInvalida("Poți aproba din nou doar un profesor care face parte din organizație.");
+            (membru.DecisLa, membru.DecisDeId) = (Acum(), decidentId);
+        }
+        posta.Pune(Sabloane.Notificare(p.Utilizator.Email, "Ești din nou profesor aprobat", "Ești din nou profesor aprobat",
+            "Poți programa din nou ședințe, iar elevii te văd la Profesori."), "profesor_reaprobat");
+        await db.SaveChangesAsync(ct);
+        await SincronizeazaProfesorAsync(profesorId, ct);
     }
 
     /// <summary>Asks to join (or asks again after a refusal or expiry). Students may have only one organisation.</summary>

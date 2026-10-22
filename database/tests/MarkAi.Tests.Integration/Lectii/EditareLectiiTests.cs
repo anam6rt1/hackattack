@@ -164,12 +164,33 @@ public sealed class EditareLectiiTests : TestLectii
     }
 
     [Fact]
-    public async Task ProfesorulScosDinOrganizatieNuMaiEditeazaDarAutorulRamane()
+    public async Task ProfesorulScosDinOrganizatieRamaneAutorulLectieiSale()
     {
+        // Plan 2: a professor removed from the organisation stays approved and remains the author; the Lecție stays with the
+        // organisation, whose admin can still edit it.
         var aPetrei = await Creeaza(petra, Lectie("Lecția Petrei", Liceu));
         await director.Delete($"/organizatia-mea/membri/{await Id("petra")}").Status(HttpStatusCode.NoContent);
-        // Petra is no longer approved anywhere, so the editor is closed to her.
-        await petra.Put($"/parcursuri/{aPetrei}", Lectie("x", Liceu)).Status(HttpStatusCode.Forbidden);
+        (await petra.Put($"/parcursuri/{aPetrei}", Lectie("Lecția Petrei, revizuită", Liceu)).Json()).Int("organizatieId").ShouldBe(Liceu);
         await director.Put($"/parcursuri/{aPetrei}", Lectie("Lecția Petrei", Liceu)).Status(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ProfesorulScosNuFacePublicaOLectieDoarAOrganizatiei()
+    {
+        var aPetrei = await Creeaza(petra, Lectie("Doar pentru liceu", Liceu, vizibilitate: "organizatie"));
+        await director.Delete($"/organizatia-mea/membri/{await Id("petra")}").Status(HttpStatusCode.NoContent);
+        (await petra.Put($"/parcursuri/{aPetrei}", Lectie("Doar pentru liceu", Liceu, vizibilitate: "public")).Mesaj(HttpStatusCode.Conflict))
+            .ShouldContain("Administratorul organizației o poate face publică");
+        (await director.GetJson($"/continut/parcursuri/{aPetrei}")).Str("vizibilitate").ShouldBe("organizatie");
+        // She can still edit it as organisation-only, and the organisation's admin may make it public.
+        await petra.Put($"/parcursuri/{aPetrei}", Lectie("Doar pentru liceu (2)", Liceu, vizibilitate: "organizatie")).Status(HttpStatusCode.OK);
+        (await director.Put($"/parcursuri/{aPetrei}", Lectie("Doar pentru liceu (2)", Liceu, vizibilitate: "public")).Json()).Str("vizibilitate").ShouldBe("public");
+    }
+
+    [Fact]
+    public async Task UnMembruAlOrganizatieiFacePublicaOLectieDoarAOrganizatiei()
+    {
+        var aPetrei = await Creeaza(petra, Lectie("Doar pentru liceu", Liceu, vizibilitate: "organizatie"));
+        (await petra.Put($"/parcursuri/{aPetrei}", Lectie("Doar pentru liceu", Liceu, vizibilitate: "public")).Json()).Str("vizibilitate").ShouldBe("public");
     }
 }

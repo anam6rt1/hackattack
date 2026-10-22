@@ -1527,6 +1527,10 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("procent_comision");
 
+                    b.Property<DateTime?>("RetrasLa")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retras_la");
+
                     b.Property<string>("StareVerificare")
                         .IsRequired()
                         .HasColumnType("text")

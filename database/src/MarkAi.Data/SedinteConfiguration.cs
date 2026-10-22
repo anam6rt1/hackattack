@@ -42,6 +42,7 @@ internal static class SedinteConfiguration
         model.Entity<ProfilMentor>(e =>
         {
             e.Property(x => x.LocOrganizatieId).HasColumnName("loc_organizatie_id");
+            e.Property(x => x.RetrasLa).HasColumnName("retras_la");
             e.HasIndex(x => x.LocOrganizatieId, "idx_profil_mentor_loc_organizatie_id_fkey");
             e.HasOne(x => x.LocOrganizatie).WithMany().HasForeignKey(x => x.LocOrganizatieId)
                 .OnDelete(DeleteBehavior.SetNull).HasConstraintName("profil_mentor_loc_organizatie_id_fkey");

@@ -1,11 +1,13 @@
 'use client'
-// /admin/profesori : profesorii platformei. Îi aprobă administratorii organizațiilor în care predau;
-// administratorul platformei vede dovada calificării și stabilește onorariul negociat (cât primește profesorul pe elev, din tariful fix).
+// /admin/profesori : profesorii platformei. Îi aprobă administratorii organizațiilor în care predau și rămân aprobați și după ce
+// pleacă din ele; administratorul platformei vede dovada calificării, stabilește onorariul negociat (cât primește profesorul pe
+// elev, din tariful fix) și poate retrage aprobarea (cu motiv; ședințele viitoare se anulează) sau o poate da înapoi.
 
 import { useCallback, useEffect, useState } from 'react'
-import { API, api, urlApi } from '@/lib/api'
+import { API, api, dataOra, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
+import { useConfirmare } from '@/components/Confirmare'
 
 const STARI = [
   { id: 'in_asteptare', nume: 'În așteptare' },
@@ -16,11 +18,14 @@ const STARI = [
 function Cerere({ c, pret, onSchimbat }) {
   const [onorariu, setOnorariu] = useState(c.onorariuNegociat || (pret ? Math.round(pret.suma * 0.7) : 0))
   const [eroare, setEroare] = useState('')
+  const [retrage, setRetrage] = useState(false)
+  const [motiv, setMotiv] = useState('')
+  const [confirma, fereastra] = useConfirmare()
 
-  async function trimite(cale, corp) {
+  async function trimite(cale, corp, metoda = 'PUT') {
     setEroare('')
     try {
-      await api(`/admin/profesori/${c.id}/${cale}`, { metoda: 'PUT', corp })
+      await api(`/admin/profesori/${c.id}/${cale}`, { metoda, corp })
       onSchimbat()
     } catch (e) {
       setEroare(e.message)
@@ -46,7 +51,9 @@ function Cerere({ c, pret, onSchimbat }) {
           Deschide dovada calificării
         </a>
       )}
-      {c.stare === 'respins' && c.motivRespingere && <p className="tv-eroare">Respins: {c.motivRespingere}</p>}
+      {c.stare === 'respins' && c.motivRespingere && (
+        <p className="tv-eroare">{c.retrasLa ? `Aprobare retrasă pe ${dataOra(c.retrasLa)}` : 'Respins'}: {c.motivRespingere}</p>
+      )}
 
       <label className="tv-eticheta-camp">
         <span>Onorariu negociat pe elev ({pret ? `din ${pret.suma} ${pret.moneda}` : 'RON'})</span>
@@ -56,11 +63,33 @@ function Cerere({ c, pret, onSchimbat }) {
       {c.stare === 'aprobat' ? (
         <div className="tv-butoane">
           <button className="tv-btn" onClick={() => trimite('onorariu', { onorariuNegociat: Number(onorariu) })}>Salvează onorariul</button>
+          {!retrage && <button className="tv-btn tv-gri" onClick={() => setRetrage(true)}>Retrage aprobarea</button>}
+        </div>
+      ) : c.retrasLa ? (
+        <div className="tv-butoane">
+          <button className="tv-btn" onClick={async () => (await confirma({
+            titlu: 'Îi dai înapoi aprobarea?', mesaj: `${c.nume} va putea programa din nou ședințe și va apărea la Profesori.`, da: 'Aprobă din nou',
+          })) && trimite('reaprobare', undefined, 'POST')}>Aprobă din nou</button>
         </div>
       ) : (
         <p className="tv-indiciu">Cererea e decisă de administratorii organizațiilor alese de profesor.</p>
       )}
+      {retrage && (
+        <div className="tv-form">
+          <textarea className="tv-camp-text" rows={2} value={motiv} onChange={(e) => setMotiv(e.target.value)} maxLength={500}
+            placeholder="Motivul (îl vede profesorul și îl primește pe email)" aria-label="Motivul retragerii" />
+          <div className="tv-grid-2">
+            <button className="tv-btn tv-gri" onClick={() => setRetrage(false)}>Renunț</button>
+            <button className="tv-btn" disabled={!motiv.trim()} onClick={async () => (await confirma({
+              titlu: 'Retragi aprobarea?',
+              mesaj: `${c.nume} nu va mai apărea la Profesori și nu va mai putea programa ședințe. Ședințele viitoare se anulează, iar elevii înscriși primesc un email. O organizație din care face parte îl poate aproba din nou.`,
+              da: 'Retrage aprobarea', pericol: true,
+            })) && trimite('retragere', { motiv: motiv.trim() }, 'POST')}>Retrage</button>
+          </div>
+        </div>
+      )}
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
+      {fereastra}
     </article>
   )
 }
@@ -90,7 +119,7 @@ export default function AdminProfesori() {
         <section className="tv-erou" style={{ paddingBottom: 110 }}>
           <span className="tv-erou-pill">Administrare</span>
           <h1>Profesorii</h1>
-          <p>Profesorii sunt aprobați de administratorii organizațiilor lor. Aici vezi dovada calificării și stabilești onorariul după discuția telefonică.</p>
+          <p>Profesorii sunt aprobați de administratorii organizațiilor lor și rămân aprobați și dacă pleacă din ele. Aici vezi dovada calificării, stabilești onorariul după discuția telefonică și, la nevoie, retragi aprobarea.</p>
         </section>
         <div className="tv-coala">
           <div className="tv-taburi" role="tablist" style={{ maxWidth: 480 }}>

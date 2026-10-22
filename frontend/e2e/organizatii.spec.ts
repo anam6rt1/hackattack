@@ -1,8 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { elevNou, intra, intraRapid, PAROLA, telefonUnic, ultimulCod, unic } from "./ajutor";
+import { elevNou, intra, intraRapid, PAROLA, PDF, PNG, telefonUnic, ultimulCod, unic } from "./ajutor";
 
-const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
-const PDF = Buffer.from("%PDF-1.4\n%test\n");
 
 async function confirmaEmail(page: Page, email: string) {
   await expect(page.getByRole("heading", { name: "Confirmă adresa de email" })).toBeVisible();

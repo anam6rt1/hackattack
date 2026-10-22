@@ -134,13 +134,35 @@ public sealed class ProfesoriOrganizatieTests : TestOrganizatii
     }
 
     [Fact]
-    public async Task ProfesorulScosDinUnicaOrganizatieDevineNeaprobat()
+    public async Task ProfesorulScosDinUnicaOrganizatieRamaneAprobat()
     {
+        // Plan 2: an approval stays after leaving or being removed; only the platform admin withdraws it (RetragereProfesorTests).
         var (c, id) = await ProfesorNou();
         await director.Post($"/organizatia-mea/membri/{id}/aprobare");
         await director.Delete($"/organizatia-mea/membri/{id}").Status(HttpStatusCode.NoContent);
-        (await c.GetJson("/utilizatori/me")).Str("stareProfesor").ShouldBe("respins");
-        await c.Get("/profesori/me").Status(HttpStatusCode.Forbidden);
+        (await c.GetJson("/utilizatori/me")).Str("stareProfesor").ShouldBe("aprobat");
+        await c.Get("/profesori/me").Status(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ProfesorulCareIeseDinUnicaOrganizatieRamaneAprobat()
+    {
+        var (c, id) = await ProfesorNou();
+        await director.Post($"/organizatia-mea/membri/{id}/aprobare");
+        await c.Delete($"/utilizatori/me/organizatii/{Liceu}").Status(HttpStatusCode.OK);
+        (await c.GetJson("/utilizatori/me")).Str("stareProfesor").ShouldBe("aprobat");
+        (await c.GetJson("/utilizatori/me/organizatii")).Lista().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task OCerereRespinsaDupaAprobareNuRetrageAprobarea()
+    {
+        var (c, id) = await ProfesorNou();
+        var (ovidiu, alba) = await OrganizatieNoua(aprobata: true);
+        await director.Post($"/organizatia-mea/membri/{id}/aprobare");
+        await c.Post("/utilizatori/me/organizatii", new { organizatieId = alba });
+        await ovidiu.Post($"/organizatia-mea/membri/{id}/respingere", new { motiv = "Nu avem nevoie acum." });
+        (await c.GetJson("/utilizatori/me")).Str("stareProfesor").ShouldBe("aprobat");
     }
 
     [Fact]
