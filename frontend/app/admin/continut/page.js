@@ -600,7 +600,11 @@ function Intrebari({ parcursId }) {
           : ' Ai folosit întrebările AI disponibile în ultimele 24 de ore; poți scrie întrebări de mână.')}
       </small>
       {lucreaza && <p className="tv-status"><b>Se generează întrebările...</b><span>Durează de obicei mai puțin de un minut.</span></p>}
-      {generare?.stare === 'gata' && <p className="tv-succes">Au fost adăugate {generare.intrebariGenerate} întrebări noi. Verifică-le mai jos.</p>}
+      {generare?.stare === 'gata' && (
+        <p className="tv-succes">
+          {generare.mesaj ?? `Au fost adăugate ${generare.intrebariGenerate} întrebări noi.`} Verifică-le mai jos.
+        </p>
+      )}
       {generare?.stare === 'eroare' && <p className="tv-eroare">{generare.mesaj}</p>}
       {eroare && <p className="tv-eroare">{eroare}</p>}
       <IntrebareNoua parcursId={parcursId} onAdaugata={incarca} />

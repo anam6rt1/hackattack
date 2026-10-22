@@ -307,15 +307,15 @@ public static class ContinutEndpoints
         });
 
         e.MapPost("/parcursuri/{id:int}/genereaza-intrebari", async (int id, CerereGenerare c, HttpContext h, MarkAiDbContext db, AccesContinut acces,
-            CoadaIntrebari coada, IConfiguration cfg, CancellationToken ct) =>
+            CoadaIntrebari coada, IConfiguration cfg, TimeProvider ceas, CancellationToken ct) =>
         {
             await acces.PentruEditareAsync(h.User, id, ct);
-            await LimitaGenerariAi.PuneAsync(db, coada, cfg, h.User.Id(), id, c.Numar, ct);
+            await LimitaGenerariAi.PuneAsync(db, coada, cfg, ceas, h.User.Id(), id, c.Numar, ct);
             return Results.Accepted($"/parcursuri/{id}/generare", coada.Stare(id));
         }).RequireRateLimiting(LimiteCereri.Ai);
 
-        e.MapGet("/continut/buget-ai", (HttpContext h, MarkAiDbContext db, IConfiguration cfg, CancellationToken ct) =>
-            LimitaGenerariAi.BugetAsync(db, cfg, h.User.Id(), ct));
+        e.MapGet("/continut/buget-ai", (HttpContext h, MarkAiDbContext db, IConfiguration cfg, TimeProvider ceas, CancellationToken ct) =>
+            LimitaGenerariAi.BugetAsync(db, cfg, ceas, h.User.Id(), ct));
 
         e.MapGet("/parcursuri/{id:int}/generare", async (int id, HttpContext h, AccesContinut acces, CoadaIntrebari coada, CancellationToken ct) =>
         {
