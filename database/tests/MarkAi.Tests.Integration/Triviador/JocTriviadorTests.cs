@@ -356,6 +356,16 @@ public sealed class JocTriviadorTests : TestTriviador
         var toate = new[] { george, maria }.SelectMany(j => j.Mesaje).Select(m => JsonDocument.Parse(m).RootElement).ToList();
         toate.Count.ShouldBeGreaterThan(8);
         toate.Where(m => m.Str("faza") is "intrebare" or "estimare").ShouldAllBe(m => m.GetProperty("rezultat").ValueKind == JsonValueKind.Null);
-        toate.Where(m => m.Str("faza") == "estimare").ShouldAllBe(m => !m.GetRawText().Contains("1883") && !m.GetRawText().Contains("1920"));
+        toate.Where(m => m.Str("faza") == "estimare").ShouldAllBe(m => !Contine(m, 1883) && !Contine(m, 1920));
     }
+
+    // The answer as a value (the number, or inside a text), not as digits of a timestamp or a seed: 1761083921883 is no leak.
+    private static bool Contine(JsonElement e, int raspuns) => e.ValueKind switch
+    {
+        JsonValueKind.Number => e.TryGetInt64(out var n) && n == raspuns,
+        JsonValueKind.String => e.GetString()!.Contains(raspuns.ToString()),
+        JsonValueKind.Object => e.EnumerateObject().Any(p => Contine(p.Value, raspuns)),
+        JsonValueKind.Array => e.EnumerateArray().Any(v => Contine(v, raspuns)),
+        _ => false,
+    };
 }
