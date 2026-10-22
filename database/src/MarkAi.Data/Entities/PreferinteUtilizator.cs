@@ -29,6 +29,9 @@ public partial class PreferinteUtilizator
     /// <summary>Profile avatar code (a character from the bac works, drawn by the frontend); null = default avatar.</summary>
     public string? Avatar { get; set; }
 
+    /// <summary>Materiale shows only the Lecții not finished yet (quiz not passed); a student's choice, kept with the account.</summary>
+    public bool AscundeLectiiTerminate { get; set; }
+
     public virtual Background? BackgroundStatic { get; set; }
 
     public virtual Interfata? Interfata { get; set; }

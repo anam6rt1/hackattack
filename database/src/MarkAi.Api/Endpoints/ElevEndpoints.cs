@@ -19,7 +19,8 @@ public record CameraNoua(List<int>? MaterieIds, int Insule = 9, int MaxJucatori 
 public record TemaDto(string Cod, string Nume, string? Anotimp, string? PerioadaZilei);
 // Mod/Tema = fundalul (anotimp × zi/noapte), Interfata = stilul desenelor (insule/realist/pixel), Avatar = personajul din profil.
 // La PUT, câmpurile lipsă (null) rămân cum erau, deci clienții vechi care trimit doar { mod, tema } merg la fel.
-public record Preferinte(string? Mod, string? Tema, string? Interfata = null, string? Avatar = null);
+/// <param name="AscundeLectiiTerminate">Materiale hides the finished Lecții; null in a PUT = unchanged.</param>
+public record Preferinte(string? Mod, string? Tema, string? Interfata = null, string? Avatar = null, bool? AscundeLectiiTerminate = null);
 
 public static class ElevEndpoints
 {
@@ -95,6 +96,7 @@ public static class ElevEndpoints
                     throw new CerereInvalida("Avatarul ales nu există.");
                 p.Avatar = c.Avatar.Length == 0 ? null : c.Avatar;
             }
+            if (c.AscundeLectiiTerminate is { } ascunde) p.AscundeLectiiTerminate = ascunde;
             p.ActualizatLa = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
             return await CitestePreferinte(db, uid, ct);
@@ -104,7 +106,7 @@ public static class ElevEndpoints
     static async Task<Preferinte> CitestePreferinte(MarkAiDbContext db, int uid, CancellationToken ct) =>
         await db.PreferinteUtilizatori.AsNoTracking().Where(x => x.UtilizatorId == uid)
             .Select(x => new Preferinte(x.ModBackground, x.ModBackground == "static" && x.BackgroundStatic != null ? x.BackgroundStatic.Cod : null,
-                x.Interfata == null ? null : x.Interfata.Cod, x.Avatar))
+                x.Interfata == null ? null : x.Interfata.Cod, x.Avatar, x.AscundeLectiiTerminate))
             .SingleOrDefaultAsync(ct)
-        ?? new Preferinte("auto", null);
+        ?? new Preferinte("auto", null, AscundeLectiiTerminate: false);
 }

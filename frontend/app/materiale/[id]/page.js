@@ -1,7 +1,8 @@
 'use client'
 // /materiale/1 : Lecțiile unei materii (fiecare făcută de un profesor), cu filtru de clasă și de loc.
 // Clasa implicită: clasa elevului + „Bac”; fără clasă setată, toate. Loc: toate / organizația mea / doar publice /
-// aproape de mine (județul din Setări; cele din localitatea elevului primele).
+// aproape de mine (județul din Setări; cele din localitatea elevului primele). Elevul poate ascunde lecțiile terminate
+// (alegerea e salvată în cont, ca tema).
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -18,7 +19,9 @@ export default function PaginaMaterie() {
   const [lectii, setLectii] = useState(null)
   const [aleseDeElev, setAlese] = useState(null) // null = implicitul de mai jos; [] = toate
   const [unde, setUnde] = useState('toate')
+  const [ascunde, setAscunde] = useState(false)
   const [eroare, setEroare] = useState('')
+  const esteElev = elev?.rol === 'elev'
 
   const alese = aleseDeElev ?? (elev?.clasa ? [elev.clasa, 'Bac'] : [])
 
@@ -26,6 +29,15 @@ export default function PaginaMaterie() {
     if (!elev) return
     api(`/materii/${id}`).then(setMaterie).catch((e) => setEroare(e.message))
   }, [elev, id])
+  useEffect(() => {
+    if (!esteElev) return
+    api('/utilizatori/me/preferinte').then((p) => setAscunde(!!p.ascundeLectiiTerminate)).catch(() => {})
+  }, [esteElev])
+
+  function comutaAscunde(valoare) {
+    setAscunde(valoare)
+    api('/utilizatori/me/preferinte', { metoda: 'PUT', corp: { ascundeLectiiTerminate: valoare } }).catch(() => {})
+  }
 
   const q = new URLSearchParams()
   if (alese.length) q.set('clasa', alese.join(','))
@@ -40,6 +52,7 @@ export default function PaginaMaterie() {
   if (!elev || !materie || !lectii) return <Incarcare />
 
   const comuta = (c) => setAlese(alese.includes(c) ? alese.filter((x) => x !== c) : [...alese, c])
+  const vizibile = ascunde ? lectii.filter((l) => !l.completata) : lectii
 
   return (
     <main className="tv-pagina">
@@ -67,8 +80,13 @@ export default function PaginaMaterie() {
             ))}
             {!elev.judetId && <Link href="/setari" className="tv-indiciu">Alege-ți județul în Setări ca să vezi lecțiile din apropiere.</Link>}
           </div>
+          {esteElev && (
+            <label className="tv-optiune">
+              <input type="checkbox" checked={ascunde} onChange={(e) => comutaAscunde(e.target.checked)} /> Ascunde lecțiile terminate
+            </label>
+          )}
           <div className="tv-planuri">
-            {lectii.map((l) => (
+            {vizibile.map((l) => (
               <Link key={l.id} href={`/parcurs/${l.id}`} className="tv-plan tv-lectie">
                 <span className="tv-butoane">
                   <span className="tv-pastila tv-pastila-aur">{numeClasa(l.clasa)}</span>
@@ -84,6 +102,12 @@ export default function PaginaMaterie() {
               </Link>
             ))}
           </div>
+          {lectii.length > 0 && vizibile.length === 0 && (
+            <p className="tv-gol">
+              Ai terminat toate lecțiile de aici{lectii.length === 1 ? '' : ` (${lectii.length})`}.{' '}
+              <button type="button" className="tv-pastila tv-pastila-aur" onClick={() => comutaAscunde(false)}>Arată-le</button>
+            </p>
+          )}
           {lectii.length === 0 && (
             <p className="tv-gol">
               {unde === 'local' ? 'Nu există lecții ale organizațiilor din județul tău aici.' : unde !== 'toate' ? 'Nu există lecții pentru filtrul ales.'

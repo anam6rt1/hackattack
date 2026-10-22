@@ -1417,6 +1417,12 @@ namespace MarkAi.Data.Migrations
                         .HasColumnName("actualizat_la")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<bool>("AscundeLectiiTerminate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("ascunde_lectii_terminate");
+
                     b.Property<string>("Avatar")
                         .HasColumnType("text")
                         .HasColumnName("avatar");

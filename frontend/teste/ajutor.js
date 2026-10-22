@@ -3,6 +3,9 @@ import { vi } from "vitest";
 
 export const router = { replace: vi.fn(), push: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() };
 
+/** The dynamic route parameters `useParams()` returns (e.g. { id: "1" } for /materiale/1); emptied after each test. */
+export const parametri = {};
+
 /**
  * Replaces fetch with a fake API. `rute` maps "METODA /cale" (without the /api prefix and the query string, unless the key has
  * one) to a response: a value (200 JSON), `raspuns(status, corp)`, or a function (cerere) => one of those.

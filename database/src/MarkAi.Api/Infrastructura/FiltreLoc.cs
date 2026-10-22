@@ -15,6 +15,10 @@ public sealed record LocUtilizator(int? JudetId, int? LocalitateId)
 
     /// <summary>The county for a "local" filter; refused with a pointer to Settings when the user has not set one.</summary>
     public int JudetObligatoriu => JudetId ?? throw new CerereInvalida("Alege-ți județul în Setări → „Organizație și loc” ca să vezi ce e aproape de tine.");
+
+    /// <summary>The locality for the professors' "near me"; refused with a pointer to Settings when the user has not set one.</summary>
+    public int LocalitateObligatorie => LocalitateId
+        ?? throw new CerereInvalida("Alege-ți localitatea în Setări → „Organizație și loc” ca să vezi profesorii din localitatea ta.");
 }
 
 /// <summary>

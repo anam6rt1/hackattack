@@ -1,8 +1,9 @@
 'use client'
 // /profesori
-//  • elev: lista profesorilor verificați, cu tariful fix sau „Pro bono”, ședințele viitoare și locurile libere;
-//    filtre: din organizația mea / aproape de mine (județul din Setări), online / față în față (hibridele apar la ambele);
-//    rezervarea se face direct (plata e simulată deocamdată); la o ședință hibridă elevul alege cum participă.
+//  • elev: profesorii verificați care au ședințe viitoare, cu tariful fix sau „Pro bono” și locurile libere; căutare după nume
+//    și materie (fără diacritice); filtre: din organizația mea / aproape de mine (doar localitatea din Setări), online / față
+//    în față (hibridele apar la ambele); rezervarea se face direct (plata e simulată deocamdată); la o ședință hibridă elevul
+//    alege cum participă. Linkul ședințelor rezervate e pe pagina de start.
 //  • profesor: ședințele proprii (programare, înscrieri, anulare).
 
 import { useCallback, useEffect, useState } from 'react'
@@ -99,7 +100,9 @@ function Director({ utilizator }) {
   const [profesori, setProfesori] = useState(null)
   const [materii, setMaterii] = useState([])
   const [pret, setPret] = useState(null)
-  const [filtru, setFiltru] = useState({ materieId: '', gratuit: false, saptamana: false, unde: 'toate', tip: '' })
+  const [filtru, setFiltru] = useState({ materieId: '', gratuit: false, saptamana: false, unde: 'toate', tip: '', q: '' })
+  const [text, setText] = useState('') // ce scrie elevul; ajunge în filtru după o scurtă pauză
+  const areOrganizatie = utilizator.organizatii?.some((o) => o.stare === 'aprobat')
   const [ales, setAles] = useState(null) // { slot, profesor }
   const [rezervarileMele, setRezervarileMele] = useState({}) // slotId → id-ul rezervării mele confirmate
   const [eroare, setEroare] = useState('')
@@ -111,6 +114,7 @@ function Director({ utilizator }) {
     if (filtru.saptamana) q.set('zile', '7')
     if (filtru.unde !== 'toate') q.set('filtru', filtru.unde)
     if (filtru.tip) q.set('tip', filtru.tip)
+    if (filtru.q) q.set('q', filtru.q)
     api('/profesori?' + q).then((r) => setProfesori(r.elemente)).catch((e) => setEroare(e.message))
     api('/rezervari')
       .then((r) => setRezervarileMele(Object.fromEntries(r.elemente.filter((x) => x.status === 'confirmata').map((x) => [x.slot.id, x.id]))))
@@ -122,6 +126,17 @@ function Director({ utilizator }) {
     api('/tarif').then(setPret).catch(() => {})
   }, [])
   useEffect(() => incarca(), [incarca])
+  useEffect(() => {
+    const t = setTimeout(() => setFiltru((f) => (f.q === text.trim() ? f : { ...f, q: text.trim() })), 300)
+    return () => clearTimeout(t)
+  }, [text])
+
+  // Doar profesorii cu ședințe viitoare apar în listă, deci mesajul spune asta, nu „niciun profesor”.
+  const alteFiltre = filtru.materieId || filtru.tip || filtru.gratuit || filtru.saptamana
+  const unde = filtru.unde === 'local' ? ' din localitatea ta' : filtru.unde === 'organizatia-mea' ? ' din organizația ta' : ''
+  const gol = filtru.q
+    ? `Niciun profesor${unde} cu ședințe programate nu se potrivește căutării „${filtru.q}”${alteFiltre ? ' și filtrelor alese' : ''}.`
+    : `Niciun profesor${unde} nu are ședințe programate${alteFiltre ? ' care să se potrivească filtrelor' : ''} momentan.`
 
   return (
     <>
@@ -134,9 +149,12 @@ function Director({ utilizator }) {
 
       {/* Toate filtrele într-o singură bară: unde, tipul ședinței, materia și opțiunile. */}
       <div className="tv-bara-filtre">
+        <input type="search" className="tv-camp-text" aria-label="Caută un profesor" placeholder="Caută după nume sau materie" maxLength={100}
+          value={text} onChange={(e) => setText(e.target.value)} />
         <div className="tv-filtre" role="group" aria-label="Unde sunt profesorii">
           {FILTRE.map(([v, t]) => (
-            <button key={v} type="button" className="tv-filtru" aria-pressed={filtru.unde === v} disabled={v === 'local' && !utilizator.judetId}
+            <button key={v} type="button" className="tv-filtru" aria-pressed={filtru.unde === v}
+              disabled={(v === 'local' && !utilizator.localitateId) || (v === 'organizatia-mea' && !areOrganizatie)}
               onClick={() => setFiltru({ ...filtru, unde: v })}>
               {t}
             </button>
@@ -157,16 +175,14 @@ function Director({ utilizator }) {
           <label className="tv-optiune"><input type="checkbox" checked={filtru.gratuit} onChange={(e) => setFiltru({ ...filtru, gratuit: e.target.checked })} /> Doar pro bono</label>
           <label className="tv-optiune"><input type="checkbox" checked={filtru.saptamana} onChange={(e) => setFiltru({ ...filtru, saptamana: e.target.checked })} /> Locuri în următoarele 7 zile</label>
         </div>
-        {!utilizator.judetId && <Link href="/setari" className="tv-indiciu">Alege-ți județul în Setări ca să vezi profesorii din apropiere.</Link>}
+        {!utilizator.localitateId && <Link href="/setari" className="tv-indiciu">Alege-ți localitatea în Setări ca să vezi profesorii din localitatea ta.</Link>}
       </div>
 
       {eroare && <p className="tv-eroare">{eroare}</p>}
       {!profesori ? (
         <p className="tv-asteapta">Se încarcă...</p>
       ) : profesori.length === 0 ? (
-        <p className="tv-gol">
-          {filtru.unde === 'local' ? 'Niciun profesor din județul tău nu se potrivește filtrelor.' : 'Niciun profesor nu se potrivește filtrelor.'}
-        </p>
+        <p className="tv-gol">{gol}</p>
       ) : (
         <div className="tv-profesori">
           {profesori.map((p) => (
@@ -187,33 +203,28 @@ function Director({ utilizator }) {
               </div>
               {p.descriere && <p>{p.descriere}</p>}
               <div className="tv-mic">Ședințe viitoare</div>
-              {p.sloturi.length ? (
-                <ul className="tv-lista">
-                  {p.sloturi.slice(0, 5).map((s) => (
-                    <li key={s.id} className="tv-rand">
-                      <div>
-                        <b>{s.titlu}</b>
-                        <small>
-                          {dataOra(s.inceputLa)} · {TIPURI_SEDINTA[s.tip]}{s.loc ? ` (${[textLoc({ ...s.loc, judet: null }), s.notaLoc].filter(Boolean).join(' · ')})` : ''} · {s.locuriLibere > 0 ? `${s.locuriLibere} din ${s.capacitate} locuri libere` : 'complet'} · {s.proBono ? 'gratuit' : pret ? `${pret.suma} ${pret.moneda}` : 'plătit'}
-                        </small>
-                      </div>
-                      {s.rezervatDeMine ? (
-                        <span className="tv-butoane">
-                          <span className="tv-pastila tv-pastila-verde">Rezervat</span>
-                          {s.linkIntalnire && <a className="tv-pastila tv-pastila-aur" href={s.linkIntalnire} target="_blank" rel="noreferrer">Intră în ședință</a>}
-                          {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={incarca} />}
-                        </span>
-                      ) : (
-                        <button className="tv-pastila tv-pastila-aur" disabled={s.locuriLibere === 0} onClick={() => setAles({ slot: s, profesor: p })}>
-                          {s.locuriLibere === 0 ? 'Complet' : 'Rezervă'}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="tv-indiciu">Nicio ședință programată momentan.</p>
-              )}
+              <ul className="tv-lista">
+                {p.sloturi.slice(0, 5).map((s) => (
+                  <li key={s.id} className="tv-rand">
+                    <div>
+                      <b>{s.titlu}</b>
+                      <small>
+                        {dataOra(s.inceputLa)} · {TIPURI_SEDINTA[s.tip]}{s.loc ? ` (${[textLoc({ ...s.loc, judet: null }), s.notaLoc].filter(Boolean).join(' · ')})` : ''} · {s.locuriLibere > 0 ? `${s.locuriLibere} din ${s.capacitate} locuri libere` : 'complet'} · {s.proBono ? 'gratuit' : pret ? `${pret.suma} ${pret.moneda}` : 'plătit'}
+                      </small>
+                    </div>
+                    {s.rezervatDeMine ? (
+                      <span className="tv-butoane">
+                        <span className="tv-pastila tv-pastila-verde">Rezervat</span>
+                        {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={incarca} />}
+                      </span>
+                    ) : (
+                      <button className="tv-pastila tv-pastila-aur" disabled={s.locuriLibere === 0} onClick={() => setAles({ slot: s, profesor: p })}>
+                        {s.locuriLibere === 0 ? 'Complet' : 'Rezervă'}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </article>
           ))}
         </div>
