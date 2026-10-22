@@ -34,5 +34,9 @@ for _ in $(seq 1 120); do
 done
 curl -sf http://127.0.0.1:3001/api/judete > /dev/null || { echo "The test servers did not start; see $jurnale." >&2; exit 1; }
 
+# Two workers, as in CI: with four WebKit browsers in the container the Triviador room tests ran out of time under load
+# (2026-10-23: 4 failed with --workers=4, all 44 passed with 2). Another --workers given on the command line wins.
+workers=(--workers=2)
+for a in "$@"; do [[ "$a" == --workers* || "$a" == -j* ]] && workers=(); done
 podman run --rm --network=host --ipc=host --userns=keep-id -v "$PWD":/w:z -w /w -e HOME=/tmp \
-  "mcr.microsoft.com/playwright:v$versiune-noble" npx playwright test --project=webkit "$@"
+  "mcr.microsoft.com/playwright:v$versiune-noble" npx playwright test --project=webkit "${workers[@]}" "$@"
