@@ -6,6 +6,7 @@ async function cameraNoua(browser: import("@playwright/test").Browser) {
   const gazda = await browser.newPage();
   await intra(gazda, await elevNou("gazda"));
   await gazda.goto("/joc");
+  await gazda.getByLabel("Limba și literatura română").check();
   await gazda.getByRole("button", { name: "Creează o cameră" }).click();
   await expect(gazda).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
   return { gazda, cod: gazda.url().split("/").pop()! };

@@ -6,9 +6,13 @@ test("un joc întreg cu un robot, până la XP", async ({ page }) => {
   test.setTimeout(300_000);
   await intraRapid(page, await elevNou("jucator"));
   await page.goto("/joc");
-  // Only the subject with the test Lecție's questions (the page ticks the first subject, Biologie, which has none).
+  // Nothing is ticked at first: the host picks the subject (here the one with the test Lecție's questions).
+  const creeaza = page.getByRole("button", { name: "Creează o cameră" });
+  await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(0);
+  await expect(creeaza).toBeDisabled();
+  await expect(creeaza).toHaveAccessibleDescription("Bifează cel puțin o materie ca să creezi camera.");
   await page.getByLabel("Limba și literatura română").check();
-  await page.getByLabel("Biologie").uncheck();
+  await expect(creeaza).toBeEnabled();
   await page.getByLabel("Jucători").selectOption("2");
   await page.getByRole("button", { name: "Creează o cameră" }).click();
   await expect(page).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
@@ -43,6 +47,7 @@ test("un joc întreg cu un robot, până la XP", async ({ page }) => {
 test("gazda vede al doilea jucător și pe spectator", async ({ page, browser }) => {
   await intraRapid(page, await elevNou("gazda"));
   await page.goto("/joc");
+  await page.getByLabel("Limba și literatura română").check();
   await page.getByLabel("Jucători").selectOption("2");
   await page.getByRole("button", { name: "Creează o cameră" }).click();
   await expect(page).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
@@ -64,6 +69,7 @@ test("gazda vede al doilea jucător și pe spectator", async ({ page, browser })
 test("al doilea jucător intră cu codul scris pe pagina /joc", async ({ page, browser }) => {
   await intraRapid(page, await elevNou("gazda"));
   await page.goto("/joc");
+  await page.getByLabel("Limba și literatura română").check();
   await page.getByRole("button", { name: "Creează o cameră" }).click();
   await expect(page).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
   const cod = page.url().split("/").pop()!;

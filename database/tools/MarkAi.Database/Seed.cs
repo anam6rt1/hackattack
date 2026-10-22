@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 /// Idempotent reference data and starter content: roles, XP levels, the fixed tutoring price, themes and drawing styles,
 /// and the Romanian literature Lecții (chapters + quiz questions) imported from the frontend's JSON files. Safe to run repeatedly.
 /// </summary>
-internal static class Seed
+public static class Seed
 {
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
@@ -35,6 +35,22 @@ internal static class Seed
             if (!await db.NiveluriXp.AnyAsync(n => n.Nivel == nivel))
                 db.NiveluriXp.Add(new NivelXp { Nivel = nivel, XpNecesar = xp, Titlu = titlu });
 
+        await db.SaveChangesAsync();
+        await ReferintaAsync(db);
+
+        await ImportaRomana(db, dataDir);
+        if (File.Exists(Path.Combine(dataDir, "continut-suplimentar.json"))) await ImportaSuplimentar(db, dataDir);
+        await CreeazaAdmin(db);
+        await tx.CommitAsync();
+        Console.WriteLine("Seed applied.");
+    }
+
+    /// <summary>
+    /// The fixed tutoring price, the drawing styles and the themes (season × time of day): reference data the API needs for
+    /// bookings and the appearance settings. Also used by the preview API, so the browser tests can save a style.
+    /// </summary>
+    public static async Task ReferintaAsync(MarkAiDbContext db)
+    {
         if (!await db.TarifeFixe.AnyAsync(t => t.Activ))
             db.TarifeFixe.Add(new TarifFix { Suma = 80, Moneda = "RON", DurataMinute = 60, Activ = true });
 
@@ -54,12 +70,6 @@ internal static class Seed
                 db.ReguliBackground.Add(new RegulaBackground { Background = fundal, Interfata = interfata, Anotimp = anotimp, PerioadaZilei = moment, Activa = true });
             }
         await db.SaveChangesAsync();
-
-        await ImportaRomana(db, dataDir);
-        if (File.Exists(Path.Combine(dataDir, "continut-suplimentar.json"))) await ImportaSuplimentar(db, dataDir);
-        await CreeazaAdmin(db);
-        await tx.CommitAsync();
-        Console.WriteLine("Seed applied.");
     }
 
     private static string NumeTema(string anotimp, string moment) =>

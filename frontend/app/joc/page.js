@@ -26,10 +26,8 @@ export default function PaginaJoc() {
 
   useEffect(() => {
     if (!elev) return
-    api('/materii').then((r) => {
-      setMaterii(r.elemente)
-      if (r.elemente.length) setAlese([r.elemente[0].id])
-    })
+    // Nicio materie bifată din oficiu: gazda alege (altfel camera putea porni pe o materie fără întrebări, cu cele demo).
+    api('/materii').then((r) => setMaterii(r.elemente))
   }, [elev])
 
   if (!elev) return <Incarcare />
@@ -90,7 +88,8 @@ export default function PaginaJoc() {
               </select>
             </label>
             {eroare && <p className="tv-mic" role="alert">{eroare}</p>}
-            <button className="tv-btn" onClick={creeazaCamera} disabled={!alese.length || seCreeaza}>
+            {!alese.length && <p className="tv-mic" id="fara-materie">Bifează cel puțin o materie ca să creezi camera.</p>}
+            <button className="tv-btn" onClick={creeazaCamera} disabled={!alese.length || seCreeaza} aria-describedby={alese.length ? undefined : 'fara-materie'}>
               {seCreeaza ? 'Se creează camera…' : 'Creează o cameră'}
             </button>
             <div className="tv-mic" style={{ textAlign: 'center' }}>sau intră cu un cod</div>
