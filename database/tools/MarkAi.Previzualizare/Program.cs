@@ -4,6 +4,7 @@
 // Usage: dotnet run --project tools/MarkAi.Previzualizare [-- --port 5081] [--e2e]
 // --e2e (the Playwright tests): no practical rate limits (every test signs in from the same address) and no pause between quizzes.
 using MarkAi.Tests.Suport;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 
 var port = args.SkipWhile(a => a != "--port").Skip(1).Select(int.Parse).DefaultIfEmpty(5081).First();
@@ -15,7 +16,15 @@ var setari = e2e ? new Dictionary<string, string?>
     ["Limite:PauzaQuizSecunde"] = "0",
 } : null;
 var previzualizare = await Harness.Porneste(ceasReal: true, port: port, setari: setari);
-Console.WriteLine($"Preview fixtures only: George/Irina/Admin/Director; usernames george, irina, admin, director; password {Harness.ParolaTest}; API {previzualizare.Adresa}.");
+// Scheduled sessions (the same as date-test), so Profesori, bookings and Acasă have something to show; the price `seed` sets up,
+// so not every session is pro bono. director teaches no subject, so she stays a professor without sessions.
+await previzualizare.Db(async db =>
+{
+    if (!await db.TarifeFixe.AnyAsync(t => t.Activ)) db.TarifeFixe.Add(new MarkAi.Data.Entities.TarifFix { Suma = 80, Moneda = "RON", DurataMinute = 60, Activ = true });
+    await db.SaveChangesAsync();
+    await SedinteTest.AdaugaAsync(db, ["irina", "director"], ["george"], DateTime.UtcNow);
+});
+Console.WriteLine($"Preview fixtures only: George/Irina/Admin/Director (+ scheduled sessions); usernames george, irina, admin, director; password {Harness.ParolaTest}; API {previzualizare.Adresa}.");
 // The host stops on Ctrl+C or SIGTERM; then the database copy and the container go too.
 await previzualizare.App.WaitForShutdownAsync();
 await previzualizare.DisposeAsync();

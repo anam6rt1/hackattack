@@ -18,7 +18,9 @@ using Microsoft.EntityFrameworkCore;
 /// București, Alba Iulia and Cluj-Napoca, for the "near me" filters;</item>
 /// <item>the subjects, Lecții (per grade), chapters, quiz questions and History files from <c>date/date-test.json</c>, authored by
 /// the subject's professor in "Organizație Demo" (one Lecție per subject organisation-only, one without questions);</item>
-/// <item>some progress: elev1 and elev2 have passed a few Lecții; platform Lecții without an author get the admin.</item>
+/// <item>some progress: elev1 and elev2 have passed a few Lecții; platform Lecții without an author get the admin;</item>
+/// <item>scheduled sessions (<see cref="SedinteTest"/>) for profesor and the subject professors except profesor-istorie, who has
+/// none (to check that professors without sessions are hidden), some booked by elev and elev1–elev10.</item>
 /// </list>
 /// Run after <c>migrate</c>, <c>seed-localitati</c> and <c>seed</c>. Everything is matched by username, subject code, Lecție or
 /// chapter title, question text or file type, and skipped when it already exists. Files are written to <paramref name="stocare"/>
@@ -183,8 +185,13 @@ static class DateTest
             }
         }
 
+        var (sedinte, rezervari) = await SedinteTest.AdaugaAsync(db,
+            ["profesor", "profesor-matematica", "profesor-romana", "profesor-fizica", "profesor-geografie"],
+            ["elev", .. Elevi.Take(10).Select(e => e.Username)], acum);
+
         Console.WriteLine($"Test data: {noi.Conturi} account(s), {noi.Materii} subject(s), {noi.Lectii} Lecție(s), {noi.Capitole} chapter(s), "
-            + $"{noi.Intrebari} question(s), {noi.Fisiere} file(s) added; existing ones left as they were. Password of new accounts: MARKAI_PAROLA_TEST or the default.");
+            + $"{noi.Intrebari} question(s), {noi.Fisiere} file(s), {sedinte} session(s), {rezervari} booking(s) added; existing ones left as they were. "
+            + "Password of new accounts: MARKAI_PAROLA_TEST or the default.");
     }
 
     private sealed class Numaratoare { public int Conturi, Materii, Lectii, Capitole, Intrebari, Fisiere; }

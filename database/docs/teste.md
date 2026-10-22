@@ -38,7 +38,8 @@ dotnet run --project tools/MarkAi.Previzualizare            # 127.0.0.1:5081
 dotnet run --project tools/MarkAi.Previzualizare -- --port 5090
 ```
 
-Aceeași aplicație și aceleași fixturi (george, irina, admin, director; parola `Test-demo-2026!`), cu ceasul real, serviciile de fundal
+Aceeași aplicație și aceleași fixturi (george, irina, admin, director; parola `Test-demo-2026!`), plus ședințele programate din
+`date-test` (`tools/MarkAi.Database/SedinteTest.cs`: irina are trei, director niciuna, george e înscris la câteva), cu ceasul real, serviciile de fundal
 pornite și furnizorul „jurnal” (codurile apar la admin, pagina „Mesaje trimise”). Baza e o copie de unică folosință. Un frontend de test
 trebuie construit cu `API_INTERN_URL=http://127.0.0.1:5081`, altfel `/api` ajunge la API-ul real.
 
