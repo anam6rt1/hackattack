@@ -51,6 +51,16 @@ rulează la fiecare PR și push pe main: `dotnet test`, lint + Vitest + build, a
 (motorul din Safari), câte un job pe browser. Eșecurile WebKit apar în raport, dar nu opresc încă rularea. Pe Bazzite WebKit
 rulează doar în containerul oficial Playwright: `npm run test:e2e:webkit`.
 
+## Date de volum (pentru a vedea listele pe pagini)
+
+```bash
+dotnet run --project tools/MarkAi.Database -- date-volum            # ~5 800 de conturi vol-…, 200 de organizații, 2 000 de lecții
+dotnet run --project tools/MarkAi.Database -- date-volum --sterge   # scoate exact ce a generat
+```
+
+Doar pe baze de test sau demo. Toate conturile sunt `vol-…@volum.hackattack.com`, cu parola din `date-test`. Mărimile paginilor:
+`src/MarkAi.Api/Infrastructura/Pagini.cs` (limitele API-ului) și `frontend/lib/pagini.js` (ce arată site-ul).
+
 ## Reguli
 - Un test care pică uneori se repară (sau se pune deoparte cu o problemă deschisă) înainte de merge; nu se reîncearcă orbește.
   Cursa cunoscută: după `HubConnection.StopAsync`, serverul vede deconectarea puțin mai târziu, deci ceasul fals se mută în buclă
