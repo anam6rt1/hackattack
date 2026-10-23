@@ -194,4 +194,74 @@ public sealed class RetragereProfesorTests : TestOrganizatii
         await Retrage(irinaId, "A doua oară.").Status(HttpStatusCode.OK);
         (await irina.GetJson("/utilizatori/me")).Str("motivRespingere").ShouldBe("A doua oară.");
     }
+
+    [Fact]
+    public async Task OSedintaPlatitaAnulataAnuleazaSiComisionul()
+    {
+        await h.Db(async db => { db.Add(new TarifFix { Suma = 80, Moneda = "RON", DurataMinute = 60, Activ = true }); await db.SaveChangesAsync(); });
+        var panou = await irina.Post("/profesori/me/sloturi", new { materieId = 1, titlu = "Plătită", inceputLa = DateTime.UtcNow.AddDays(2), capacitate = 2,
+            proBono = false, linkIntalnire = "https://meet.example.invalid/x" }).Json(HttpStatusCode.Created);
+        var s = panou.Lista("sloturi").Select(x => x.GetProperty("slot")).Single(x => x.Str("titlu") == "Plătită").Int("id");
+        await george.Post("/rezervari", new { slotId = s }).Status(HttpStatusCode.Created);
+        await Retrage(irinaId);
+        var r = await h.Db(db => db.Rezervari.Include(x => x.ComisionMentor).Include(x => x.Plati).SingleAsync(x => x.CameraId == s));
+        (r.Status, r.ComisionMentor!.Status).ShouldBe(("anulata", "anulat"));
+        r.Plati.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task FiecareElevRezervatPrimesteUnEmailPeSedinta()
+    {
+        var (s1, s2) = (await Sedinta(irina, "Prima"), await Sedinta(irina, "A doua", 4));
+        var (sara, _) = await ElevNou();
+        foreach (var (c, slot) in new[] { (george, s1), (george, s2), (sara, s1) })
+            await c.Post("/rezervari", new { slotId = slot }).Status(HttpStatusCode.Created);
+        await Retrage(irinaId);
+        await Proceseaza();
+        h.Emailuri.Trimise.Count(m => m.Subiect.Contains("O ședință a fost anulată")).ShouldBe(3);
+        h.Emailuri.Trimise.Count(m => m.Catre == "george@example.invalid" && m.Subiect.Contains("O ședință a fost anulată")).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task OSedintaAnulataDeJaNuMaiEsteNumarata()
+    {
+        var s = await Sedinta(irina, "Anulată de ea");
+        await irina.Delete($"/profesori/me/sloturi/{s}").Status(HttpStatusCode.NoContent);
+        (await Retrage(irinaId).Json()).Int("sedinteAnulate").ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task AdminulOrganizatieiRetrasIsiConduceInContinuareOrganizatiaPrinApi()
+    {
+        // The withdrawal is of the teaching approval: director still runs Liceul de Test through the API (the site's /organizatie
+        // page sends an unapproved professor to /in-asteptare — open question in plan 2's bugs.log), but cannot teach.
+        var directorId = (await director.GetJson("/utilizatori/me")).Int("id");
+        await Retrage(directorId);
+        (await director.GetJson("/organizatia-mea")).Str("nume").ShouldBe("Liceul de Test");
+        var (_, sara) = await ElevNou();
+        await director.Post($"/organizatia-mea/membri/{sara}/aprobare").Status(HttpStatusCode.NoContent);
+        await director.Get("/profesori/me").Status(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UnAdminDeOrganizatieRetrasEsteReaprobatCandONouaOrganizatieAluiEsteAprobata()
+    {
+        // ovidiu applied for an organisation; withdrawn before it is approved; the platform approving it afterwards counts.
+        var (ovidiu, alba) = await OrganizatieNoua();
+        var ovidiuId = (await ovidiu.GetJson("/utilizatori/me")).Int("id");
+        await h.Db(db => db.ProfiluriMentor.Where(p => p.UtilizatorId == ovidiuId).ExecuteUpdateAsync(x => x.SetProperty(p => p.StareVerificare, "aprobat")));
+        await Retrage(ovidiuId);
+        await admin.Post($"/admin/organizatii/{alba}/aprobare").Status(HttpStatusCode.NoContent);
+        (await Stare(ovidiu)).ShouldBe("aprobat");
+    }
+
+    [Fact]
+    public async Task ProfesorulRetrasNuMaiPoateFiRezervat()
+    {
+        var s = await Sedinta(irina, "Înainte");
+        await Retrage(irinaId);
+        await george.Post("/rezervari", new { slotId = s }).Status(HttpStatusCode.Conflict);
+        (await george.GetJson("/profesori")).Lista().ShouldNotContain(p => p.Int("id") == irinaId);
+    }
 }
+

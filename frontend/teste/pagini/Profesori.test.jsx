@@ -103,4 +103,20 @@ describe("pagina Profesori (elev)", () => {
     await u.type(screen.getByRole("searchbox"), "ion");
     expect(await screen.findByText("Niciun profesor cu ședințe programate nu se potrivește căutării „ion” și filtrelor alese.")).toBeInTheDocument();
   });
+
+  it("ștergerea textului din căutare scoate filtrul", async () => {
+    const { u, interogari } = porneste();
+    const cauta = await screen.findByRole("searchbox", { name: "Caută un profesor" });
+    await u.type(cauta, "irina");
+    await waitFor(() => expect(interogari().at(-1).get("q")).toBe("irina"));
+    await u.clear(cauta);
+    await waitFor(() => expect(interogari().at(-1).has("q")).toBe(false));
+  });
+
+  it("doar spații nu pornesc o căutare", async () => {
+    const { u, interogari } = porneste();
+    await u.type(await screen.findByRole("searchbox"), "    ");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(interogari().some((q) => q.has("q"))).toBe(false);
+  });
 });

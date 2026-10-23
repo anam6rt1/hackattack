@@ -214,4 +214,24 @@ describe("TemaProvider", () => {
     expect(localStorage.getItem("bac_avatar")).toBeNull();
     expect(document.documentElement.dataset.theme).toBe("acvatic");
   });
+
+  it("trecerea direct la alt cont îi aplică aspectul acestuia", async () => {
+    let cont = { id: 1, nume: "Ana", rol: "elev" };
+    apiFals({
+      "GET /utilizatori/me": () => cont,
+      "GET /utilizatori/me/preferinte": () => (cont.id === 1
+        ? { mod: "static", tema: "vara-zi", interfata: "realist", avatar: "vulpe" }
+        : { mod: "auto", tema: null, interfata: null, avatar: null }),
+      "POST /autentificare": () => (cont = { id: 2, nume: "Dan", rol: "elev" }),
+    });
+    function Intra() {
+      const { intra } = useSesiune();
+      return <button onClick={() => intra("dan", "x")}>Intră Dan</button>;
+    }
+    const u = userEvent.setup();
+    render(<SesiuneProvider><TemaProvider><ArataTema /><Intra /></TemaProvider></SesiuneProvider>);
+    expect(await screen.findByText("vara-zi realist vulpe")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Intră Dan" }));
+    expect(await screen.findByText("auto acvatic fără")).toBeInTheDocument();
+  });
 });

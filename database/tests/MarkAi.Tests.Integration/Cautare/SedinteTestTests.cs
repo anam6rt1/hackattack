@@ -157,4 +157,69 @@ public sealed class SedinteTestTests : TestCautare
         lista.Where(p => p.Sloturi.Count > 0).Select(p => p.Id).Order().ShouldBe(new[] { await Id("irina"), await Id("ovidiu"), await Id("bianca") }.Order());
         (await george.GetJson("/rezervari")).Lista().Count().ShouldBeGreaterThan(0);
     }
+
+    [Fact]
+    public async Task FaraLocSiFaraOrganizatieDoarSedinteleOnline()
+    {
+        // A professor with no county and no organisation has nowhere to hold an in-person session (the API refuses it too).
+        await h.Db(async db =>
+        {
+            var u = new Utilizator { Nume = "Nelocat", Username = "nelocat", Email = "nelocat@example.invalid", EmailConfirmatLa = DateTime.UtcNow };
+            u.ParolaHash = Parole.Hash(u, Harness.ParolaTest);
+            u.ProfilMentor = new ProfilMentor { StareVerificare = "aprobat", ActivatLa = DateTime.UtcNow, Materii = new List<MentorMaterie> { new() { MaterieId = 1 } } };
+            db.Add(u);
+            await db.SaveChangesAsync();
+        });
+        (await Adauga(["nelocat"], [])).Sedinte.ShouldBe(1);
+        (await Sedinte()).ShouldAllBe(c => c.Tip == CameraTutoring.Online);
+    }
+
+    [Fact]
+    public async Task UnElevCareEsteSiProfesorulSedinteiNuSiORezerva()
+    {
+        // A professor listed among the students is skipped for their own sessions (RezervareService refuses it).
+        var (sedinte, rezervari) = await Adauga(["irina"], ["irina"]);
+        sedinte.ShouldBe(3);
+        rezervari.ShouldBe(0);
+    }
 }
+
+/// <summary><see cref="Seed.ReferintaAsync"/>: the price, the drawing styles and the themes that `seed` and the preview API add.</summary>
+public sealed class SeedReferintaTests : TestCuHarness
+{
+    private Task<(int Interfete, int Teme, int Reguli, int Tarife)> Numara() => h.Db(async db =>
+        (await db.Interfata.CountAsync(), await db.Backgrounds.CountAsync(), await db.ReguliBackground.CountAsync(), await db.TarifeFixe.CountAsync(t => t.Activ)));
+
+    [Fact]
+    public async Task AdaugaStiluriTemeSiTarif()
+    {
+        await h.Db(db => Seed.ReferintaAsync(db));
+        (await Numara()).ShouldBe((3, 8, 8, 1));
+        (await h.Db(db => db.Interfata.Select(i => i.Cod).OrderBy(c => c).ToListAsync())).ShouldBe(["insule", "pixel", "realist"]);
+    }
+
+    [Fact]
+    public async Task ADouaOaraNuAdaugaNimic()
+    {
+        await h.Db(db => Seed.ReferintaAsync(db));
+        await h.Db(db => Seed.ReferintaAsync(db));
+        (await Numara()).ShouldBe((3, 8, 8, 1));
+    }
+
+    [Fact]
+    public async Task UnTarifExistentRamane()
+    {
+        await h.Db(async db => { db.Add(new TarifFix { Suma = 95, Moneda = "RON", DurataMinute = 50, Activ = true }); await db.SaveChangesAsync(); });
+        await h.Db(db => Seed.ReferintaAsync(db));
+        (await h.Db(db => db.TarifeFixe.Where(t => t.Activ).Select(t => t.Suma).ToListAsync())).ShouldBe([95m]);
+    }
+
+    [Fact]
+    public async Task UnStilSalvatEsteAcceptatDupaSeed()
+    {
+        await h.Db(db => Seed.ReferintaAsync(db));
+        using var george = await h.Login("george");
+        (await george.Put("/utilizatori/me/preferinte", new { interfata = "pixel", mod = "static", tema = "iarna-noapte" }).Json()).Str("interfata").ShouldBe("pixel");
+    }
+}
+

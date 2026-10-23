@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import PaginaMaterie from "@/app/materiale/[id]/page";
 import { SesiuneProvider } from "@/lib/sesiune";
-import { apiFals, parametri } from "../ajutor";
+import { apiFals, parametri, raspuns } from "../ajutor";
 
 const lectie = (id, titlu, completata) => ({
   id, titlu, completata, clasa: "XII", descriere: null, vizibilitate: "public", publicat: true, autor: "Irina Marin", organizatie: null,
@@ -72,5 +72,21 @@ describe("lecțiile unei materii: „Ascunde lecțiile terminate”", () => {
     expect(await screen.findByRole("heading", { name: "Luceafărul" })).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "Ascunde lecțiile terminate" })).not.toBeInTheDocument();
     expect(cereri.some((c) => c.cale === "/utilizatori/me/preferinte")).toBe(false);
+  });
+
+  it("dacă salvarea în cont nu merge, pagina rămâne folosibilă", async () => {
+    parametri.id = "1";
+    apiFals({
+      "GET /utilizatori/me": ELEV,
+      "GET /materii/1": { id: 1, denumire: "Română", lectiiCompletate: 1, numarLectii: 2 },
+      "GET /materii/1/parcursuri": { elemente: [lectie(1, "Luceafărul", true), lectie(2, "Plumb", false)] },
+      "GET /utilizatori/me/preferinte": { mod: "auto", ascundeLectiiTerminate: false },
+      "PUT /utilizatori/me/preferinte": raspuns(500, { mesaj: "Eroare." }),
+    });
+    const u = userEvent.setup();
+    render(<SesiuneProvider><PaginaMaterie /></SesiuneProvider>);
+    await u.click(await screen.findByRole("checkbox", { name: "Ascunde lecțiile terminate" }));
+    expect(screen.queryByRole("heading", { name: "Luceafărul" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Plumb" })).toBeInTheDocument();
   });
 });

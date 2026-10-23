@@ -78,4 +78,13 @@ describe("admin → profesori: retragerea aprobării", () => {
     expect(within(card).getByText("Respins: Fără diplomă.")).toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "Aprobă din nou" })).not.toBeInTheDocument();
   });
+
+  it("taburile cer lista pe stare", async () => {
+    const { u, cereri } = porneste([]);
+    await screen.findByText("Nicio cerere aici.");
+    await u.click(screen.getByRole("tab", { name: "Respinși" }));
+    await u.click(screen.getByRole("tab", { name: "Aprobați" }));
+    await waitFor(() => expect(cereri.filter((c) => c.cale === "/admin/profesori").map((c) => c.query))
+      .toEqual(["?stare=in_asteptare", "?stare=respins", "?stare=aprobat"]));
+  });
 });
