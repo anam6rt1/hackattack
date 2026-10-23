@@ -5,6 +5,7 @@
   --ocean: #1b8ad3;
   --ocean-adanc: #0d5c9e;
   --ocean-noapte: #083d6e;
+  --ocean-lumina: #2aa2e6;
   --nisip: #f1d9a0;
   --maro: #6b3410;
   --navy: #15305a;
@@ -15,18 +16,22 @@
   --rau: #e2463b;
   --gri-text: #5a6684;
   --titlu: var(--font-titlu), 'Trebuchet MS', system-ui, sans-serif;
-  --text: var(--font-text), 'Segoe UI', system-ui, sans-serif;
+  --font-corp: var(--font-text), 'Segoe UI', system-ui, sans-serif;
 
   min-height: 100vh;
-  font-family: var(--text);
+  font-family: var(--font-corp);
   font-size: 15px;
   line-height: 1.5;
   color: var(--navy);
-  background: var(--ocean-adanc);
+  background-color: var(--ocean-adanc);
+  /* primul strat = decorul anotimpului (zăpadă, frunze...), vezi TEME mai jos */
   background-image:
-    radial-gradient(ellipse at 50% -20%, #2aa2e6 0, transparent 60%),
+    var(--decor, none),
+    radial-gradient(ellipse at 50% -20%, var(--ocean-lumina) 0, transparent 60%),
     radial-gradient(ellipse at 50% 120%, var(--ocean-noapte) 0, transparent 60%);
+  background-size: 260px 260px, auto, auto;
   background-attachment: fixed;
+  animation: tv-decor-cade var(--decor-viteza, 0s) linear infinite;
   padding: 20px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px));
 }
 .tv-pagina * { box-sizing: border-box; }
@@ -45,6 +50,14 @@
   box-shadow: inset 0 0 0 6px #ffffff2e, inset 0 0 60px #0b4f8f99, 0 18px 40px -16px #021d3acc;
 }
 .tv-harta svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* Cadrul hărții: pe ecrane înguste harta are o lățime minimă și se glisează în lateral (lățimea minimă vine din Harta.js). */
+.tv-harta-cadru { min-width: 0; }
+.tv-harta-indiciu { display: none; margin: 6px 4px 0; font-size: 12px; font-weight: 700; color: var(--gri-text); text-align: center; }
+@media (max-width: 700px) {
+  .tv-harta-cadru { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; border-radius: 30px; }
+  .tv-harta-cadru .tv-harta { min-width: var(--harta-latime-min, 560px); }
+  .tv-harta-indiciu { display: block; }
+}
 .tv-poate { cursor: pointer; }
 .tv-poate .tv-inel { stroke: var(--aur); stroke-width: 6; stroke-dasharray: 14 10; animation: tv-mars 1s linear infinite; }
 .tv-poate:hover .tv-nisip { filter: brightness(1.06); }
@@ -66,7 +79,7 @@
 .tv-chip { position: absolute; transform: translate(-50%, -50%); background: var(--chip); color: #fff; border-radius: 999px; padding: .2cqw 1.1cqw; font-weight: 800; font-size: clamp(7px, 1.15cqw, 12px); pointer-events: none; white-space: nowrap; }
 
 .tv-lateral { display: grid; gap: 14px; min-width: 0; }
-.tv-card { background: #fff; border-radius: 26px; padding: 18px; box-shadow: 0 6px 0 #0a4a80, 0 18px 30px -18px #021d3acc; min-width: 0; }
+.tv-card { color: var(--navy); background: #fff; border-radius: 26px; padding: 18px; box-shadow: 0 6px 0 #0a4a80, 0 18px 30px -18px #021d3acc; min-width: 0; }
 .tv-card h3 { font-size: 22px; color: var(--maro); }
 .tv-mic { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: #6b7a99; }
 .tv-cod { font-family: var(--titlu); font-weight: 700; font-size: 46px; letter-spacing: .12em; color: var(--maro); line-height: 1; font-variant-numeric: tabular-nums; }
@@ -89,6 +102,7 @@
 .tv-aur { background: var(--aur); color: var(--maro); box-shadow: 0 5px 0 #c99400; }
 .tv-albastru { background: var(--ocean); box-shadow: 0 5px 0 #0d5c9e; }
 .tv-gri { background: #eef3fb; color: var(--navy); box-shadow: 0 5px 0 #d2dcec; }
+.tv-rosu { background: var(--rau); box-shadow: 0 5px 0 #a3271f; }
 .tv-asteapta { text-align: center; font-weight: 800; color: #6b7a99; animation: tv-puls 1.4s ease-in-out infinite; margin: 0; }
 @keyframes tv-puls { 50% { opacity: .5; } }
 .tv-tura { display: flex; gap: 12px; align-items: center; }
@@ -143,9 +157,10 @@
 
 /* ============ PAGINI FORMALE (profesori, linia AI) ============ */
 .tv-continut { max-width: 1240px; margin: 0 auto; }
-.tv-erou { position: relative; overflow: hidden; border-radius: 30px; color: #fff; padding: 40px 28px 120px; background: radial-gradient(ellipse at 70% 0, #2fa6ea 0, #1b84cc 50%, #136fb3 100%); box-shadow: inset 0 0 0 6px #ffffff22; }
+.tv-erou { position: relative; overflow: hidden; border-radius: 30px; color: #fff; padding: 40px 28px 120px; background: radial-gradient(ellipse at 70% 0, var(--ocean-lumina) 0, var(--ocean) 50%, var(--ocean-adanc) 100%); box-shadow: inset 0 0 0 6px #ffffff22; }
 .tv-erou h1 { font-size: clamp(30px, 5vw, 52px); max-width: 17ch; }
-.tv-erou p { font-size: 18px; max-width: 54ch; margin: 12px 0 0; color: #e3f2ff; }
+/* doar textul eroului; paragrafele cu clasă (ex. din formularele de pe prima pagină) își păstrează stilul */
+.tv-erou p:not([class]) { font-size: 18px; max-width: 54ch; margin: 12px 0 0; color: #e3f2ff; }
 .tv-erou-pill { display: inline-block; background: #fff; color: var(--maro); font-family: var(--titlu); font-weight: 700; border-radius: 999px; padding: 5px 16px; margin-bottom: 14px; box-shadow: 0 4px 0 #00000022; }
 .tv-decor { position: absolute; right: 0; top: 24px; width: min(440px, 42%); height: auto; pointer-events: none; }
 @media (max-width: 900px) { .tv-decor { display: none; } }
@@ -162,7 +177,7 @@
 .tv-plan h3 { font-size: 23px; color: var(--navy); }
 .tv-cine { font-size: 13px; color: #6b7a99; font-weight: 800; }
 .tv-pret { font-family: var(--titlu); font-weight: 700; font-size: 46px; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
-.tv-pret small { font-family: var(--text); font-size: 14px; color: #6b7a99; font-weight: 700; }
+.tv-pret small { font-family: var(--font-corp); font-size: 14px; color: #6b7a99; font-weight: 700; }
 .tv-plan ul { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 7px; flex: 1; }
 .tv-plan li { display: flex; gap: 8px; }
 .tv-plan li::before { content: "✓"; width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; border-radius: 50%; background: var(--bine); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
@@ -205,6 +220,11 @@
 .tv-bula-eu { background: var(--aur); color: var(--maro); justify-self: end; border-bottom-right-radius: 4px; font-weight: 700; }
 .tv-bula-sms { background: #e9f8ef; color: #0f4a2e; justify-self: stretch; max-width: 100%; border-radius: 14px; font-size: 12.5px; }
 .tv-bula-sms b { display: block; font-size: 11px; color: #19a463; letter-spacing: .05em; text-transform: uppercase; }
+/* jurnalul unui apel, în fereastră (fundal alb) */
+.tv-jurnal-apel { display: grid; gap: 10px; max-height: min(60vh, 520px); overflow: auto; padding: 6px 4px 4px; }
+.tv-jurnal-apel .tv-bula { font-size: 14.5px; max-width: 85%; }
+.tv-jurnal-apel .tv-bula-ai { background: #eef4fc; color: var(--navy); }
+.tv-jurnal-apel .tv-bula small { display: block; font-size: 11px; font-weight: 800; opacity: .65; margin-bottom: 2px; }
 .tv-functii { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 600px) { .tv-functii { grid-template-columns: minmax(0, 1fr); } }
 .tv-functii > div { background: #fff; border: 2px solid #ece3cd; border-radius: 20px; padding: 16px; }
@@ -221,3 +241,461 @@
 @media (prefers-reduced-motion: reduce) {
   .tv-pagina *, .tv-pagina *::before, .tv-pagina *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ============ TEME: anotimp × zi/noapte ============
+   Textul alb de pe fundaluri are contrast de cel puțin 4.5:1 pe --ocean și 3:1 pe --ocean-lumina.
+   Tema activă e pusă pe <html data-tema="..."> (lib/tema-sezon.js). Fiecare temă schimbă doar culorile
+   de bază și decorul; componentele folosesc variabilele, nu culori fixe. */
+@keyframes tv-decor-cade { to { background-position: 60px 520px, 0 0, 0 0; } }
+
+:root {
+  --decor-zapada: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='20' cy='30' r='3' opacity='.9'/%3E%3Ccircle cx='90' cy='120' r='2' opacity='.7'/%3E%3Ccircle cx='160' cy='40' r='2.5' opacity='.8'/%3E%3Ccircle cx='230' cy='170' r='3' opacity='.9'/%3E%3Ccircle cx='60' cy='210' r='2' opacity='.6'/%3E%3Ccircle cx='200' cy='240' r='1.5' opacity='.7'/%3E%3Ccircle cx='130' cy='190' r='3.5' opacity='.5'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-frunze: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg opacity='.75'%3E%3Cellipse cx='30' cy='40' rx='7' ry='3.5' fill='%23e8742c' transform='rotate(30 30 40)'/%3E%3Cellipse cx='150' cy='90' rx='6' ry='3' fill='%23c94a2a' transform='rotate(-40 150 90)'/%3E%3Cellipse cx='220' cy='200' rx='7' ry='3.5' fill='%23f2b134' transform='rotate(60 220 200)'/%3E%3Cellipse cx='80' cy='180' rx='5' ry='2.5' fill='%23d9622b' transform='rotate(-15 80 180)'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-petale: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23ffd1e3' opacity='.8'%3E%3Cellipse cx='40' cy='60' rx='5' ry='3' transform='rotate(20 40 60)'/%3E%3Cellipse cx='170' cy='30' rx='4' ry='2.5' transform='rotate(-30 170 30)'/%3E%3Cellipse cx='120' cy='160' rx='5' ry='3' transform='rotate(50 120 160)'/%3E%3Cellipse cx='230' cy='220' rx='4' ry='2.5'/%3E%3Cellipse cx='60' cy='230' rx='3.5' ry='2' transform='rotate(-60 60 230)'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-stele: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='25' cy='35' r='1.4' opacity='.9'/%3E%3Ccircle cx='110' cy='80' r='1' opacity='.6'/%3E%3Ccircle cx='190' cy='25' r='1.6' opacity='.8'/%3E%3Ccircle cx='240' cy='130' r='1' opacity='.7'/%3E%3Ccircle cx='70' cy='160' r='1.2' opacity='.5'/%3E%3Ccircle cx='160' cy='210' r='1.5' opacity='.8'/%3E%3Ccircle cx='20' cy='240' r='1' opacity='.6'/%3E%3C/g%3E%3C/svg%3E");
+  --decor-licurici: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fff59a'%3E%3Ccircle cx='40' cy='50' r='2' opacity='.8'/%3E%3Ccircle cx='180' cy='100' r='1.6' opacity='.6'/%3E%3Ccircle cx='100' cy='200' r='2.2' opacity='.7'/%3E%3Ccircle cx='230' cy='230' r='1.4' opacity='.5'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='140' cy='30' r='1' opacity='.7'/%3E%3Ccircle cx='20' cy='150' r='1.2' opacity='.6'/%3E%3C/g%3E%3C/svg%3E");
+  --mn-sus: #1478bf;
+  --mn-jos: #0d5c9e;
+}
+
+html[data-tema="primavara-zi"] { --mn-sus: #22a3d6; --mn-jos: #1479b0; }
+html[data-tema="primavara-zi"] .tv-pagina { --ocean: #1a7ea6; --ocean-adanc: #1479b0; --ocean-noapte: #0b5079; --ocean-lumina: #16a2c4; --decor: var(--decor-petale); --decor-viteza: 40s; }
+html[data-tema="vara-zi"] .tv-pagina { --ocean: #187bbc; --ocean-lumina: #1c9ce4; --decor: none; }
+html[data-tema="toamna-zi"] { --mn-sus: #2b84a8; --mn-jos: #1d6385; }
+html[data-tema="toamna-zi"] .tv-pagina { --ocean: #297fa2; --ocean-adanc: #1d6385; --ocean-noapte: #133f57; --ocean-lumina: #d38024; --aur: #f5ad3c; --decor: var(--decor-frunze); --decor-viteza: 32s; }
+html[data-tema="iarna-zi"] { --mn-sus: #4f9fd0; --mn-jos: #2f78a8; }
+html[data-tema="iarna-zi"] .tv-pagina { --ocean: #2e7cac; --ocean-adanc: #2f78a8; --ocean-noapte: #1c4f75; --ocean-lumina: #6a9abc; --decor: var(--decor-zapada); --decor-viteza: 28s; }
+
+html[data-tema="primavara-noapte"] { --mn-sus: #1d4f86; --mn-jos: #123766; }
+html[data-tema="primavara-noapte"] .tv-pagina { --ocean: #1d4f86; --ocean-adanc: #123766; --ocean-noapte: #081d3d; --ocean-lumina: #3f74b6; --decor: var(--decor-stele); }
+html[data-tema="vara-noapte"] { --mn-sus: #19437a; --mn-jos: #0f2d5a; }
+html[data-tema="vara-noapte"] .tv-pagina { --ocean: #19437a; --ocean-adanc: #0f2d5a; --ocean-noapte: #071733; --ocean-lumina: #3a62a8; --decor: var(--decor-licurici); }
+html[data-tema="toamna-noapte"] { --mn-sus: #233f6a; --mn-jos: #172b4d; }
+html[data-tema="toamna-noapte"] .tv-pagina { --ocean: #233f6a; --ocean-adanc: #172b4d; --ocean-noapte: #0b1630; --ocean-lumina: #6b4f86; --aur: #f5ad3c; --decor: var(--decor-frunze); --decor-viteza: 40s; }
+html[data-tema="iarna-noapte"] { --mn-sus: #1e3a66; --mn-jos: #132748; }
+html[data-tema="iarna-noapte"] .tv-pagina { --ocean: #1e3a66; --ocean-adanc: #132748; --ocean-noapte: #08132a; --ocean-lumina: #5d7fae; --decor: var(--decor-zapada); --decor-viteza: 36s; }
+
+/* Noaptea, hărțile se întunecă puțin, ca să se potrivească cu cerul */
+html[data-tema$="-noapte"] .tv-harta, html[data-tema$="-noapte"] .harta-insule { filter: brightness(.82) saturate(.92); }
+html[data-tema^="iarna"] .tv-harta, html[data-tema^="iarna"] .harta-insule { filter: saturate(.8) brightness(1.02); }
+html[data-tema="iarna-noapte"] .tv-harta, html[data-tema="iarna-noapte"] .harta-insule { filter: brightness(.8) saturate(.75); }
+@media (prefers-reduced-motion: reduce) { .tv-pagina { animation: none; } }
+
+/* ============ FORMULARE ȘI PANOURI (cont, acasă, administrare) ============ */
+.tv-erou-aterizare { padding-bottom: 110px; }
+.tv-aterizare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 28px; align-items: start; position: relative; }
+@media (max-width: 900px) { .tv-aterizare { grid-template-columns: minmax(0, 1fr); } }
+.tv-decor-aterizare { width: 100%; max-width: 460px; height: auto; margin-top: 18px; }
+.tv-coala-aterizare { margin-top: -70px; }
+.tv-taburi { display: flex; gap: 4px; background: #eef3fb; border-radius: 16px; padding: 4px; margin-bottom: 16px; }
+.tv-taburi button { flex: 1; border: 0; border-radius: 12px; padding: 9px 6px; background: transparent; font-family: var(--titlu); font-weight: 600; font-size: 15px; color: var(--gri-text); }
+.tv-taburi .tv-tab-activ { background: #fff; color: var(--maro); box-shadow: 0 2px 0 #d2dcec; }
+.tv-form { display: grid; gap: 12px; color: var(--navy); }
+.tv-eticheta-camp { display: grid; gap: 4px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.tv-eticheta-camp > span { font-size: 13px; font-weight: 800; color: var(--gri-text); }
+.tv-eticheta-camp input[type="range"] { width: 100%; accent-color: var(--ocean); }
+.tv-bifa { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--navy); cursor: pointer; }
+.tv-bifa input { width: 18px; height: 18px; accent-color: var(--ocean); }
+/* Materiile camerei Triviador: o grilă compactă care se derulează când sunt multe. */
+.tv-materii-joc { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 10px; max-height: 172px; overflow-y: auto;
+  padding: 6px 8px; border: 2px solid #ece3cd; border-radius: 14px; background: #fff; }
+.tv-materii-joc .tv-bifa { font-size: 13px; gap: 6px; line-height: 1.2; }
+.tv-materii-joc .tv-bifa input { width: 16px; height: 16px; flex: none; }
+.tv-boti { display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-boti .tv-btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 13px; }
+.tv-lista-simpla { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; }
+.tv-lista-simpla small { color: var(--gri-text); }
+.tv-cautare-loc { position: relative; }
+.tv-rezultate-loc { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 240px; overflow-y: auto; margin: 4px 0 0; padding: 4px; list-style: none;
+  background: #fff; border: 2px solid #e4ebf6; border-radius: 14px; box-shadow: 0 10px 24px -12px #0b2a5566; }
+.tv-rezultate-loc button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 10px; font: inherit; color: var(--navy); cursor: pointer; }
+.tv-rezultate-loc button:hover, .tv-rezultate-loc button:focus { background: #eef5fc; }
+.tv-rezultate-loc small { color: var(--gri-text); }
+.tv-scoate { margin-left: auto; border: 0; background: none; color: var(--gri-text); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+.tv-camp-text { width: 100%; min-width: 0; border: 2px solid #e4ebf6; border-radius: 14px; padding: 10px 12px; font: inherit; color: var(--navy); background: #fff; }
+.tv-camp-text:focus { border-color: var(--ocean); outline: none; }
+textarea.tv-camp-text { resize: vertical; }
+.tv-fisier { font: inherit; font-size: 13px; max-width: 100%; }
+.tv-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .tv-grid-2 { grid-template-columns: 1fr; } }
+.tv-optiuni { display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-optiune { display: inline-flex; align-items: center; gap: 6px; border: 2px solid #e4ebf6; border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.tv-optiune:has(input:checked) { border-color: var(--aur); background: #fff8dc; }
+/* AlegeMultiplu: cele alese ca pastile cu „×”, butonul care deschide fereastra și lista ei de bife (derulează în fereastră). */
+.tv-alese { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.tv-alegere { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; border: 2px solid var(--aur); background: #fff8dc; border-radius: 999px; padding: 4px 4px 4px 12px; font-weight: 700; font-size: 14px; color: var(--navy); }
+.tv-alegere > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-alegere small { color: var(--gri-text); font-weight: 600; }
+.tv-alegere button { flex: none; width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: var(--navy); font-size: 18px; line-height: 1; cursor: pointer; }
+.tv-alegere button:hover, .tv-alegere button:focus-visible { background: #0000001a; }
+.tv-eticheta-camp:has(> .tv-btn-adauga) { gap: 8px; }
+.tv-btn.tv-btn-adauga { justify-self: start; width: auto; padding: 8px 16px; font-size: 15px; border-radius: 14px; box-shadow: 0 3px 0 #d2dcec; }
+.tv-fereastra-alegere { max-width: 480px; padding-top: 26px; }
+.tv-lista-alegere { display: grid; gap: 10px; max-height: min(320px, 45vh); overflow-y: auto; padding: 4px 2px; }
+.tv-lista-alegere .tv-bifa { align-items: flex-start; line-height: 1.3; }
+.tv-lista-alegere .tv-bifa input { flex: none; margin-top: 1px; }
+.tv-eroare { margin: 0; color: #b3261e; background: #fde8e6; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: 14px; }
+.tv-succes { margin: 0; color: #0f4a2e; background: #e3f7ec; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: 14px; }
+
+.tv-panou { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .tv-panou { grid-template-columns: minmax(0, 1fr); } }
+.tv-panou-lat { grid-column: span 2; }
+@media (max-width: 900px) { .tv-panou-lat { grid-column: auto; } }
+.tv-cutie { background: #fff; border: 2px solid #ece3cd; border-radius: 24px; padding: 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tv-cutie h3 { font-size: 21px; color: var(--navy); }
+.tv-cutie p { margin: 0; color: var(--gri-text); }
+.tv-nivel { display: flex; gap: 16px; align-items: center; }
+.tv-nivel-insigna { width: 76px; height: 76px; flex-shrink: 0; border-radius: 50%; background: var(--aur); color: var(--maro); display: grid; place-items: center; font-family: var(--titlu); font-weight: 700; font-size: 34px; box-shadow: 0 0 0 6px #fff, 0 0 0 10px #ffe58a; }
+.tv-bara { height: 14px; border-radius: 99px; background: #eef3fb; overflow: hidden; }
+.tv-bara > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--aur), #ffdc5e); transition: width .6s; }
+.tv-bara.tv-bara-verde > i { background: linear-gradient(90deg, var(--bine), #48c98b); }
+.tv-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tv-rand { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: #f5f8fd; text-decoration: none; color: var(--navy); min-width: 0; }
+.tv-rand b { display: block; overflow: hidden; text-overflow: ellipsis; }
+.tv-rand small { display: block; color: var(--gri-text); font-weight: 700; font-size: 12px; }
+.tv-rand > div { flex: 1; min-width: 0; }
+a.tv-rand:hover { background: #eaf2fd; }
+.tv-pastila { flex-shrink: 0; border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 800; background: #eef3fb; color: var(--navy); }
+.tv-pastila-aur { background: #fff3c4; color: var(--maro); }
+.tv-pastila-verde { background: #e3f7ec; color: #0f7446; }
+.tv-pastila-rosu { background: #fde8e6; color: #b3261e; }
+.tv-butoane { display: flex; flex-wrap: wrap; gap: 10px; }
+.tv-butoane .tv-btn { width: auto; font-size: 16px; padding: 10px 16px; text-decoration: none; display: inline-block; text-align: center; }
+.tv-gol { text-align: center; color: var(--gri-text); font-weight: 700; padding: 18px; border: 2px dashed #e4ebf6; border-radius: 18px; margin: 0; }
+
+.tv-materie { text-decoration: none; color: var(--navy); transition: transform .15s; }
+.tv-materie:hover { transform: translateY(-3px); }
+.tv-materie svg { width: 100%; height: auto; max-height: 140px; }
+.tv-harta-pagina { display: grid; gap: 14px; }
+.tv-harta-antet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #fff; }
+.tv-harta-antet h1 { font-size: clamp(24px, 4vw, 36px); flex: 1; min-width: 0; }
+.tv-harta-antet .tv-erou-pill { margin: 0; text-decoration: none; }
+.tv-poza { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 0 0 2px #ece3cd; flex-shrink: 0; }
+
+.tv-materie { text-decoration: none; color: var(--navy); transition: transform .15s; }
+.tv-materie:hover { transform: translateY(-3px); }
+.tv-materie svg { width: 100%; height: auto; max-height: 140px; }
+.tv-harta-pagina { display: grid; gap: 14px; }
+.tv-harta-antet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #fff; }
+.tv-harta-antet h1 { font-size: clamp(24px, 4vw, 36px); flex: 1; min-width: 0; }
+.tv-harta-antet .tv-erou-pill { margin: 0; text-decoration: none; }
+.tv-poza { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 0 0 2px #ece3cd; flex-shrink: 0; }
+.tv-filtre { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.tv-filtre .tv-eticheta-camp { min-width: 200px; }
+.tv-profesori { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .tv-profesori { grid-template-columns: minmax(0, 1fr); } }
+button.tv-pastila { border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 800; }
+button.tv-pastila:disabled { opacity: .5; cursor: not-allowed; }
+a.tv-pastila { text-decoration: none; }
+.tv-rand-buton { width: 100%; border: 2px solid transparent; text-align: left; font: inherit; cursor: pointer; }
+/* Titlul unui rând cu etichete pe același rând (editorul de conținut): titlul se taie, etichetele rămân întregi. */
+.tv-rand-titlu { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tv-rand-titlu b { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-pastila-mica { flex: none; padding: 1px 7px; font-size: 11px; }
+.tv-rand-activ { border-color: var(--aur); background: #fff8dc; }
+.tv-editor { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
+/* The sidebar's single column stays as wide as the sidebar: one-line titles (with „…”) and the page bar must not widen it. */
+.tv-editor > aside.tv-cutie, .tv-editor > aside .tv-lista { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 900px) { .tv-editor { grid-template-columns: minmax(0, 1fr); } }
+.tv-sectiune-editor { display: grid; gap: 6px; padding: 10px; border: 2px dashed #e4ebf6; border-radius: 16px; }
+.tv-sectiune-editor .tv-pastila { justify-self: start; }
+.tv-linie { border: 0; border-top: 2px solid #f1ead8; margin: 8px 0; width: 100%; }
+.tv-intrebare-editor { padding: 14px; }
+.tv-inactiva { opacity: .55; }
+.tv-variante-lista { margin: 0; padding-left: 18px; color: var(--gri-text); display: grid; gap: 2px; }
+.tv-variante-lista .tv-corecta { color: #0f7446; font-weight: 800; }
+.tv-varianta-editor { display: flex; gap: 8px; align-items: center; }
+.tv-rand-sedinta { flex-wrap: wrap; }
+.tv-link-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
+.tv-link-editor .tv-camp-text { flex: 1 1 220px; padding: 6px 10px; }
+.tv-link-sedinta { display: inline-block; margin-top: 4px; font-weight: 800; color: var(--ocean-adanc); }
+/* =====================================================================
+   STILURILE  —  se aplică singure după data-theme de pe <html> (alese în /profil sau în meniul contului)
+   (Acvatic = stilul de mai sus; aici doar ce se schimbă pentru Realist și Pixel.)
+   Fundalurile folosesc culorile temei de anotimp (--ocean, --ocean-adanc, --ocean-lumina, --decor),
+   deci fiecare stil arată și primăvara, vara, toamna, iarna, ziua sau noaptea.
+   ===================================================================== */
+
+/* ---------------------------- REALIST ---------------------------- */
+[data-theme="realist"] .tv-pagina {
+  --ocean: #3f8f72;
+  --maro: #f1e6cf;
+  --navy: #e8eef5;
+  --aur: #d9b46a;
+  --hartie: #16222f;
+  --chip: rgba(8, 16, 26, .82);
+  --bine: #3f8f72;
+  --rau: #c4574a;
+  --gri-text: #a9b7c6;
+  --titlu: var(--font-serif), Georgia, serif;
+  color: var(--navy);
+  background-color: var(--ocean-noapte);
+  background-image:
+    var(--decor, none),
+    radial-gradient(ellipse 70% 30% at 70% 30%, #c98a5a40 0, transparent 70%),
+    linear-gradient(180deg, var(--ocean-adanc) 0, var(--ocean-noapte) 55%, #0a1622 100%);
+}
+[data-theme="realist"] .tv-card,
+[data-theme="realist"] .tv-fereastra,
+[data-theme="realist"] .tv-coala {
+  background: rgba(20, 31, 44, .94);
+  color: var(--navy);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 24px 50px -24px #000c;
+}
+[data-theme="realist"] .tv-card h3,
+[data-theme="realist"] .tv-eticheta-sus b,
+[data-theme="realist"] .tv-cod,
+[data-theme="realist"] .tv-numar { color: #f1e6cf; }
+[data-theme="realist"] .tv-mic,
+[data-theme="realist"] .tv-nume small,
+[data-theme="realist"] .tv-cine,
+[data-theme="realist"] .tv-pret small,
+[data-theme="realist"] .tv-loc small { color: #93a4b8; }
+[data-theme="realist"] .tv-jucator,
+[data-theme="realist"] .tv-jurnal li { background: rgba(255, 255, 255, .05); }
+[data-theme="realist"] .tv-randul { background: rgba(217, 180, 106, .12); border-color: #d9b46a; }
+[data-theme="realist"] .tv-reguli i { color: #1b2533; }
+[data-theme="realist"] .tv-runda { box-shadow: 0 0 0 4px #16222f, 0 0 0 7px #d9b46a66; text-shadow: none; color: #1b2533; }
+[data-theme="realist"] .tv-qr { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-camp,
+[data-theme="realist"] .tv-estimare input { background: #0f1a26; border-color: #2c3b4d; color: #f1e6cf; }
+[data-theme="realist"] .tv-estimare button { background: #22313f; color: #e8eef5; box-shadow: none; }
+
+[data-theme="realist"] .tv-btn { border-radius: 14px; box-shadow: 0 8px 18px -10px #000; }
+[data-theme="realist"] .tv-btn:active:not(:disabled) { transform: translateY(1px); }
+[data-theme="realist"] .tv-aur { color: #1b2533; }
+[data-theme="realist"] .tv-gri { background: #22313f; color: #e8eef5; }
+
+[data-theme="realist"] .tv-varianta { background: #192634; border-color: #2c3b4d; box-shadow: none; color: #e8eef5; }
+[data-theme="realist"] .tv-varianta:hover:not(:disabled) { border-color: #5fa88a; }
+[data-theme="realist"] .tv-aleasa { border-color: #d9b46a; background: #2a2a24; }
+[data-theme="realist"] .tv-corect { background: #183428 !important; border-color: #3f8f72 !important; box-shadow: none; }
+[data-theme="realist"] .tv-gresit { background: #3a1f1d; border-color: #c4574a; box-shadow: none; }
+[data-theme="realist"] .tv-estimari li { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-cronometru circle:first-child { fill: #0f1a26; stroke: #2c3b4d; }
+[data-theme="realist"] .tv-cronometru span { color: #f1e6cf; }
+
+[data-theme="realist"] .tv-eticheta,
+[data-theme="realist"] .tv-eticheta-sus { background: rgba(14, 24, 36, .9); box-shadow: 0 6px 16px -8px #000; border: 1px solid rgba(255,255,255,.08); }
+[data-theme="realist"] .tv-eticheta b { color: #f1e6cf; font-weight: 700; }
+[data-theme="realist"] .tv-eticheta small,
+[data-theme="realist"] .tv-eticheta-sus small { color: #a9b7c6; }
+
+/* Harta: apă întunecată la apus, insule mai stinse */
+[data-theme="realist"] .tv-harta {
+  background:
+    radial-gradient(ellipse 60% 22% at 70% 0, #d0956455 0, transparent 70%),
+    linear-gradient(180deg, var(--ocean-adanc) 0, var(--ocean-noapte) 30%, #0e1d2b 100%);
+  box-shadow: inset 0 0 0 1px #ffffff14, inset 0 0 80px #000a, 0 24px 50px -20px #000c;
+}
+[data-theme="realist"] .tv-harta svg { filter: saturate(.62) brightness(.78) contrast(1.08); }
+[data-theme="realist"] .tv-harta::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 170, 110, .10) 0, transparent 40%, rgba(5, 12, 20, .35) 100%);
+}
+
+/* Paginile formale */
+[data-theme="realist"] .tv-erou {
+  background:
+    radial-gradient(ellipse 60% 40% at 75% 55%, #d0956466 0, transparent 70%),
+    linear-gradient(180deg, var(--ocean-adanc) 0, var(--ocean-lumina) 45%, var(--ocean-noapte) 70%, #0e1d2b 100%);
+  box-shadow: inset 0 0 0 1px #ffffff14;
+}
+[data-theme="realist"] .tv-erou p { color: #cfd9e4; }
+[data-theme="realist"] .tv-erou-pill { background: rgba(14, 24, 36, .85); color: #f1e6cf; box-shadow: none; border: 1px solid #ffffff1f; }
+[data-theme="realist"] .tv-decor { filter: saturate(.6) brightness(.75); }
+[data-theme="realist"] .tv-plan,
+[data-theme="realist"] .tv-pas,
+[data-theme="realist"] .tv-intrebari details,
+[data-theme="realist"] .tv-functii > div,
+[data-theme="realist"] .tv-flux-wrap,
+[data-theme="realist"] .tv-tabel { background: #1b2836; border: 1px solid #2c3b4d; }
+[data-theme="realist"] .tv-plan.tv-recomandat { border-color: #5fa88a; box-shadow: 0 0 0 3px #5fa88a40; }
+[data-theme="realist"] .tv-eticheta-plan { background: #5fa88a; color: #0e1d2b; }
+[data-theme="realist"] .tv-tabel th { background: #22313f; color: #f1e6cf; }
+[data-theme="realist"] .tv-tabel th, [data-theme="realist"] .tv-tabel td { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-nod { background: #22313f; border-color: #33465a; }
+[data-theme="realist"] .tv-nod-ai { background: #2e2a1f; border-color: #d9b46a; }
+[data-theme="realist"] .tv-status { background: #2a2618; border-color: #d9b46a; }
+[data-theme="realist"] .tv-status b { color: #f1d9a0; }
+[data-theme="realist"] .tv-telefon-in { background: linear-gradient(180deg, #1b2a3b, #0d1822); }
+
+/* ----------------------------- PIXEL ----------------------------- */
+[data-theme="pixel"] .tv-pagina {
+  --ocean: #2b5ce6;
+  --maro: #1b1b3a;
+  --navy: #1b1b3a;
+  --aur: #ffcc29;
+  --hartie: #fbf3dc;
+  --chip: #1b1b3a;
+  --bine: #2fa84f;
+  --rau: #e03c31;
+  --gri-text: #4a4a6a;
+  --titlu: var(--font-pixel), 'Courier New', monospace;
+  --text: var(--font-pixel), 'Courier New', monospace;
+  background-color: var(--ocean);
+  background-image:
+    var(--decor, none),
+    repeating-linear-gradient(180deg, transparent 0 22px, rgba(255, 255, 255, .06) 22px 26px),
+    linear-gradient(180deg, var(--ocean-lumina) 0, var(--ocean) 55%, var(--ocean-adanc) 100%);
+  background-attachment: fixed;
+  letter-spacing: .01em;
+}
+[data-theme="pixel"] .tv-pagina *,
+[data-theme="pixel"] .tv-pagina *::before { border-radius: 0 !important; }
+[data-theme="pixel"] .tv-pagina .tv-avatar,
+[data-theme="pixel"] .tv-pagina .tv-punct,
+[data-theme="pixel"] .tv-pagina .tv-unda i { border-radius: 0 !important; }
+
+[data-theme="pixel"] .tv-card,
+[data-theme="pixel"] .tv-fereastra,
+[data-theme="pixel"] .tv-coala {
+  background: #fbf3dc;
+  border: 4px solid #1b1b3a;
+  box-shadow: 8px 8px 0 rgba(27, 27, 58, .55);
+}
+[data-theme="pixel"] .tv-card h3,
+[data-theme="pixel"] .tv-cod,
+[data-theme="pixel"] .tv-numar,
+[data-theme="pixel"] .tv-eticheta-sus b { color: #1b1b3a; text-shadow: 2px 2px 0 #ffcc29; }
+[data-theme="pixel"] .tv-jucator,
+[data-theme="pixel"] .tv-jurnal li { background: #fff; border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-randul { background: #fff3c4; border: 2px solid #e03c31; }
+[data-theme="pixel"] .tv-reguli i,
+[data-theme="pixel"] .tv-pas > span,
+[data-theme="pixel"] .tv-runda { border: 2px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; text-shadow: none; }
+[data-theme="pixel"] .tv-runda { color: #1b1b3a; }
+[data-theme="pixel"] .tv-qr { border: 3px solid #1b1b3a; }
+[data-theme="pixel"] .tv-camp,
+[data-theme="pixel"] .tv-estimare input { border: 3px solid #1b1b3a; background: #fff; }
+[data-theme="pixel"] .tv-estimare button { border: 3px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; background: #fff; }
+
+[data-theme="pixel"] .tv-btn {
+  border: 3px solid #1b1b3a;
+  box-shadow: 5px 5px 0 #1b1b3a;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+[data-theme="pixel"] .tv-btn:active:not(:disabled) { transform: translate(5px, 5px); box-shadow: none; }
+[data-theme="pixel"] .tv-gri { background: #fff; }
+
+[data-theme="pixel"] .tv-varianta { border: 3px solid #1b1b3a; box-shadow: 4px 4px 0 #1b1b3a; background: #fff; }
+[data-theme="pixel"] .tv-varianta:hover:not(:disabled) { background: #eef3ff; border-color: #1b1b3a; }
+[data-theme="pixel"] .tv-varianta:active:not(:disabled) { transform: translate(4px, 4px); box-shadow: none; }
+[data-theme="pixel"] .tv-litera { border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-aleasa { background: #fff3c4; box-shadow: 4px 4px 0 #ffcc29; }
+[data-theme="pixel"] .tv-corect { background: #d8f5df !important; border-color: #1b1b3a !important; box-shadow: 4px 4px 0 #2fa84f; }
+[data-theme="pixel"] .tv-gresit { background: #ffdcd8; border-color: #1b1b3a; box-shadow: 4px 4px 0 #e03c31; }
+[data-theme="pixel"] .tv-verdict,
+[data-theme="pixel"] .tv-bloc { border: 3px solid #1b1b3a; box-shadow: 4px 4px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-estimari li { border: 3px solid #1b1b3a; background: #fff; }
+[data-theme="pixel"] .tv-cronometru circle { stroke-linecap: butt; }
+
+[data-theme="pixel"] .tv-eticheta,
+[data-theme="pixel"] .tv-eticheta-sus { background: #fbf3dc; border: 3px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-eticheta b { color: #1b1b3a; }
+[data-theme="pixel"] .tv-eticheta small,
+[data-theme="pixel"] .tv-eticheta-sus small { color: #4a4a6a; }
+[data-theme="pixel"] .tv-chip { background: #1b1b3a; }
+
+/* Harta: albastru plat cu dungi, contururi drepte */
+[data-theme="pixel"] .tv-harta {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 18px, rgba(255, 255, 255, .08) 18px 21px),
+    var(--ocean);
+  border: 4px solid #1b1b3a;
+  box-shadow: 8px 8px 0 rgba(27, 27, 58, .55);
+}
+[data-theme="pixel"] .tv-harta svg { shape-rendering: crispEdges; filter: saturate(1.25) contrast(1.08); }
+
+/* Paginile formale */
+[data-theme="pixel"] .tv-erou {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 20px, rgba(255, 255, 255, .07) 20px 24px),
+    linear-gradient(180deg, var(--ocean-lumina) 0, var(--ocean) 100%);
+  border: 4px solid #1b1b3a;
+  box-shadow: 8px 8px 0 rgba(27, 27, 58, .55);
+}
+[data-theme="pixel"] .tv-erou h1 { text-shadow: 3px 3px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-erou p { color: #fff; }
+[data-theme="pixel"] .tv-erou-pill { border: 3px solid #1b1b3a; box-shadow: 3px 3px 0 #1b1b3a; color: #1b1b3a; }
+[data-theme="pixel"] .tv-decor { shape-rendering: crispEdges; }
+[data-theme="pixel"] .tv-plan,
+[data-theme="pixel"] .tv-pas,
+[data-theme="pixel"] .tv-intrebari details,
+[data-theme="pixel"] .tv-functii > div,
+[data-theme="pixel"] .tv-flux-wrap,
+[data-theme="pixel"] .tv-tabel { background: #fff; border: 3px solid #1b1b3a; box-shadow: 5px 5px 0 rgba(27, 27, 58, .4); }
+[data-theme="pixel"] .tv-plan.tv-recomandat { border: 4px solid #e03c31; box-shadow: 6px 6px 0 #e03c31; }
+[data-theme="pixel"] .tv-eticheta-plan { background: #e03c31; color: #fff; border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-plan li::before { border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-tabel th { background: #ffcc29; color: #1b1b3a; }
+[data-theme="pixel"] .tv-tabel th, [data-theme="pixel"] .tv-tabel td { border-bottom: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-nod { border: 3px solid #1b1b3a; background: #eef3ff; }
+[data-theme="pixel"] .tv-nod-ai { background: #fff3c4; }
+[data-theme="pixel"] .tv-status { border: 3px solid #1b1b3a; box-shadow: 4px 4px 0 #1b1b3a; }
+[data-theme="pixel"] .tv-telefon { border: 4px solid #1b1b3a; box-shadow: 8px 8px 0 rgba(27,27,58,.55); }
+[data-theme="pixel"] .tv-telefon-in { background: #1b1b3a; }
+[data-theme="pixel"] .tv-bula { border: 2px solid #0b0b20; }
+[data-theme="pixel"] .tv-nota { color: #fff; }
+
+/* ---------- elementele adăugate după stiluri (cont, acasă, administrare, setări) ---------- */
+[data-theme="realist"] .tv-taburi { background: #0f1a26; }
+[data-theme="realist"] .tv-taburi .tv-tab-activ { background: #22313f; box-shadow: none; }
+[data-theme="realist"] .tv-camp-text { background: #0f1a26; border-color: #2c3b4d; color: #f1e6cf; }
+[data-theme="realist"] .tv-optiune { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-optiune:has(input:checked) { background: #2a2a24; border-color: #d9b46a; }
+[data-theme="realist"] .tv-alegere { background: #2a2a24; border-color: #d9b46a; color: #f1e6cf; }
+[data-theme="realist"] .tv-alegere button { color: #f1e6cf; }
+[data-theme="realist"] .tv-cutie { background: #1b2836; border-color: #2c3b4d; box-shadow: 0 24px 50px -24px #000c; }
+[data-theme="realist"] .tv-nivel-insigna { color: #1b2533; box-shadow: 0 0 0 6px #1b2836, 0 0 0 10px #d9b46a66; }
+[data-theme="realist"] .tv-bara { background: #0f1a26; }
+[data-theme="realist"] .tv-rand { background: rgba(255, 255, 255, .05); }
+[data-theme="realist"] a.tv-rand:hover { background: rgba(255, 255, 255, .09); }
+[data-theme="realist"] .tv-rand-activ { background: #2a2a24; }
+[data-theme="realist"] .tv-pastila { background: #22313f; }
+[data-theme="realist"] .tv-pastila-aur { background: #3a3220; color: #f1d9a0; }
+[data-theme="realist"] .tv-pastila-verde { background: #183428; color: #9fd8b8; }
+[data-theme="realist"] .tv-pastila-rosu { background: #3a1f1d; color: #f2b8b0; }
+[data-theme="realist"] .tv-gol,
+[data-theme="realist"] .tv-sectiune-editor { border-color: #2c3b4d; }
+[data-theme="realist"] .tv-linie { border-top-color: #2c3b4d; }
+[data-theme="realist"] .tv-poza { border-color: #1b2836; box-shadow: 0 0 0 2px #2c3b4d; }
+[data-theme="realist"] .tv-variante-lista .tv-corecta { color: #9fd8b8; }
+[data-theme="realist"] .tv-link-sedinta { color: #8fc1e8; }
+[data-theme="realist"] .tv-jurnal-apel .tv-bula-ai { background: #22313f; }
+/* Setările contului au carduri albe proprii: acolo păstrăm culorile textului din stilul de bază. */
+[data-theme="realist"] .tv-pagina.sc-page { --maro: #6b3410; --navy: #15305a; --gri-text: #5a6684; --hartie: #fdf8ee; }
+
+[data-theme="pixel"] .tv-cutie { border: 3px solid #1b1b3a; box-shadow: 5px 5px 0 rgba(27, 27, 58, .4); }
+[data-theme="pixel"] .tv-camp-text,
+[data-theme="pixel"] .tv-optiune { border: 3px solid #1b1b3a; }
+[data-theme="pixel"] .tv-alegere { border: 3px solid #1b1b3a; border-radius: 0; }
+[data-theme="pixel"] .tv-taburi { border: 3px solid #1b1b3a; }
+[data-theme="pixel"] .tv-rand { border: 2px solid #1b1b3a; }
+[data-theme="pixel"] .tv-nivel-insigna { box-shadow: 0 0 0 4px #fff, 0 0 0 7px #1b1b3a; }
+
+/* Filtre-pastilă (clasa lecțiilor). */
+.tv-filtre { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.tv-filtru { border: 2px solid #ece3cd; background: #fff; color: var(--navy); border-radius: 99px; padding: 6px 14px; font-weight: 800; font-size: 14px; cursor: pointer; }
+.tv-filtru[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.tv-filtru:focus-visible { outline: 3px solid var(--aur); outline-offset: 2px; }
+/* Bara de pagini (components/Paginare.jsx) */
+.tv-paginare { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; margin: 18px 0 4px; }
+.tv-paginare .tv-filtru { min-width: 38px; }
+.tv-paginare .tv-filtru[aria-current="page"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.tv-paginare .tv-filtru:disabled { opacity: .4; cursor: default; }
+.tv-paginare-salt { display: inline-flex; gap: 6px; align-items: center; }
+.tv-paginare-salt .tv-camp-text { width: 84px; padding: 6px 10px; }
+/* Compactă (coloane înguste, ~280px): un singur rând; dacă tot n-ar încăpea, se derulează în cutie în loc să treacă pe două rânduri. */
+.tv-paginare-compacta { gap: 3px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; justify-content: safe center; }
+.tv-paginare-compacta .tv-filtru { flex: none; min-width: 0; padding: 4px 5px; font-size: 12px; border-width: 1.5px; }
+.tv-paginare-compacta .tv-paginare-salt .tv-camp-text { width: 60px; padding: 4px 6px; }
+.tv-bara-filtre { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 14px; margin-bottom: 16px; background: #fff; border-radius: 18px; box-shadow: 0 3px 0 #ece3cd; }
+.tv-bara-filtre .tv-filtre { margin-bottom: 0; }
+.tv-bara-filtre select.tv-camp-text { width: auto; padding-top: 6px; padding-bottom: 6px; }
+.tv-lectie { text-decoration: none; color: var(--navy); transition: transform .15s; }
+.tv-lectie:hover { transform: translateY(-3px); }
+.tv-lectie .tv-butoane { gap: 6px; }
+.tv-harta-autor { color: #fff; font-weight: 700; opacity: .85; margin-top: -6px; }

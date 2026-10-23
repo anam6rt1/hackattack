@@ -1,9 +1,12 @@
 'use client'
 // Panoul din dreapta hărții: camera (înainte de start) sau jucătorii + jurnalul (în timpul jocului).
+// Tot ce apare aici vine din starea trimisă de server.
 
 import { QRCodeSVG } from 'qrcode.react'
 import Avatar from './Avatar'
-import { insula, CETATI, CULORI } from './date-harta'
+import { insula } from './date-harta'
+
+const NIVELURI = [['usor', 'Ușor'], ['mediu', 'Mediu'], ['greu', 'Greu']]
 
 function IconInsula({ culoare }) {
   return (
@@ -16,13 +19,16 @@ function IconInsula({ culoare }) {
   )
 }
 
-export function PanouCamera({ cod, link, online, euId, esteGazda, onStart }) {
+export function PanouCamera({ stare, euId, link, onPorneste, onAdaugaBot, onScoateBot }) {
+  const esteGazda = stare.gazdaId === euId
+  const locuriLibere = stare.maxJucatori - stare.jucatori.length
   return (
     <div className="tv-card">
       <div className="tv-camera-sus">
         <div>
-          <div className="tv-mic">Camera</div>
-          <div className="tv-cod">{cod}</div>
+          <div className="tv-mic">Camera · {stare.materie}</div>
+          <div className="tv-cod">{stare.cod}</div>
+          <div className="tv-mic">{stare.harta.insule.length} insule · {stare.maxJucatori} locuri</div>
         </div>
         {link && (
           <div className="tv-qr">
@@ -32,28 +38,56 @@ export function PanouCamera({ cod, link, online, euId, esteGazda, onStart }) {
       </div>
 
       <div className="tv-jucatori">
-        {online.slice(0, 3).map((j, i) => (
+        {stare.jucatori.map((j) => (
           <div key={j.id} className="tv-jucator tv-intra">
-            <Avatar nume={j.nume} culoare={CULORI[i]} />
+            <Avatar nume={j.nume} culoare={j.culoare} />
             <span className="tv-nume">
               {j.nume}
               {j.id === euId && ' (tu)'}
-              <small>Cetatea: {insula(CETATI[i]).nume}</small>
+              {j.id === stare.gazdaId && ' · gazdă'}
+              {j.cetate && <small>Cetatea: {insula(j.cetate, stare.harta)?.nume}</small>}
             </span>
+            {j.bot && esteGazda && <button type="button" className="tv-scoate" onClick={() => onScoateBot(j.id)}>Scoate</button>}
           </div>
         ))}
-        {online.length > 3 && <p className="tv-mic">Camera e plină: joacă primii 3. Ceilalți privesc.</p>}
+        {stare.spectatori.length > 0 && (
+          <p className="tv-mic">Privesc: {stare.spectatori.map((s) => s.nume).join(', ')} (camera e plină).</p>
+        )}
       </div>
+
+      {esteGazda && locuriLibere > 0 && (
+        <div className="tv-formular">
+          <div className="tv-mic">Adaugă un robot pe un loc liber</div>
+          <div className="tv-boti">
+            {NIVELURI.map(([cod, nume]) => (
+              <button key={cod} type="button" className="tv-btn tv-aur" onClick={() => onAdaugaBot(cod)}>{nume}</button>
+            ))}
+          </div>
+          <small className="tv-mic">Într-un joc cu roboți primești cu 30% mai puțin XP.</small>
+        </div>
+      )}
+
+      {stare.jurnal.length > 0 && (
+        <ul className="tv-jurnal" aria-live="polite">
+          {stare.jurnal.slice(0, 3).map((r, i) => (
+            <li key={i}>
+              <span className="tv-punct" style={{ background: r.culoare }} />
+              {r.text}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <ul className="tv-reguli">
         <li><i>1</i><span>La rândul tău, alegi o insulă legată printr-un pod de insulele tale.</span></li>
         <li><i>2</i><span>Insulă liberă: răspunzi corect la întrebare și e a ta.</span></li>
-        <li><i>3</i><span>Insula altcuiva: duel. La egalitate, câștigă cine ghicește mai aproape anul.</span></li>
+        <li><i>3</i><span>Insula altcuiva: duel. La egalitate, câștigă cine ghicește mai aproape răspunsul numeric.</span></li>
+        <li><i>4</i><span>La final: 10 XP pentru fiecare insulă, plus 50 XP pentru câștigător.</span></li>
       </ul>
 
       {esteGazda ? (
-        <button className="tv-btn" onClick={onStart} disabled={online.length < 2}>
-          {online.length < 2 ? 'Se așteaptă jucătorii...' : 'Pornește bătălia'}
+        <button className="tv-btn" onClick={onPorneste} disabled={stare.jucatori.length < 2}>
+          {stare.jucatori.length < 2 ? 'Așteaptă un jucător sau adaugă un robot' : 'Pornește bătălia'}
         </button>
       ) : (
         <p className="tv-asteapta">Așteaptă ca gazda să pornească bătălia...</p>
@@ -62,11 +96,12 @@ export function PanouCamera({ cod, link, online, euId, esteGazda, onStart }) {
   )
 }
 
-export function PanouJoc({ stare, euId, runde }) {
-  const curent = stare.jucatori[stare.tura]
+export function PanouJoc({ stare, euId }) {
+  const curent = stare.faza === 'final' ? null : stare.jucatori[stare.tura]
   const numar = (id) => Object.values(stare.proprietari).filter((p) => p === id).length
   const eRandulMeu = curent?.id === euId
   const terminat = stare.faza === 'final'
+  const runda = Math.min(stare.runda, stare.runde)
 
   let indiciu = ''
   if (terminat) indiciu = 'Bătălia s-a terminat.'
@@ -77,21 +112,21 @@ export function PanouJoc({ stare, euId, runde }) {
     <>
       <div className="tv-card">
         <div className="tv-tura">
-          <span className="tv-runda">{Math.min(stare.runda, runde)}</span>
+          <span className="tv-runda">{runda}</span>
           <div>
-            <div className="tv-mic">Runda {Math.min(stare.runda, runde)} din {runde}</div>
+            <div className="tv-mic">Runda {runda} din {stare.runde}</div>
             <h3>{terminat ? 'Final' : eRandulMeu ? 'Rândul tău' : `Rândul lui ${curent.nume}`}</h3>
             <span className="tv-indiciu">{indiciu}</span>
           </div>
         </div>
         <div className="tv-jucatori">
           {stare.jucatori.map((j) => (
-            <div key={j.id} className={`tv-jucator ${j.id === curent?.id && !terminat ? 'tv-randul' : ''}`}>
+            <div key={j.id} className={`tv-jucator ${j.id === curent?.id ? 'tv-randul' : ''}`}>
               <Avatar nume={j.nume} culoare={j.culoare} />
               <span className="tv-nume">
                 {j.nume}
                 {j.id === euId && ' (tu)'}
-                <small>{numar(j.id) * 300} puncte</small>
+                <small>{j.bot ? 'robot' : j.conectat ? (numar(j.id) === 1 ? '1 insulă' : `${numar(j.id)} insule`) : 'deconectat'}</small>
               </span>
               <span className="tv-numar">
                 <IconInsula culoare={j.culoare} />

@@ -46,30 +46,30 @@ $credential = Get-Credential -UserName postgres -Message 'Parola PostgreSQL'
 $env:PGPASSWORD = $credential.GetNetworkCredential().Password
 ```
 
-Foloseste contul primit de la administrator. Contul de migrari are nevoie de DDL; verificarea/adoptarea necesita si CREATEDB pentru bazele temporare.
+Foloseste contul primit de la administrator. Contul de migrari are nevoie de DDL; verificarea necesita si CREATEDB pentru bazele temporare.
 Nu folosi contul postgres sau accesul direct la DB in clientul web/joc; backendul trebuie sa autentifice utilizatorii si sa foloseasca un cont cu permisiuni limitate.
 
 ## Migrari
 
-- `InitialSchema`: recreeaza cele 28 de tabele initiale din configurarea C#, inclusiv constrangerile si indexurile case-insensitive.
-- `AddTrivia`: adauga 7 tabele pentru joc si functii/trigger-e PostgreSQL pentru validarea timpului, scorului si a concurentei.
-- Istoricul se afla in `mark_ai.__EFMigrationsHistory`.
+- `SchemaInitiala` (2026-10-20): o singura migrare cu toata schema, dupa refacerea „Lecție” (cele 13 migrari din hackathon au fost comasate;
+  baza reala a fost reconstruita de la zero). Contine si indexurile case-insensitive `lower(email)`/`lower(username)` si extensia `pg_trgm`
+  (indexuri GIN pe coloanele `cautare`). Istoricul se afla in `mark_ai.__EFMigrationsHistory`.
+- Datele de referinta (roluri, inclusiv `organizatie`, niveluri XP, tarif, teme, stiluri) nu sunt in migrari, ci in `seed`.
 
-Pe o baza noua, goala:
+O baza noua, de la zero:
 
 ```bash
 dotnet run --project tools/MarkAi.Database -- migrate
+dotnet run --project tools/MarkAi.Database -- seed-localitati      # judete si localitati (SIRUTA)
+dotnet run --project tools/MarkAi.Database -- seed                 # materii, Lectii, capitole, intrebari, teme
+dotnet run --project tools/MarkAi.Database -- date-test          # DOAR baze de test/demo: conturi si continut de test
 ```
 
-Pe baza originala care contine tabelele SQL, fara istoric EF:
-
-```bash
-dotnet run --project tools/MarkAi.Database -- adopt-existing
-dotnet run --project tools/MarkAi.Database -- migrate
-```
-
-Adoptarea creeaza o baza temporara din prima migrare si compara semantic structura cu schema existenta (coloane, chei, relatii, verificari si indexuri). Daca exista diferente, refuza inregistrarea migrarii. Daca este identica, inregistreaza doar punctul de pornire, fara recrearea tabelelor. Bazele temporare sunt eliminate.
-Aceasta comanda este pentru schema initiala definita aici; alte instalari istorice necesita migrare de aliniere.
+`date-test` (continutul in `tools/MarkAi.Database/date/date-test.json`) adauga, cu parola `MARKAI_PAROLA_TEST` (implicit „HackAttack”)
+si adrese @hackattack.com confirmate: admin, organizatie (admin „Organizație Demo”), profesor, elev; un profesor pe materie
+(profesor-matematica, -romana, -fizica, -geografie, -istorie); elevii elev1–elev20 (1–16 in organizatie, 17–18 cu cerere in asteptare,
+19–20 fara organizatie); 5 materii cu Lectii pe clase (IX–XII), capitole, intrebari si fisiere (la Istorie). Ce exista deja nu se
+adauga din nou. Fisierele merg in folderul de stocare al API-ului (implicit `src/MarkAi.Api/uploads`, sau primul argument).
 
 Pentru modificari viitoare, editeaza entitatile si configurarea, apoi:
 
@@ -81,40 +81,20 @@ dotnet run --project tools/MarkAi.Database -- migrate
 ```
 
 Nu folosi EnsureCreated/EnsureDeleted pe baza existenta. Nu modifica migrari deja aplicate.
-Indexurile bazate pe expresii (lower(email)/lower(username)) si trigger-ele sunt SQL versionat in migrari, deoarece nu toate aceste functii PostgreSQL sunt reprezentabile direct in EF.
-Migrarea AddTrivia aliniaza si unicitatile istorice nereferite de chei externe la indexurile unice reprezentate de EF, in aceeasi tranzactie, pastrand garantiile de unicitate. Cheile alternative referite raman constrangeri UNIQUE.
 
-## Jocul de trivia
-
-Implementarea acopera camere si runde cu intrebari grila, nu mecanica de teritorii din Triviador.
+## Lectii, teste si fisiere
 
 | Tabel | Rol |
 |---|---|
-| trivia_camera | Cod unic de 6 caractere, gazda, materie optionala, capacitate 2–16, status |
-| trivia_participant | Un loc per utilizator/camera, gazda inclusa |
-| trivia_intrebare | Banca de intrebari, grupata pe materie |
-| trivia_varianta | Variantele din banca; cel mult una corecta per intrebare |
-| trivia_runda | Numar in camera, copia intrebarii, inceput si termen UTC, punctaj |
-| trivia_runda_varianta | Copii ale variantelor si raspunsului corect pentru runda |
-| trivia_raspuns | Un raspuns per utilizator/runda, moment si scor validate pe server |
+| parcurs | Lectia: materie, clasa, autor, organizatie, vizibilitate |
+| curs | Capitolele Lectiei (insulele hartii): notite JSON, video |
+| intrebare / intrebare_varianta | Testul Lectiei (si intrebarile Triviador); fara `parcurs_id` = intrebari Triviador ale materiei |
+| fisier_lectie | Cel mult un PDF, un DOCX si un PPTX pe Lectie (index unic pe `parcurs_id, tip`) |
+| progres_lectie | Ultimul capitol deschis si data la care elevul a trecut testul (singurul lucru care termina Lectia) |
+| incercare_quiz | Incercarile testului; raspunsurile corecte se arata doar la final |
 
-`TriviaService` expune:
-
-- `CreateRoomAsync`: cod aleator criptografic, gazda adaugata ca participant; retry pentru coliziuni de cod.
-- `JoinRoomAsync`: cod case-insensitive, acces doar in lobby, capacitate verificata sub blocare de rand. Reincercarea intrarii este idempotenta.
-- `StartRoundAsync`: doar gazda, minimum doi participanti, intrebare activa, minimum doua variante si exact una corecta. Nu se suprapun runde. Termen 1–300 secunde (implicit 30), punctaj 1–10000 (implicit 100).
-- `SubmitAnswerAsync`: doar participanti, o singura incercare, varianta din aceeasi runda. Triggerul PostgreSQL verifica `clock_timestamp()` si stabileste punctajul, ignorand timpul/scorul trimis de client.
-- `GetLeaderboardAsync`: clasament pentru membrii camerei, include scorul zero; egalitatile sunt ordonate dupa ID pentru afisare.
-- `FinishRoomAsync`: doar gazda, inchide camera si respinge raspunsurile ulterioare.
-
-Raspuns corect = punctele rundei, incorect/fara raspuns = 0. Nu exista bonus de viteza, XP automat sau castig financiar. Codurile nu sunt reutilizate.
-Durata este masurata la primirea raspunsului de server; un raspuns ajuns exact la termen este respins.
-Expirarea nu necesita un proces de fundal: timestampul inchide logic runda; gazda poate porni urmatoarea sau finaliza camera.
-Intrebarile/variantele copiate si raspunsurile trimise nu pot fi editate ulterior prin operatii normale.
-
-Serviciul primeste ID-ul utilizatorului autentificat de backend. Nu accepta un ID arbitrar de la client ca dovada de identitate.
-`PublicRound` si `PublicOption` nu contin raspunsul corect. Nu serializa entitatile de banca/snapshot direct catre jucatori.
-Interfata jocului, API-ul, autentificarea, SignalR si animatiile nu fac parte din aceasta implementare a bazei de date. Trimiterea live a rundelor este urmatorul nivel al aplicatiei.
+Stergerea unei Lectii sterge in cascada capitolele, intrebarile, fisierele, progresul si incercarile; XP-ul deja acordat ramane.
+Triviador ruleaza in memoria API-ului (o insula = o Lectie); vechile tabele `trivia_camera/runda/raspuns` au fost scoase.
 
 ## Verificare reproductibila
 
@@ -122,7 +102,7 @@ Interfata jocului, API-ul, autentificarea, SignalR si animatiile nu fac parte di
 dotnet run --project tools/MarkAi.Database -- verify
 ```
 
-Necesita acces PostgreSQL si dreptul CREATEDB. Creeaza o baza izolata cu nume aleator, aplica migrarile, verifica fluxul jocului, concurenta la intrare/raspuns, deadline, punctaj, izolarea rundelor, pastrarea snapshoturilor si adoptarea schemei cu date existente. La final elimina baza de test, inclusiv la eroare. Nu introduce date demonstrative in baza aplicatiei.
+Necesita acces PostgreSQL si dreptul CREATEDB. Creeaza o baza izolata cu nume aleator, aplica migrarea si verifica regulile bazei: subiectul capitolelor si al intrebarilor, o singura varianta corecta, un fisier de fiecare tip, XP o singura data la teste trecute concurent, rezervari concurente si stergerea in cascada a unei Lectii. La final elimina baza de test, inclusiv la eroare. Nu introduce date demonstrative in baza aplicatiei.
 
 La terminarea sesiunii:
 

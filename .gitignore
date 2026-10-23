@@ -2,6 +2,8 @@
 **/bin/
 **/obj/
 .vs/
+.idea/
+.vscode/
 *.user
 *.suo
 *.userosscache
@@ -13,6 +15,8 @@
 .env.*
 !.env.example
 !.env.sample
+*.env
+!*.env.example
 appsettings.Local.json
 appsettings.*.Local.json
 secrets.json
@@ -21,6 +25,7 @@ pgpass.conf
 *.pfx
 *.p12
 *.key
+*.pem
 
 # Database backups and local runtime data; SQL migrations stay versioned
 *.dump
@@ -32,6 +37,11 @@ pgpass.conf
 # Test outputs, coverage and logs
 TestResults/
 coverage/
+# Playwright and Vitest outputs (Phase 6)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 *.coverage
 *.coveragexml
 *.trx
@@ -53,3 +63,6 @@ Desktop.ini
 *~
 
 # Keep packages.lock.json and dotnet-tools.json: they make restores reproducible.
+
+# Uploaded professor photos and qualification documents (API local storage)
+/database/src/MarkAi.Api/uploads/

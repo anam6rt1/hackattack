@@ -1,0 +1,217 @@
+{
+  "materii": [
+    {
+      "cod": "romana",
+      "denumire": "Limba și literatura română",
+      "cursuri": [
+        {
+          "titlu": "Moara cu noroc: personajele",
+          "capitol": "Moara cu noroc",
+          "descriere": "Ghiță, Ana și Lică Sămădăul",
+          "dupa": "Moara cu noroc: publicare și încadrare",
+          "materiale": [
+            { "titlu": "Ghiță", "text": "Ghiță este personajul principal, un cizmar sărac care ia în arendă hanul de la Moara cu noroc ca să-și asigure familia. La început este harnic, iubitor și cinstit. Întâlnirea cu Lică îi trezește patima banului: devine bănuitor, singuratic și își pierde treptat încrederea Anei. Slavici urmărește această transformare din interior, prin frământările personajului, de aceea nuvela este psihologică." },
+            { "titlu": "Lică Sămădăul", "text": "Lică este sămădăul, adică șeful porcarilor și al turmelor de porci din zonă. Este un om aspru, stăpân pe sine și lipsit de scrupule, care îi controlează pe toți cei din jur. El se folosește de han pentru afacerile lui necinstite și îl atrage pe Ghiță în ele. La final, încolțit, se sinucide izbindu-se cu capul de un copac, ca să nu fie prins." },
+            { "titlu": "Ana și bătrâna", "text": "Ana, soția lui Ghiță, este la început veselă și încrezătoare. Simte pericolul pe care îl reprezintă Lică, dar se simte părăsită de soț și ajunge să cedeze. Bătrâna, mama Anei, reprezintă înțelepciunea tradițională: ea rostește atât sfatul de la început, cât și concluzia de la final." },
+            { "titlu": "Pintea și finalul", "text": "Pintea este jandarmul care îl urmărește pe Lică; în tinerețe fusese chiar tovarăș cu el. În final, Ghiță o ucide pe Ana, este ucis la rândul lui de oamenii lui Lică, iar hanul arde. Bătrâna încheie nuvela cu vorbele: „Simțeam eu că n-are să iasă bine; dar așa le-a fost data!”." }
+          ],
+          "intrebari": [
+            { "text": "Ce meserie avea Ghiță înainte de a lua hanul în arendă?", "variante": ["Morar", "Cizmar", "Cârciumar", "Jandarm"], "corect": 1, "explicatie": "Ghiță era cizmar; ia hanul în arendă pentru a scăpa de sărăcie." },
+            { "text": "Cine este Pintea în nuvela „Moara cu noroc”?", "variante": ["Fratele Anei", "Un porcar al lui Lică", "Jandarmul care îl urmărește pe Lică", "Arendașul de dinaintea lui Ghiță"], "corect": 2, "explicatie": "Pintea este jandarmul care îl urmărește pe Lică; fusese cândva tovarăș cu el." },
+            { "text": "Cum se sfârșește Lică Sămădăul?", "variante": ["Este prins și închis", "Fuge peste graniță", "Este ucis de Ghiță", "Se sinucide izbindu-se de un copac"], "corect": 3, "explicatie": "Ca să nu fie prins, Lică se izbește cu capul de un copac." },
+            { "text": "De ce este „Moara cu noroc” o nuvelă psihologică?", "variante": ["Pentru că urmărește transformarea interioară a lui Ghiță", "Pentru că are multe personaje", "Pentru că acțiunea se petrece într-o singură zi", "Pentru că are un final fericit"], "corect": 0, "explicatie": "Accentul cade pe frământările și pe dezumanizarea treptată a lui Ghiță sub stăpânirea patimii banului." }
+          ]
+        },
+        {
+          "titlu": "Luceafărul: Hyperion și Demiurgul",
+          "capitol": "Luceafărul",
+          "descriere": "Zborul cosmic și răspunsul Demiurgului",
+          "dupa": "Luceafărul: publicare și încadrare",
+          "materiale": [
+            { "titlu": "Zborul spre Demiurg", "text": "În tabloul al treilea, Luceafărul vrea să renunțe la nemurire pentru iubirea Cătălinei. Zboară prin spațiu și timp până la Demiurg, căruia îi cere să-l dezlege de nemurire în schimbul a „o oră de iubire”. Aici apare pentru prima dată numele lui: Hyperion." },
+            { "titlu": "Răspunsul Demiurgului", "text": "Demiurgul refuză. Îi explică diferența dintre condiția oamenilor, despre care spune: „Ei doar au stele cu noroc / Și prigoniri de soarte”, și condiția lui, nemuritoare: „Noi nu avem nici timp, nici loc, / Și nu cunoaștem moarte.” Îi arată apoi că pe pământ Cătălina îl iubește deja pe Cătălin." },
+            { "titlu": "Finalul și sensul", "text": "Întors pe cer, Hyperion îi vede pe Cătălin și Cătălina sub tei și se retrage în lumea lui: „Trăind în cercul vostru strâmt / Norocul vă petrece, / Ci eu în lumea mea mă simt / Nemuritor și rece.” Finalul arată că geniul nu poate fi fericit în lumea oamenilor și nici nu poate fi înțeles de ei." }
+          ],
+          "intrebari": [
+            { "text": "Ce îi cere Luceafărul Demiurgului?", "variante": ["Să o facă nemuritoare pe Cătălina", "Să-l dezlege de nemurire, ca să poată iubi", "Să-i dea putere asupra pământului", "Să-l pedepsească pe Cătălin"], "corect": 1, "explicatie": "Hyperion îi cere Demiurgului să-i ia nemurirea în schimbul a „o oră de iubire”." },
+            { "text": "În ce parte a poemului apare numele „Hyperion”?", "variante": ["În tabloul al treilea, la Demiurg", "În prima strofă", "În idila Cătălin–Cătălina", "Nu apare deloc"], "corect": 0, "explicatie": "Demiurgul îl numește Hyperion în tabloul al treilea." },
+            { "text": "Ce exprimă versurile finale „Ci eu în lumea mea mă simt / Nemuritor și rece”?", "variante": ["Bucuria iubirii împlinite", "Dorința de răzbunare", "Retragerea geniului în singurătatea lui superioară", "Frica de moarte"], "corect": 2, "explicatie": "Geniul se întoarce în lumea lui, detașat de „cercul strâmt” al oamenilor." }
+          ]
+        },
+        {
+          "titlu": "Ion: structura și conflictul",
+          "capitol": "Ion",
+          "descriere": "Romanul realist al lui Liviu Rebreanu",
+          "materiale": [
+            { "titlu": "Publicare și încadrare", "text": "Romanul „Ion” de Liviu Rebreanu a apărut în 1920 și este considerat primul roman realist modern din literatura română. Acțiunea are loc în satul Pripas, din Transilvania, la începutul secolului al XX-lea." },
+            { "titlu": "Structura", "text": "Romanul are două părți, „Glasul pământului” și „Glasul iubirii”, și 13 capitole. Structura este circulară: romanul începe și se încheie cu imaginea drumului care intră și iese din satul Pripas. Prima scenă importantă este hora de duminică din curtea văduvei lui Maxim Oprea." },
+            { "titlu": "Conflictul", "text": "Ion, flăcău sărac și harnic, este sfâșiat între dragostea pentru pământ și iubirea pentru Florica. O seduce pe Ana, fata bogatului Vasile Baciu, ca să obțină pământurile ei prin căsătorie. Conflictul exterior (Ion – Vasile Baciu, Ion – George) se împletește cu cel interior, între „glasul pământului” și „glasul iubirii”." },
+            { "titlu": "Deznodământul", "text": "Disprețuită de soț, Ana se spânzură, iar copilul lor moare curând. Ion se întoarce la Florica, acum soția lui George Bulbuc, care îl ucide. Pământurile ajung la biserică, iar viața satului își continuă cursul." }
+          ],
+          "intrebari": [
+            { "text": "În ce sat se petrece acțiunea romanului „Ion”?", "variante": ["Humulești", "Pripas", "Siliștea-Gumești", "Ciuleandra"], "corect": 1, "explicatie": "Acțiunea are loc în satul transilvănean Pripas." },
+            { "text": "De ce se căsătorește Ion cu Ana?", "variante": ["Din iubire", "La cererea preotului", "Pentru pământurile tatălui ei", "Pentru că Florica îl refuză definitiv"], "corect": 2, "explicatie": "Ion o vrea pe Ana pentru pământurile lui Vasile Baciu; o iubește pe Florica." },
+            { "text": "Ce imagine deschide și încheie romanul?", "variante": ["Drumul spre satul Pripas", "Hora din sat", "Biserica", "Moartea lui Ion"], "corect": 0, "explicatie": "Drumul care intră și iese din sat dă romanului structura circulară." },
+            { "text": "Cine îl ucide pe Ion?", "variante": ["Vasile Baciu", "Titu Herdelea", "George Bulbuc", "Preotul Belciug"], "corect": 2, "explicatie": "George Bulbuc, soțul Floricăi, îl ucide pe Ion." }
+          ]
+        },
+        {
+          "titlu": "Plumb: simbolismul",
+          "capitol": "Plumb",
+          "descriere": "Poezia-manifest a lui George Bacovia",
+          "materiale": [
+            { "titlu": "Publicare și încadrare", "text": "Poezia „Plumb” deschide volumul cu același titlu al lui George Bacovia, apărut în 1916. Este o poezie simbolistă și una dintre cele mai cunoscute ale curentului în literatura română." },
+            { "titlu": "Simbolul plumbului", "text": "Plumbul este metalul greu, cenușiu, care nu strălucește. El sugerează apăsarea, închiderea, lipsa de comunicare și moartea. Cuvântul „plumb” apare de șase ori în cele două strofe, creând o atmosferă sufocantă." },
+            { "titlu": "Structura", "text": "Poezia are două catrene. Primul prezintă spațiul exterior, cavoul, ca imagine a lumii închise: „Dormeau adânc sicriele de plumb”. Al doilea se mută în interior, la sentimentul iubirii moarte: „Dormea întors amorul meu de plumb”. Eul liric este singur: „Stam singur în cavou... și era vânt...”." },
+            { "titlu": "Trăsături simboliste", "text": "Poezia folosește simbolul, sugestia în locul descrierii directe, muzicalitatea obținută prin repetiții și corespondențele dintre stări sufletești și elemente exterioare (vântul, frigul, cavoul)." }
+          ],
+          "intrebari": [
+            { "text": "Cărui curent literar îi aparține poezia „Plumb”?", "variante": ["Romantism", "Realism", "Simbolism", "Tradiționalism"], "corect": 2, "explicatie": "„Plumb” este o poezie simbolistă: simbol, sugestie, muzicalitate, corespondențe." },
+            { "text": "Ce sugerează simbolul plumbului?", "variante": ["Bogăția și strălucirea", "Apăsarea, închiderea și moartea", "Bucuria naturii", "Curajul eroic"], "corect": 1, "explicatie": "Plumbul, metal greu și cenușiu, sugerează o lume apăsătoare, închisă, a morții." },
+            { "text": "Câte strofe are poezia „Plumb”?", "variante": ["Două", "Trei", "Patru", "Șase"], "corect": 0, "explicatie": "Poezia are două catrene: unul despre cavou, celălalt despre „amorul de plumb”." }
+          ]
+        }
+      ],
+      "completari": [
+        {
+          "titlu": "Harap-Alb: publicare și încadrare",
+          "materiale": [
+            { "titlu": "Incipitul și finalul", "text": "Basmul începe cu formula inițială „Amu cică era odată...”, care introduce lumea fabuloasă. Se încheie cu formula finală, plină de umor: „Și a ținut veselia ani întregi, și acum mai ține încă; cine se duce acolo bea și mănâncă. Iar pe la noi, cine are bani bea și mănâncă, iară cine nu, se uită și rabdă.”" }
+          ]
+        },
+        {
+          "titlu": "Harap-Alb: drumul și probele",
+          "materiale": [
+            { "titlu": "Sfânta Duminică", "text": "Sfânta Duminică este unul dintre ajutoarele cele mai importante. Îl sfătuiește pe Harap-Alb cum să treacă de primele două probe: cum să adoarmă ursul ca să ia salățile și cum să obțină pielea cerbului bătută cu pietre scumpe. Ea îl învață răbdarea și încrederea." }
+          ]
+        },
+        {
+          "titlu": "Moara cu noroc: publicare și încadrare",
+          "materiale": [
+            { "titlu": "Incipitul", "text": "Nuvela începe cu vorbele bătrânei, mama Anei: „Omul să fie mulțumit cu sărăcia sa, căci, dacă e vorba, nu bogăția, ci liniștea colibei tale te face fericit.” Sfatul anticipează conflictul: Ghiță nu îl va urma." }
+          ]
+        },
+        {
+          "titlu": "Luceafărul: publicare și încadrare",
+          "materiale": [
+            { "titlu": "Chemarea Cătălinei", "text": "Cătălina îl cheamă pe Luceafăr cu versurile: „Cobori în jos, luceafăr blând, / Alunecând pe-o rază, / Pătrunde-n casă și în gând / Și viața-mi luminează!” El coboară de două ori, întâi ca un tânăr palid născut din cer și mare, apoi ca un tânăr întunecat din soare și noapte." }
+          ]
+        }
+      ],
+      "estimari": [
+        { "text": "În ce an a apărut volumul „Plumb” al lui George Bacovia?", "raspuns": 1916 },
+        { "text": "De câte ori apare cuvântul „plumb” în poezia „Plumb”?", "raspuns": 6 },
+        { "text": "Câte capitole are nuvela „Moara cu noroc”?", "raspuns": 17 }
+      ]
+    },
+    {
+      "cod": "matematica",
+      "denumire": "Matematică",
+      "cursuri": [
+        {
+          "titlu": "Funcția de gradul I",
+          "capitol": "Funcții",
+          "descriere": "f(x) = ax + b",
+          "materiale": [
+            { "titlu": "Definiție", "text": "Funcția de gradul I are forma f(x) = ax + b, cu a ≠ 0. Graficul ei este o dreaptă." },
+            { "titlu": "Monotonie", "text": "Dacă a > 0, funcția este strict crescătoare; dacă a < 0, este strict descrescătoare. Numărul a se numește panta dreptei." },
+            { "titlu": "Intersecția cu axele", "text": "Graficul intersectează axa Oy în punctul (0, b) și axa Ox în punctul (−b/a, 0). Soluția ecuației ax + b = 0 este x = −b/a." },
+            { "titlu": "Semnul funcției", "text": "Funcția are semnul lui a la dreapta rădăcinii x = −b/a și semn contrar lui a la stânga ei." }
+          ],
+          "intrebari": [
+            { "text": "Care este soluția ecuației 2x − 4 = 0?", "variante": ["x = −2", "x = 2", "x = 4", "x = 1/2"], "corect": 1, "explicatie": "2x = 4, deci x = 2." },
+            { "text": "Cum este funcția f(x) = −3x + 1?", "variante": ["Strict crescătoare", "Constantă", "Strict descrescătoare", "Nici crescătoare, nici descrescătoare"], "corect": 2, "explicatie": "Coeficientul lui x este a = −3 < 0, deci funcția este strict descrescătoare." },
+            { "text": "În ce punct intersectează graficul lui f(x) = 5x + 3 axa Oy?", "variante": ["(0, 3)", "(3, 0)", "(0, 5)", "(−3/5, 0)"], "corect": 0, "explicatie": "Pe axa Oy avem x = 0, deci f(0) = 3: punctul (0, 3)." }
+          ]
+        },
+        {
+          "titlu": "Funcția de gradul al II-lea",
+          "capitol": "Funcții",
+          "descriere": "f(x) = ax² + bx + c",
+          "materiale": [
+            { "titlu": "Definiție și grafic", "text": "Funcția de gradul al II-lea are forma f(x) = ax² + bx + c, cu a ≠ 0. Graficul ei este o parabolă, cu ramurile în sus dacă a > 0 și în jos dacă a < 0." },
+            { "titlu": "Discriminantul și rădăcinile", "text": "Discriminantul este Δ = b² − 4ac. Dacă Δ > 0, ecuația are două rădăcini reale distincte: x₁,₂ = (−b ± √Δ) / (2a). Dacă Δ = 0, are o rădăcină dublă, x = −b/(2a). Dacă Δ < 0, nu are rădăcini reale." },
+            { "titlu": "Vârful parabolei", "text": "Vârful este V(−b/(2a), −Δ/(4a)). Pentru a > 0, funcția are minim în vârf; pentru a < 0, are maxim." },
+            { "titlu": "Relațiile lui Viète", "text": "Pentru rădăcinile x₁ și x₂: suma S = x₁ + x₂ = −b/a și produsul P = x₁ · x₂ = c/a." }
+          ],
+          "intrebari": [
+            { "text": "Care sunt soluțiile ecuației x² − 5x + 6 = 0?", "variante": ["1 și 6", "−2 și −3", "2 și 3", "Nu are soluții reale"], "corect": 2, "explicatie": "Δ = 25 − 24 = 1, deci x = (5 ± 1)/2, adică 2 și 3." },
+            { "text": "Care este vârful parabolei f(x) = x² − 4x + 3?", "variante": ["V(2, −1)", "V(−2, 15)", "V(4, 3)", "V(1, 0)"], "corect": 0, "explicatie": "x = −b/(2a) = 4/2 = 2, iar f(2) = 4 − 8 + 3 = −1." },
+            { "text": "Cât este suma rădăcinilor ecuației 2x² − 6x + 1 = 0?", "variante": ["−3", "1/2", "6", "3"], "corect": 3, "explicatie": "Din relațiile lui Viète, S = −b/a = 6/2 = 3." }
+          ]
+        },
+        {
+          "titlu": "Progresii aritmetice",
+          "capitol": "Progresii",
+          "descriere": "Termenul general și suma",
+          "materiale": [
+            { "titlu": "Definiție", "text": "Un șir (aₙ) este progresie aritmetică dacă diferența dintre doi termeni consecutivi este constantă: aₙ₊₁ − aₙ = r. Numărul r se numește rația progresiei." },
+            { "titlu": "Termenul general", "text": "aₙ = a₁ + (n − 1) · r." },
+            { "titlu": "Suma primilor n termeni", "text": "Sₙ = n · (a₁ + aₙ) / 2." },
+            { "titlu": "Trei termeni consecutivi", "text": "Numerele a, b, c sunt termeni consecutivi ai unei progresii aritmetice dacă b = (a + c) / 2, adică termenul din mijloc este media aritmetică a vecinilor." }
+          ],
+          "intrebari": [
+            { "text": "Într-o progresie aritmetică, a₁ = 3 și r = 2. Cât este a₁₀?", "variante": ["20", "21", "23", "19"], "corect": 1, "explicatie": "a₁₀ = a₁ + 9r = 3 + 18 = 21." },
+            { "text": "Pentru ce valoare a lui x numerele 2, x, 8 sunt în progresie aritmetică?", "variante": ["x = 4", "x = 6", "x = 5", "x = 16"], "corect": 2, "explicatie": "x = (2 + 8)/2 = 5." },
+            { "text": "Cât este suma primilor 10 termeni ai progresiei cu a₁ = 3 și r = 2?", "variante": ["120", "105", "210", "240"], "corect": 0, "explicatie": "a₁₀ = 21, deci S₁₀ = 10 · (3 + 21)/2 = 120." }
+          ]
+        },
+        {
+          "titlu": "Progresii geometrice",
+          "capitol": "Progresii",
+          "descriere": "Termenul general și suma",
+          "materiale": [
+            { "titlu": "Definiție", "text": "Un șir (bₙ) cu termeni nenuli este progresie geometrică dacă raportul dintre doi termeni consecutivi este constant: bₙ₊₁ / bₙ = q. Numărul q se numește rația progresiei." },
+            { "titlu": "Termenul general", "text": "bₙ = b₁ · qⁿ⁻¹." },
+            { "titlu": "Suma primilor n termeni", "text": "Pentru q ≠ 1: Sₙ = b₁ · (qⁿ − 1) / (q − 1). Pentru q = 1: Sₙ = n · b₁." },
+            { "titlu": "Trei termeni consecutivi", "text": "Numerele a, b, c sunt termeni consecutivi ai unei progresii geometrice dacă b² = a · c." }
+          ],
+          "intrebari": [
+            { "text": "Într-o progresie geometrică, b₁ = 2 și q = 3. Cât este b₄?", "variante": ["18", "24", "54", "162"], "corect": 2, "explicatie": "b₄ = b₁ · q³ = 2 · 27 = 54." },
+            { "text": "Pentru ce număr pozitiv x numerele 4, x, 9 sunt în progresie geometrică?", "variante": ["6", "6,5", "13", "36"], "corect": 0, "explicatie": "x² = 4 · 9 = 36, iar x pozitiv înseamnă x = 6." },
+            { "text": "Cât este suma 1 + 2 + 4 + 8 + 16?", "variante": ["30", "31", "32", "63"], "corect": 1, "explicatie": "Progresie geometrică cu b₁ = 1, q = 2, n = 5: S₅ = (2⁵ − 1)/(2 − 1) = 31." }
+          ]
+        },
+        {
+          "titlu": "Trigonometrie: formule de bază",
+          "capitol": "Trigonometrie",
+          "descriere": "Valori remarcabile și identitatea fundamentală",
+          "materiale": [
+            { "titlu": "Identitatea fundamentală", "text": "Pentru orice x real: sin²x + cos²x = 1. De asemenea, tg x = sin x / cos x, când cos x ≠ 0." },
+            { "titlu": "Valori remarcabile", "text": "sin 30° = 1/2, sin 45° = √2/2, sin 60° = √3/2; cos 30° = √3/2, cos 45° = √2/2, cos 60° = 1/2; tg 45° = 1." },
+            { "titlu": "Unghiuri complementare", "text": "sin(90° − x) = cos x și cos(90° − x) = sin x." },
+            { "titlu": "Grade și radiani", "text": "180° = π radiani. De exemplu, 90° = π/2, 60° = π/3, 45° = π/4, 30° = π/6." }
+          ],
+          "intrebari": [
+            { "text": "Cât este sin 30° + cos 60°?", "variante": ["1/2", "√3", "1", "0"], "corect": 2, "explicatie": "sin 30° = 1/2 și cos 60° = 1/2, deci suma este 1." },
+            { "text": "Dacă x este un unghi ascuțit și sin x = 3/5, cât este cos x?", "variante": ["4/5", "2/5", "3/4", "5/3"], "corect": 0, "explicatie": "cos²x = 1 − 9/25 = 16/25, iar pentru unghi ascuțit cos x = 4/5." },
+            { "text": "Câți radiani are un unghi de 60°?", "variante": ["π/6", "π/4", "π/2", "π/3"], "corect": 3, "explicatie": "180° = π, deci 60° = π/3." }
+          ]
+        },
+        {
+          "titlu": "Derivate: reguli de calcul",
+          "capitol": "Analiză matematică",
+          "descriere": "Derivatele funcțiilor uzuale",
+          "materiale": [
+            { "titlu": "Derivate uzuale", "text": "(c)' = 0, (x)' = 1, (xⁿ)' = n · xⁿ⁻¹, (√x)' = 1/(2√x), (eˣ)' = eˣ, (ln x)' = 1/x, (sin x)' = cos x, (cos x)' = −sin x." },
+            { "titlu": "Reguli de derivare", "text": "(f + g)' = f' + g', (c · f)' = c · f', (f · g)' = f' · g + f · g', (f / g)' = (f' · g − f · g') / g²." },
+            { "titlu": "Interpretare", "text": "f'(x₀) este panta tangentei la graficul lui f în punctul de abscisă x₀. Ecuația tangentei: y − f(x₀) = f'(x₀) · (x − x₀)." },
+            { "titlu": "Monotonie", "text": "Dacă f'(x) > 0 pe un interval, f este strict crescătoare pe acel interval; dacă f'(x) < 0, este strict descrescătoare. Punctele în care f' se anulează și își schimbă semnul sunt puncte de extrem." }
+          ],
+          "intrebari": [
+            { "text": "Care este derivata funcției f(x) = x³?", "variante": ["x²", "3x²", "3x³", "x⁴/4"], "corect": 1, "explicatie": "(xⁿ)' = n · xⁿ⁻¹, deci (x³)' = 3x²." },
+            { "text": "Pentru f(x) = x² + 3x, cât este f'(1)?", "variante": ["4", "2", "5", "3"], "corect": 2, "explicatie": "f'(x) = 2x + 3, deci f'(1) = 5." },
+            { "text": "Care este derivata funcției f(x) = ln x?", "variante": ["1/x", "x", "eˣ", "ln x / x"], "corect": 0, "explicatie": "(ln x)' = 1/x, pentru x > 0." }
+          ]
+        }
+      ],
+      "estimari": [
+        { "text": "Cât este 2 la puterea a 10-a?", "raspuns": 1024 },
+        { "text": "Cât este suma primelor 100 de numere naturale nenule?", "raspuns": 5050 },
+        { "text": "Câte grade are suma unghiurilor unui triunghi?", "raspuns": 180 },
+        { "text": "Cât este 15 · 15?", "raspuns": 225 },
+        { "text": "Câte grade are un unghi de π/4 radiani?", "raspuns": 45 }
+      ]
+    }
+  ]
+}

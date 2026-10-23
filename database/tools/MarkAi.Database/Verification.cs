@@ -1,8 +1,6 @@
 using MarkAi.Data.Entities;
-using MarkAi.Data.Trivia;
+using MarkAi.Data.Servicii;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 internal static class Verification
@@ -17,6 +15,7 @@ internal static class Verification
     {
         try { await operation(); return false; }
         catch (InvalidOperationException) { return true; }
+        catch (Conflict) { return true; }
         catch (UnauthorizedAccessException) { return true; }
         catch (DbUpdateException) { return true; }
         catch (PostgresException) { return true; }
@@ -30,100 +29,121 @@ internal static class Verification
             await using var db = DatabaseTools.Open(connection);
             await db.Database.MigrateAsync();
             Check(!db.Database.HasPendingModelChanges(), "model matches migration snapshot");
-            Check((await db.Database.GetAppliedMigrationsAsync()).Count() == 2, "fresh database built from both C# migrations");
+            Check((await db.Database.GetAppliedMigrationsAsync()).Count() == db.Database.GetMigrations().Count(), "fresh database built from all C# migrations");
+            Check(await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_extension WHERE extname = 'pg_trgm'").SingleAsync() == 1,
+                "pg_trgm is installed for the search indexes");
             var users = Enumerable.Range(1, 4).Select(i => new Utilizator
             { Nume = "Test " + i, Username = "test" + i, Email = $"test{i}@example.invalid" }).ToArray();
             var subject = new Materie { Denumire = "Test subject" };
             db.AddRange(users);
             db.Add(subject);
             await db.SaveChangesAsync();
-            var question = new TriviaQuestion { SubjectId = subject.Id, Text = "2 + 2?" };
+            var question = new Intrebare { MaterieId = subject.Id, Text = "2 + 2?",
+                Variante = [new VariantaIntrebare { Text = "4", Corecta = true }, new VariantaIntrebare { Text = "5" }] };
             db.Add(question);
             await db.SaveChangesAsync();
-            var correct = new TriviaOption { QuestionId = question.Id, Text = "4", IsCorrect = true };
-            var wrong = new TriviaOption { QuestionId = question.Id, Text = "5" };
-            db.AddRange(correct, wrong);
-            await db.SaveChangesAsync();
-            var game = new TriviaService(DatabaseTools.Options(connection));
-
-            var limited = await game.CreateRoomAsync(users[0].Id, subject.Id, 2);
-            Check(limited.Code.Length == 6, "room code generated");
-            var contenders = await Task.WhenAll(users.Skip(1).Take(2).Select(async u =>
-                !await Rejected(async () => { await game.JoinRoomAsync(limited.Code, u.Id); })));
-            Check(contenders.Count(x => x) == 1, "concurrent joins cannot exceed capacity");
-            Check(await db.Set<TriviaParticipant>().CountAsync(p => p.RoomId == limited.Id) == 2, "host occupies one seat");
-
-            var room = await game.CreateRoomAsync(users[0].Id, subject.Id, 4);
-            await game.JoinRoomAsync(room.Code.ToLowerInvariant(), users[1].Id);
-            await game.JoinRoomAsync(room.Code, users[3].Id);
-            await game.JoinRoomAsync(room.Code, users[1].Id);
-            Check(await db.Set<TriviaParticipant>().CountAsync(p => p.RoomId == room.Id) == 3, "join is idempotent");
-            Check(await Rejected(async () => { await game.StartRoundAsync(room.Id, users[1].Id, question.Id); }), "only host starts rounds");
-            var round = await game.StartRoundAsync(room.Id, users[0].Id, question.Id, 120);
-            Check(await Rejected(async () => { await game.JoinRoomAsync(room.Code, users[2].Id); }), "late joining rejected");
-            Check(await Rejected(async () => { await game.StartRoundAsync(room.Id, users[0].Id, question.Id); }), "overlapping rounds rejected");
-            var roundChoices = await db.Set<TriviaRoundOption>().Where(x => x.RoundId == round.Id).ToListAsync();
-            var yes = roundChoices.Single(x => x.IsCorrect).Id;
-            var no = roundChoices.Single(x => !x.IsCorrect).Id;
-            var answers = await Task.WhenAll(Enumerable.Range(0, 2).Select(async _ =>
-                !await Rejected(() => game.SubmitAnswerAsync(room.Id, round.Id, users[0].Id, yes))));
-            Check(answers.Count(x => x) == 1, "concurrent duplicate answers: only one accepted");
-            await game.SubmitAnswerAsync(room.Id, round.Id, users[1].Id, no);
-            Check(await Rejected(() => game.SubmitAnswerAsync(room.Id, round.Id, users[2].Id, yes)), "nonparticipant answer rejected");
-            var scores = await game.GetLeaderboardAsync(room.Id, users[0].Id);
-            Check(scores.Single(x => x.UserId == users[0].Id).Score == 100
-                && scores.Single(x => x.UserId == users[1].Id).Score == 0
-                && scores.Single(x => x.UserId == users[3].Id).Score == 0, "server scores correct, incorrect and unanswered participants");
-            Check(await Rejected(async () => { await game.GetLeaderboardAsync(room.Id, users[2].Id); }), "leaderboard access requires membership");
-
-            correct.Text = "Changed bank option";
-            question.Text = "Changed bank question";
-            await db.SaveChangesAsync();
-            Check((await db.Set<TriviaRound>().SingleAsync(x => x.Id == round.Id)).QuestionText == "2 + 2?"
-                && (await db.Set<TriviaRoundOption>().SingleAsync(x => x.Id == yes)).Text == "4", "round snapshots survive question bank edits");
             Check(await Rejected(async () =>
             {
-                await db.Database.ExecuteSqlInterpolatedAsync(
-                $"UPDATE mark_ai.trivia_raspuns SET scor=99999 WHERE runda_id={round.Id}");
-            }), "answer score cannot be edited");
+                db.Add(new VariantaIntrebare { IntrebareId = question.Id, Text = "Four", Corecta = true });
+                await db.SaveChangesAsync();
+            }), "a question has at most one correct option");
+            db.ChangeTracker.Clear();
+            var path = new Parcurs { MaterieId = subject.Id, Titlu = "Test path", CreatLa = DateTime.UtcNow };
+            db.Add(path);
+            await db.SaveChangesAsync();
+            var course = new Curs { MaterieId = subject.Id, ParcursId = path.Id, Titlu = "Test course", Capitol = "Test",
+                Materiale = [new SectiuneMaterial { Titlu = "Intro", Text = "Text" }] };
+            var otherSubject = new Materie { Denumire = "Other subject" };
+            db.AddRange(course, otherSubject);
+            await db.SaveChangesAsync();
             Check(await Rejected(async () =>
             {
-                await db.Database.ExecuteSqlInterpolatedAsync(
-                $"UPDATE mark_ai.trivia_runda_varianta SET corecta=false WHERE id={yes}");
-            }), "round answer key cannot be edited");
+                db.Add(new Curs { MaterieId = otherSubject.Id, ParcursId = path.Id, Titlu = "Wrong subject" });
+                await db.SaveChangesAsync();
+            }), "a chapter's subject must match its Lecție's subject");
+            db.ChangeTracker.Clear();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new Parcurs { MaterieId = subject.Id, Titlu = "Org-only without organisation", Vizibilitate = Parcurs.DoarOrganizatie, CreatLa = DateTime.UtcNow });
+                await db.SaveChangesAsync();
+            }), "an organisation-only Lecție needs an organisation");
+            db.ChangeTracker.Clear();
+            Check((await db.Curs.SingleAsync(c => c.Id == course.Id)).Materiale.Single().Titlu == "Intro", "course note sections roundtrip as JSON");
+            db.Add(new Intrebare { MaterieId = subject.Id, ParcursId = path.Id, Text = "Lecție question?", Sursa = Intrebare.SursaAi,
+                Variante = [new VariantaIntrebare { Text = "Da", Corecta = true }, new VariantaIntrebare { Text = "Nu" }] });
+            await db.SaveChangesAsync();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new Intrebare { MaterieId = otherSubject.Id, ParcursId = path.Id, Text = "Wrong subject?" });
+                await db.SaveChangesAsync();
+            }), "a question's Lecție must belong to the question's subject");
+            db.ChangeTracker.Clear();
+            Check(await Rejected(async () =>
+            {
+                db.Add(new Intrebare { MaterieId = subject.Id, Tip = Intrebare.Estimare, Text = "Year?" });
+                await db.SaveChangesAsync();
+            }), "estimate questions require a numeric answer");
+            db.ChangeTracker.Clear();
+            FisierLectie Fisier(string tip) => new() { ParcursId = path.Id, Nume = "a." + tip, Tip = tip, Cheie = $"lectii/{Guid.NewGuid():N}.{tip}",
+                MarimeOcteti = 10, Sha256 = "0", IncarcatLa = DateTime.UtcNow };
+            db.AddRange(Fisier(FisierLectie.Pdf), Fisier(FisierLectie.Docx));
+            await db.SaveChangesAsync();
+            Check(await Rejected(async () => { db.Add(Fisier(FisierLectie.Pdf)); await db.SaveChangesAsync(); }), "a Lecție has at most one file of each type");
+            db.ChangeTracker.Clear();
 
-            // Database clock test: even a forged timestamp and score cannot bypass an expired deadline.
-            var timedRoom = await game.CreateRoomAsync(users[0].Id, subject.Id);
-            await game.JoinRoomAsync(timedRoom.Code, users[1].Id);
-            var timed = await game.StartRoundAsync(timedRoom.Id, users[0].Id, question.Id, 1);
-            var timedOption = await db.Set<TriviaRoundOption>().Where(x => x.RoundId == timed.Id && x.IsCorrect).SingleAsync();
-            Check(await Rejected(() => game.SubmitAnswerAsync(room.Id, round.Id, users[3].Id, timedOption.Id)), "option from another round rejected");
-            await db.Database.ExecuteSqlRawAsync("SELECT pg_sleep(1.2)");
-            Check(await Rejected(async () => { await db.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO mark_ai.trivia_raspuns(runda_id,utilizator_id,camera_id,varianta_id,trimis_la,scor)
-                VALUES ({timed.Id},{users[0].Id},{timedRoom.Id},{timedOption.Id},{timed.StartedAt},{99999})
-                """); }), "late answer rejected despite forged timestamp and score");
-            var next = await game.StartRoundAsync(timedRoom.Id, users[0].Id, question.Id, 120);
-            Check(next.Number == 2, "next round allowed after deadline");
-            await game.FinishRoomAsync(room.Id, users[0].Id);
-            Check(await Rejected(() => game.SubmitAnswerAsync(room.Id, round.Id, users[3].Id, yes)), "finished rooms reject answers");
+            // Lecție completion: concurrent quiz passes award the Lecție's XP exactly once and keep the first completion time.
+            var xpAwards = await Task.WhenAll(Enumerable.Range(0, 3).Select(async _ =>
+            {
+                await using var ctx = DatabaseTools.Open(connection);
+                return (await new ProgresService(ctx).PromoveazaAsync(users[1].Id, path.Id)).XpCastigat;
+            }));
+            Check(xpAwards.Sum() == ProgresService.XpLectie, "concurrent Lecție completions award XP once");
+            var primaData = (await db.Set<ProgresLectie>().AsNoTracking().SingleAsync(p => p.UtilizatorId == users[1].Id && p.ParcursId == path.Id)).PromovatLa;
+            await new ProgresService(db).AcceseazaAsync(users[1].Id, course.Id);
+            await new ProgresService(db).PromoveazaAsync(users[1].Id, path.Id);
+            var progress = await db.Set<ProgresLectie>().AsNoTracking().SingleAsync(p => p.UtilizatorId == users[1].Id && p.ParcursId == path.Id);
+            Check(progress.PromovatLa == primaData && progress.UltimulCursId == course.Id, "progress keeps the first completion time and the last chapter opened");
 
-            // Roundtrip only on the disposable database, never on the real application database.
-            await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
-            await db.Database.MigrateAsync();
-            Check(await db.Utilizatori.CountAsync() == 4, "trivia rollback/reapply preserves original application entities");
+            // Tutoring: a full slot rejects extra concurrent bookings; pro bono slots need no tariff.
+            var price = new TarifFix { Suma = 80, Moneda = "RON", DurataMinute = 60, Activ = true };
+            db.Add(price);
+            db.Add(new ProfilMentor { UtilizatorId = users[0].Id, StareVerificare = RezervareService.MentorAprobat, OnorariuNegociat = 50 });
+            await db.SaveChangesAsync();
+            var slot = new CameraTutoring { MentorId = users[0].Id, MaterieId = subject.Id, TarifId = price.Id, Titlu = "Slot", Capacitate = 1,
+                Status = RezervareService.SlotDeschis, InceputLa = DateTime.UtcNow.AddDays(1), FinalizatLa = DateTime.UtcNow.AddDays(1).AddHours(1) };
+            db.Add(slot);
+            await db.SaveChangesAsync();
+            var bookings = await Task.WhenAll(users.Skip(1).Take(3).Select(async u =>
+            {
+                await using var ctx = DatabaseTools.Open(connection);
+                return !await Rejected(async () => { await new RezervareService(ctx).RezervaAsync(u.Id, slot.Id); });
+            }));
+            Check(bookings.Count(x => x) == 1, "concurrent bookings cannot exceed slot capacity");
+            var payout = await db.ComisioaneMentor.SingleAsync(c => c.Rezervare.CameraId == slot.Id);
+            Check(payout.SumaComision == 50 && payout.TarifBaza == 80, "mentor payout is the negotiated fee");
+            Check(await Rejected(async () =>
+            {
+                db.Add(new CameraTutoring { MentorId = users[0].Id, MaterieId = subject.Id, Titlu = "Bad", Capacitate = 1, Status = "deschisa", ProBono = false });
+                await db.SaveChangesAsync();
+            }), "paid slots require a tariff");
+            db.ChangeTracker.Clear();
+            var proBono = new CameraTutoring { MentorId = users[0].Id, MaterieId = subject.Id, Titlu = "Pro bono", Capacitate = 2, ProBono = true,
+                Status = RezervareService.SlotDeschis, InceputLa = DateTime.UtcNow.AddDays(2) };
+            db.Add(proBono);
+            await db.SaveChangesAsync();
+            var free = await new RezervareService(db).RezervaAsync(users[1].Id, proBono.Id);
+            Check(free.TarifAchitat == 0 && free.ComisionMentor is null, "pro bono booking is free and has no payout");
+            db.ChangeTracker.Clear();
 
-            // Exercise adoption with real application data and an absent EF history table.
-            await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
-            // Reproduce the original SQL schema's UNIQUE constraint representation.
-            await db.Database.ExecuteSqlRawAsync("DROP INDEX mark_ai.utilizator_username_key; ALTER TABLE mark_ai.utilizator ADD CONSTRAINT utilizator_username_key UNIQUE(username)");
-            await db.Database.ExecuteSqlRawAsync("DROP TABLE mark_ai.\"__EFMigrationsHistory\"");
-            await DatabaseTools.Adopt(connection);
-            await DatabaseTools.Adopt(connection);
-            await db.Database.MigrateAsync();
-            Check(await db.Utilizatori.CountAsync() == 4, "adopt existing schema and upgrade preserves data; adoption is repeatable");
-            Check(await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_constraint WHERE connamespace='mark_ai'::regnamespace AND conname='utilizator_username_key'").SingleAsync() == 0,
-                "legacy unique constraint normalized to EF unique index");
+            // Deleting a Lecție cascades to its chapters, questions (with options), files, progress and quiz attempts; XP stays.
+            db.Add(new IncercareQuiz { UtilizatorId = users[1].Id, ParcursId = path.Id, IntrebariIds = [], Raspunsuri = [], InceputLa = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM mark_ai.parcurs WHERE id = {path.Id}");
+            Check(!await db.Curs.AnyAsync(c => c.ParcursId == path.Id) && !await db.Set<Intrebare>().AnyAsync(q => q.ParcursId == path.Id)
+                && !await db.Set<FisierLectie>().AnyAsync() && !await db.Set<ProgresLectie>().AnyAsync() && !await db.Set<IncercareQuiz>().AnyAsync()
+                && await db.Set<VariantaIntrebare>().CountAsync() == 2, "deleting a Lecție removes its chapters, questions, files, progress and attempts");
+            Check(await db.EvenimenteRecompensa.AnyAsync(e => e.UtilizatorId == users[1].Id), "XP already awarded stays after the Lecție is deleted");
+
             Console.WriteLine("All integration checks passed against PostgreSQL.");
         }
         finally { await DatabaseTools.DropTemporary(connection, original); }

@@ -1,0 +1,80 @@
+using MarkAi.Data.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace MarkAi.Data.Servicii;
+
+public sealed class LocuriEpuizateException() : Conflict("Nu mai sunt locuri libere la această ședință.");
+
+/// <summary>
+/// Booking a tutoring slot. The slot row is locked so concurrent bookings cannot exceed its capacity.
+/// Students pay the slot's fixed price (or nothing when pro bono); the mentor's share is the fee
+/// negotiated with the platform, snapshotted on the booking.
+/// </summary>
+public sealed class RezervareService(MarkAiDbContext db)
+{
+    public const string SlotDeschis = "deschisa";
+    public const string RezervareConfirmata = "confirmata";
+    public const string RezervareAnulata = "anulata";
+    public const string MentorAprobat = "aprobat";
+
+    /// <param name="participare">How the student attends a hybrid session (online or la_sala); other sessions decide it themselves.</param>
+    public async Task<Rezervare> RezervaAsync(int elevId, int slotId, string? participare = null, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM mark_ai.camera_tutoring WHERE id = {slotId} FOR UPDATE", ct);
+        var slot = await db.CamereTutoring.Include(c => c.Tarif).Include(c => c.Mentor)
+            .SingleOrDefaultAsync(c => c.Id == slotId, ct) ?? throw new KeyNotFoundException("Ședința nu există.");
+        var acum = await db.Database.SqlQuery<DateTime>($"SELECT now() AS \"Value\"").SingleAsync(ct);
+        if (slot.Status != SlotDeschis || slot.Mentor.StareVerificare != MentorAprobat || slot.InceputLa is null || slot.InceputLa <= acum)
+            throw new Conflict("Ședința nu mai acceptă rezervări.");
+        if (slot.MentorId == elevId) throw new Conflict("Nu îți poți rezerva propria ședință.");
+
+        var active = db.Rezervari.Where(r => r.CameraId == slotId && r.Status == RezervareConfirmata);
+        if (await active.AnyAsync(r => r.ElevId == elevId, ct)) throw new Conflict("Ai rezervat deja această ședință.");
+        if (await active.CountAsync(ct) >= slot.Capacitate) throw new LocuriEpuizateException();
+
+        var cum = slot.Tip switch
+        {
+            CameraTutoring.Online => Rezervare.Online,
+            CameraTutoring.FataInFata => Rezervare.LaSala,
+            _ => participare is Rezervare.Online or Rezervare.LaSala ? participare
+                : throw new Conflict("Ședința e hibridă: alege dacă participi online sau la sală."),
+        };
+        var pret = slot.ProBono ? 0m : slot.Tarif!.Suma;
+        var moneda = slot.Tarif?.Moneda ?? slot.Mentor.Moneda;
+        var rezervare = new Rezervare
+        {
+            CameraId = slotId, ElevId = elevId, Status = RezervareConfirmata, TarifAchitat = pret, Moneda = moneda, Participare = cum,
+        };
+        db.Rezervari.Add(rezervare);
+        if (!slot.ProBono)
+        {
+            // Payment is simulated for now; a real processor would confirm it asynchronously.
+            rezervare.Plati.Add(new Plata { Suma = pret, Moneda = moneda, Status = "simulata", Procesator = "simulat", PlatitaLa = acum });
+            var sumaMentor = Math.Min(slot.Mentor.OnorariuNegociat, pret);
+            rezervare.ComisionMentor = new ComisionMentor
+            {
+                MentorId = slot.MentorId, TarifBaza = pret, SumaComision = sumaMentor, Moneda = moneda, Status = "in_asteptare",
+                ProcentSnapshot = pret == 0 ? 0 : Math.Round(sumaMentor / pret * 100, 2),
+            };
+        }
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return rezervare;
+    }
+
+    public async Task AnuleazaAsync(int elevId, int rezervareId, CancellationToken ct = default)
+    {
+        var r = await db.Rezervari.Include(x => x.ComisionMentor).Include(x => x.Camera).Include(x => x.Plati)
+            .SingleOrDefaultAsync(x => x.Id == rezervareId && x.ElevId == elevId, ct) ?? throw new KeyNotFoundException("Rezervarea nu există.");
+        if (r.Status != RezervareConfirmata) return;
+        // Cancelling frees the seat for someone else, which only makes sense before the session starts.
+        if (r.Camera.InceputLa is not null && r.Camera.InceputLa <= DateTime.UtcNow)
+            throw new Conflict("Ședința a început deja și nu mai poate fi anulată.");
+        r.Status = RezervareAnulata;
+        if (r.ComisionMentor is not null) r.ComisionMentor.Status = "anulat";
+        // Payments are simulated for now, so the refund is too.
+        foreach (var p in r.Plati.Where(p => p.Status == "simulata")) p.Status = "rambursata";
+        await db.SaveChangesAsync(ct);
+    }
+}

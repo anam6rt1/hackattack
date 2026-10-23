@@ -15,6 +15,35 @@ public partial class ProfilMentor
 
     public DateTime? ActivatLa { get; set; }
 
+    /// <summary>Suma platita mentorului pentru o sedinta, negociata cu administratorul.</summary>
+    public decimal OnorariuNegociat { get; set; }
+
+    public string Moneda { get; set; } = "RON";
+
+    public string? PozaUrl { get; set; }
+
+    public string? DovadaCalificareUrl { get; set; }
+
+    public string? MotivRespingere { get; set; }
+
+    public int? VerificatDeId { get; set; }
+
+    /// <summary>
+    /// When a platform admin withdrew the approval (StareVerificare is then "respins", with the reason in MotivRespingere). Only an
+    /// organisation's approval given after this moment approves the professor again; null = never withdrawn, or approved since.
+    /// </summary>
+    public DateTime? RetrasLa { get; set; }
+
+    /// <summary>
+    /// Where the professor teaches, for "near me": one of their organisations, or null for their own county and locality
+    /// (from their account). An organisation they no longer belong to counts as null.
+    /// </summary>
+    public int? LocOrganizatieId { get; set; }
+
+    public virtual Organizatie? LocOrganizatie { get; set; }
+
+    public virtual ICollection<MentorMaterie> Materii { get; set; } = new List<MentorMaterie>();
+
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
     public virtual ICollection<ComisionMentor> Comisioane { get; set; } = new List<ComisionMentor>();

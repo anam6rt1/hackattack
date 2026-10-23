@@ -1,0 +1,95 @@
+# Every pull request and every push to main: the backend tests (xUnit, PostgreSQL in Testcontainers), the frontend checks
+# (lint, Vitest, build) and the browser tests (Playwright, one job per browser: Chromium, Firefox, WebKit, against a throwaway test API). No secrets are
+# needed: every test uses fake email, SMS, AI and Twilio providers.
+name: Teste
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: teste-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (dotnet test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: database/global.json
+      - name: Teste unit și de integrare
+        working-directory: database
+        run: dotnet test
+
+  frontend:
+    name: Frontend (lint, Vitest, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - name: next build
+        working-directory: frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: /api
+
+  e2e:
+    name: Browser (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Each browser gets its own job: they run side by side and a failure in one doesn't cancel the others.
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    # WebKit is new in CI: its failures show up but don't fail the run until it has passed a few times.
+    continue-on-error: ${{ matrix.browser == 'webkit' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: database/global.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Browserele Playwright (din cache când versiunea nu s-a schimbat)
+        id: browsere
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('frontend/package-lock.json') }}
+      - if: steps.browsere.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+        working-directory: frontend
+      - if: steps.browsere.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.browser }}
+        working-directory: frontend
+      - name: Testele din browser
+        working-directory: frontend
+        run: npx playwright test --project=${{ matrix.browser }}
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: frontend/playwright-report/
+          retention-days: 7

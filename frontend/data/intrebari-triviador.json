@@ -1,0 +1,166 @@
+{
+  "grila": [
+    {
+      "text": "Cine este autorul nuvelei „Moara cu noroc”?",
+      "variante": [
+        "Liviu Rebreanu",
+        "Ioan Slavici",
+        "Ion Creangă",
+        "Mihail Sadoveanu"
+      ],
+      "corect": 1
+    },
+    {
+      "text": "Ce meserie avea Ghiță înainte să ia hanul în arendă?",
+      "variante": [
+        "Cizmar",
+        "Fierar",
+        "Morar",
+        "Negustor"
+      ],
+      "corect": 0
+    },
+    {
+      "text": "Cum se numesc cele două părți ale romanului „Ion”?",
+      "variante": [
+        "Iarna și Vara",
+        "Glasul pământului și Glasul iubirii",
+        "Satul și Orașul",
+        "Începutul și Sfârșitul"
+      ],
+      "corect": 1
+    },
+    {
+      "text": "Cine este personajul principal din „Baltagul”?",
+      "variante": [
+        "Ana Baciu",
+        "Otilia Mărculescu",
+        "Vitoria Lipan",
+        "Cătălina"
+      ],
+      "corect": 2
+    },
+    {
+      "text": "Cine este autorul romanului „Enigma Otiliei”?",
+      "variante": [
+        "Camil Petrescu",
+        "George Călinescu",
+        "Marin Preda",
+        "Liviu Rebreanu"
+      ],
+      "corect": 1
+    },
+    {
+      "text": "Ce personaj îl înșală pe Harap-Alb și îi ia locul?",
+      "variante": [
+        "Spânul",
+        "Ursul",
+        "Împăratul Roș",
+        "Gerilă"
+      ],
+      "corect": 0
+    },
+    {
+      "text": "Cine a scris poezia „Plumb”?",
+      "variante": [
+        "Tudor Arghezi",
+        "Lucian Blaga",
+        "George Bacovia",
+        "Ion Barbu"
+      ],
+      "corect": 2
+    },
+    {
+      "text": "Cine este autorul romanului „Moromeții”?",
+      "variante": [
+        "Marin Preda",
+        "Marin Sorescu",
+        "Mihail Sadoveanu",
+        "Ioan Slavici"
+      ],
+      "corect": 0
+    },
+    {
+      "text": "Cum se numește fata de împărat din „Luceafărul”?",
+      "variante": [
+        "Ileana",
+        "Cătălina",
+        "Ana",
+        "Florica"
+      ],
+      "corect": 1
+    },
+    {
+      "text": "Cine a scris poezia „Testament”?",
+      "variante": [
+        "George Bacovia",
+        "Mihai Eminescu",
+        "Tudor Arghezi",
+        "Nichita Stănescu"
+      ],
+      "corect": 2
+    },
+    {
+      "text": "Cine a scris piesa „Iona”?",
+      "variante": [
+        "Marin Sorescu",
+        "Camil Petrescu",
+        "Lucian Blaga",
+        "Ion Barbu"
+      ],
+      "corect": 0
+    },
+    {
+      "text": "Cine este naratorul din „Ultima noapte de dragoste, întâia noapte de război”?",
+      "variante": [
+        "Felix Sima",
+        "Ștefan Gheorghidiu",
+        "Ilie Moromete",
+        "Ghiță"
+      ],
+      "corect": 1
+    },
+    {
+      "text": "Cine a scris „Riga Crypto și lapona Enigel”?",
+      "variante": [
+        "Ion Barbu",
+        "Lucian Blaga",
+        "Tudor Arghezi",
+        "George Bacovia"
+      ],
+      "corect": 0
+    },
+    {
+      "text": "Ce este Lică Sămădăul?",
+      "variante": [
+        "Jandarm",
+        "Hangiu",
+        "Șef al porcarilor",
+        "Preot"
+      ],
+      "corect": 2
+    }
+  ],
+  "estimari": [
+    {
+      "text": "În ce an a apărut romanul „Ion”?",
+      "raspuns": 1920
+    },
+    {
+      "text": "În ce an a apărut poemul „Luceafărul”?",
+      "raspuns": 1883
+    },
+    {
+      "text": "În ce an a apărut romanul „Baltagul”?",
+      "raspuns": 1930
+    },
+    {
+      "text": "În ce an a apărut romanul „Enigma Otiliei”?",
+      "raspuns": 1938
+    },
+    {
+      "text": "În ce an a apărut volumul „Novele din popor”, cu „Moara cu noroc”?",
+      "raspuns": 1881
+    }
+  ]
+}

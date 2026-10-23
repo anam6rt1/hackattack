@@ -1,18 +1,19 @@
 'use client'
 // Fereastra care apare peste hartă: întrebarea, estimarea, rezultatul și finalul.
+// Serverul închide întrebarea la termenul lui; cronometrul de aici doar îl arată.
 
 import { useEffect, useState } from 'react'
 import confetti from 'canvas-confetti'
 import Avatar from './Avatar'
 import { insula } from './date-harta'
 
-function Cronometru({ durata }) {
+// termen = momentul închiderii, deja tradus în ceasul acestui dispozitiv (vezi pagina camerei)
+function Cronometru({ durata, termen }) {
   const [ramas, setRamas] = useState(durata)
   useEffect(() => {
-    const start = Date.now()
-    const t = setInterval(() => setRamas(Math.max(0, durata - (Date.now() - start) / 1000)), 100)
+    const t = setInterval(() => setRamas(Math.min(durata, Math.max(0, (termen - Date.now()) / 1000))), 100)
     return () => clearInterval(t)
-  }, [durata])
+  }, [durata, termen])
   const lung = 125.6
   return (
     <div className="tv-cronometru">
@@ -44,13 +45,14 @@ function Duelisti({ stare }) {
   )
 }
 
-export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstimare, onJocNou }) {
+export default function Fereastra({ stare, euId, termen, onRaspunde, onEstimare, onJocNou }) {
+  const esteGazda = stare.gazdaId === euId
   const [ales, setAles] = useState(null)
   const [an, setAn] = useState(1900)
 
   const juc = (id) => stare.jucatori.find((j) => j.id === id)
   const atac = stare.atac
-  const ins = atac ? insula(atac.insula) : null
+  const ins = atac ? insula(atac.insula, stare.harta) : null
   const participanti = atac ? [atac.atacator, atac.aparator].filter(Boolean) : []
   const particip = participanti.includes(euId)
   const eDuel = atac && atac.aparator
@@ -68,15 +70,16 @@ export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstima
   if (stare.faza === 'final') {
     const numar = (id) => Object.values(stare.proprietari).filter((p) => p === id).length
     const clasament = stare.jucatori.slice().sort((a, b) => numar(b.id) - numar(a.id))
-    const ordine = [clasament[1], clasament[0], clasament[2]].filter(Boolean)
-    const inaltimi = [150, 110, 80]
-    const culoriBloc = ['#ffc61a', '#7fb3e0', '#e8a46a']
+    const ordine = [clasament[1], clasament[0], clasament[2], clasament[3]].filter(Boolean)
+    const inaltimi = [150, 110, 80, 60]
+    const culoriBloc = ['#ffc61a', '#7fb3e0', '#e8a46a', '#b9c4d6']
+    const xpMeu = stare.xp?.[euId]
     return (
       <div className="tv-fundal">
         <div className="tv-fereastra">
           <div className="tv-eticheta-sus">
             <b>Bătălia s-a terminat</b>
-            <small>{clasament[0].id === euId ? 'Ai cucerit cele mai multe insule!' : `Câștigă ${clasament[0].nume}`}</small>
+            <small>{numar(clasament[0].id) === numar(euId) ? 'Ai cucerit cele mai multe insule!' : `Câștigă ${clasament[0].nume}`}</small>
           </div>
           <div className="tv-podium">
             {ordine.map((j) => {
@@ -85,7 +88,7 @@ export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstima
                 <div key={j.id} className="tv-loc">
                   <Avatar nume={j.nume} culoare={j.culoare} marime={loc === 0 ? 54 : 44} />
                   <b>{j.nume}{j.id === euId && ' (tu)'}</b>
-                  <small>{numar(j.id)} insule · {numar(j.id) * 300} p</small>
+                  <small>{numar(j.id)} insule{stare.xp?.[j.id] !== undefined ? ` · ${stare.xp[j.id]} XP` : ''}</small>
                   <div className="tv-bloc" style={{ height: inaltimi[loc], background: culoriBloc[loc], animationDelay: (2 - loc) * 0.2 + 's' }}>
                     {loc + 1}
                   </div>
@@ -93,7 +96,14 @@ export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstima
               )
             })}
           </div>
-          {esteGazda && <button className="tv-btn" onClick={onJocNou}>Joacă din nou</button>}
+          {xpMeu !== undefined && (
+            <p className="tv-stare">Ai primit {xpMeu} XP{stare.cuBoti ? ' (cu 30% mai puțin, fiindcă au jucat și roboți)' : ''}.</p>
+          )}
+          {esteGazda ? (
+            <button className="tv-btn" onClick={onJocNou}>Joacă din nou</button>
+          ) : (
+            <p className="tv-stare">Gazda poate porni un joc nou în aceeași cameră.</p>
+          )}
         </div>
       </div>
     )
@@ -114,7 +124,7 @@ export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstima
       <div className="tv-fundal">
         <div className="tv-fereastra">
           <div className="tv-eticheta-sus"><b>{titlu}</b><small>{subtitlu}</small></div>
-          <Cronometru durata={q.durata} />
+          <Cronometru durata={q.durata} termen={termen} />
           {eDuel && <Duelisti stare={stare} />}
           <p className="tv-intrebare">{q.t}</p>
           <div className="tv-variante">
@@ -150,7 +160,7 @@ export default function Fereastra({ stare, euId, esteGazda, onRaspunde, onEstima
       <div className="tv-fundal">
         <div className="tv-fereastra">
           <div className="tv-eticheta-sus"><b>Estimare: {ins.nume}</b><small>Câștigă cine e mai aproape</small></div>
-          <Cronometru durata={q.durata} />
+          <Cronometru durata={q.durata} termen={termen} />
           <Duelisti stare={stare} />
           <p className="tv-intrebare">{q.t}</p>
           {particip ? (

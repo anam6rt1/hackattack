@@ -9,14 +9,22 @@ public partial class Materie
 
     public string Denumire { get; set; } = null!;
 
+    /// <summary>The name for search (lower case, without diacritics; computed by the database).</summary>
+    public string Cautare { get; set; } = "";
+
     public string? Descriere { get; set; }
+
+    public string? Cod { get; set; }
+
+    public int Ordine { get; set; }
+
+    public virtual ICollection<MentorMaterie> Mentori { get; set; } = new List<MentorMaterie>();
 
     public virtual ICollection<CameraTutoring> CamereTutoring { get; set; } = new List<CameraTutoring>();
 
     public virtual ICollection<Curs> Cursuri { get; set; } = new List<Curs>();
 
-    public virtual ICollection<Graf> Grafuri { get; set; } = new List<Graf>();
+    public virtual ICollection<Parcurs> Parcursuri { get; set; } = new List<Parcurs>();
 
-    public virtual ICollection<UtilizatorMaterie> UtilizatoriMaterii { get; set; } = new List<UtilizatorMaterie>();
 }
 

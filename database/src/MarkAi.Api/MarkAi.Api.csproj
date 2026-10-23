@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MarkAi.Data\MarkAi.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.58.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Endpoint handlers generated at compile time instead of compiled at the first request: faster start, and the test suite
+         (a new app per test) runs about four times faster. The few endpoints it cannot generate (RDG003/RDG004: a [FromForm]
+         class, an anonymous result) are built at runtime as before. -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <NoWarn>$(NoWarn);RDG003;RDG004</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MarkAi.Tests.Suport" />
+    <InternalsVisibleTo Include="MarkAi.Tests.Unit" />
+    <InternalsVisibleTo Include="MarkAi.Tests.Integration" />
+  </ItemGroup>
+
+</Project>

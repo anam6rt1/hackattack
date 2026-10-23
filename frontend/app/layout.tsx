@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
+import "./insule.css";
 import Meniu from "@/components/Meniu";
+import Furnizori from "@/components/Furnizori";
+import Incarcare from "@/components/Incarcare";
+import { claseFonturi } from "@/lib/fonturi";
+import { SCRIPT_TEMA } from "@/lib/tema-sezon";
 
 export const metadata: Metadata = {
   title: "Bac la Română",
@@ -9,10 +15,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ro">
+    // Fonturile stau pe <html>, ca variabilele lor să poată fi folosite și de stilurile puse pe <html data-theme>.
+    <html lang="ro" data-tema="vara-zi" data-theme="acvatic" className={claseFonturi} suppressHydrationWarning>
+      <head>
+        {/* Alege tema (anotimp + zi/noapte) și stilul înainte de prima afișare, ca să nu clipească. */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+      </head>
       <body>
-        <Meniu />
-        {children}
+        <Furnizori>
+          {/* Meniul și paginile citesc adresa (usePathname/useParams), deci se randează în browser */}
+          <Suspense fallback={<header className="mn-bara" />}>
+            <Meniu />
+          </Suspense>
+          <Suspense fallback={<Incarcare />}>{children}</Suspense>
+        </Furnizori>
       </body>
     </html>
   );
