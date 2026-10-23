@@ -13,9 +13,12 @@ import { api, marime, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
+import Paginare from '@/components/Paginare'
 import { useConfirmare } from '@/components/Confirmare'
 
 const CURS_GOL = { titlu: '', descriere: '', capitol: '', ordine: '', videoUrl: '', continut: '', publicat: true, materiale: [{ titlu: '', text: '' }] }
+// Câte lecții are o pagină în editor (ContinutEndpoints.LectiiPePagina pe server).
+const LECTII_PE_PAGINA = 20
 const LECTIE_GOALA = { titlu: '', descriere: '', clasa: 'Bac', vizibilitate: 'public', organizatieId: null, partajari: [], publicat: true }
 
 function MaterieNoua({ onCreata }) {
@@ -633,14 +636,26 @@ export default function AdminContinut() {
     return (await api('/profesori/me')).profil.materii.map((m) => toate.find((x) => x.id === m.id)).filter(Boolean)
   }, [esteAdmin])
 
-  const incarcaLectii = useCallback(() => api('/continut/parcursuri').then((r) => setLectii(r.elemente)), [])
+  // Lecțiile pe care le poate edita, câte o pagină, cu filtrul de materie aplicat de server.
+  const [paginaLectii, setPaginaLectii] = useState(1)
+  const [totalLectii, setTotalLectii] = useState(0)
+  const [toateMateriile, setToateMateriile] = useState([])
+  const incarcaLectii = useCallback(() => {
+    const q = new URLSearchParams()
+    if (filtruMaterie) q.set('materieId', filtruMaterie)
+    if (paginaLectii > 1) q.set('pagina', String(paginaLectii))
+    return api('/continut/parcursuri' + (q.size ? `?${q}` : '')).then((r) => { setLectii(r.elemente); setTotalLectii(r.total) })
+  }, [filtruMaterie, paginaLectii])
 
   useEffect(() => {
     if (!utilizator) return
     materiiPermise().then(setMaterii)
+    api('/materii').then((r) => setToateMateriile(r.elemente)).catch(() => {})
     api('/continut/organizatii').then((r) => setOrganizatii(r.elemente)).catch(() => setOrganizatii([]))
-    incarcaLectii()
-  }, [utilizator, materiiPermise, incarcaLectii])
+  }, [utilizator, materiiPermise])
+  useEffect(() => {
+    if (utilizator) incarcaLectii()
+  }, [utilizator, incarcaLectii])
 
   function deschideLectie(l) {
     setLectie(l)
@@ -654,8 +669,9 @@ export default function AdminContinut() {
   }
 
   if (!utilizator || !materii) return <Incarcare />
-  const vizibile = lectii.filter((l) => !filtruMaterie || l.materieId === Number(filtruMaterie))
-  const materiiFiltru = [...new Map([...materii, ...lectii.map((l) => ({ id: l.materieId, denumire: l.materie }))].map((m) => [m.id, m])).values()]
+  // Materiile din filtru: cele pe care le poate folosi plus toate celelalte (o lecție a lui poate fi la o materie pe care n-o mai predă).
+  const materiiFiltru = [...new Map([...materii, ...toateMateriile].map((m) => [m.id, m])).values()]
+  const vizibile = lectii
 
   return (
     <main className="tv-pagina">
@@ -670,12 +686,12 @@ export default function AdminContinut() {
             <aside className="tv-cutie">
               <label className="tv-eticheta-camp">
                 <span>Materia</span>
-                <select className="tv-camp-text" value={filtruMaterie} onChange={(e) => setFiltruMaterie(e.target.value)}>
+                <select className="tv-camp-text" value={filtruMaterie} onChange={(e) => { setFiltruMaterie(e.target.value); setPaginaLectii(1) }}>
                   <option value="">Toate materiile</option>
                   {materiiFiltru.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
                 </select>
               </label>
-              {esteAdmin && <MaterieNoua onCreata={async (m) => { setMaterii(await materiiPermise()); setFiltruMaterie(String(m.id)) }} />}
+              {esteAdmin && <MaterieNoua onCreata={async (m) => { setMaterii(await materiiPermise()); setFiltruMaterie(String(m.id)); setPaginaLectii(1) }} />}
               <button className="tv-btn" onClick={() => deschideLectie('noua')} disabled={materii.length === 0}>+ Lecție nouă</button>
               {materii.length === 0 && <p className="tv-indiciu">Adaugă în profilul de profesor materiile pe care le predai, ca să poți crea lecții.</p>}
               <ul className="tv-lista">
@@ -698,6 +714,7 @@ export default function AdminContinut() {
                 ))}
                 {vizibile.length === 0 && <p className="tv-indiciu">Nu ai încă lecții aici.</p>}
               </ul>
+              <Paginare pagina={paginaLectii} totalPagini={Math.ceil(totalLectii / LECTII_PE_PAGINA)} onAlege={setPaginaLectii} />
             </aside>
 
             <section className="tv-cutie">

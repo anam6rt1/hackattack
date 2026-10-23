@@ -6,6 +6,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, dataOra } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
+import Paginare from '@/components/Paginare'
+
+// Câte organizații are o pagină (OrganizatiiEndpoints.OrganizatiiPePagina pe server).
+const PE_PAGINA = 20
 
 const STARI = [
   { id: 'in_asteptare', nume: 'În așteptare' },
@@ -62,11 +66,14 @@ function Cerere({ o, onSchimbat }) {
 export default function AdminOrganizatii() {
   const admin = usePagina('admin')
   const [stare, setStare] = useState('in_asteptare')
+  const [pagina, setPagina] = useState(1)
   const [lista, setLista] = useState(null)
+  const [total, setTotal] = useState(0)
 
   const incarca = useCallback(() => {
-    api(`/admin/organizatii?stare=${stare}`).then((r) => setLista(r.elemente)).catch(() => setLista([]))
-  }, [stare])
+    api(`/admin/organizatii?stare=${stare}${pagina > 1 ? `&pagina=${pagina}` : ''}`)
+      .then((r) => { setLista(r.elemente); setTotal(r.total) }).catch(() => setLista([]))
+  }, [stare, pagina])
   useEffect(() => {
     if (admin) incarca()
   }, [admin, incarca])
@@ -84,7 +91,7 @@ export default function AdminOrganizatii() {
         <div className="tv-coala">
           <div className="tv-taburi" role="tablist" style={{ maxWidth: 480 }}>
             {STARI.map((s) => (
-              <button key={s.id} role="tab" aria-selected={stare === s.id} className={stare === s.id ? 'tv-tab-activ' : ''} onClick={() => { setLista(null); setStare(s.id) }}>
+              <button key={s.id} role="tab" aria-selected={stare === s.id} className={stare === s.id ? 'tv-tab-activ' : ''} onClick={() => { setLista(null); setStare(s.id); setPagina(1) }}>
                 {s.nume}
               </button>
             ))}
@@ -94,7 +101,10 @@ export default function AdminOrganizatii() {
           ) : lista.length === 0 ? (
             <p className="tv-gol">Nicio organizație aici.</p>
           ) : (
-            <div className="tv-profesori">{lista.map((o) => <Cerere key={o.id} o={o} onSchimbat={incarca} />)}</div>
+            <>
+              <div className="tv-profesori">{lista.map((o) => <Cerere key={o.id} o={o} onSchimbat={incarca} />)}</div>
+              <Paginare pagina={pagina} totalPagini={Math.ceil(total / PE_PAGINA)} onAlege={(p) => { setPagina(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />
+            </>
           )}
         </div>
       </div>

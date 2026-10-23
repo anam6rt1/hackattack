@@ -178,15 +178,17 @@ public static class ContinutEndpoints
             Lista<OrganizatieAutor>.Din(await OrganizatiiPosibile(db, acces, h.User, h.User.Id(), ct)));
 
         // Everything the current user may edit, published or not.
-        e.MapGet("/continut/parcursuri", async (int? materieId, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        // The Lecții the user may edit, 20 a page (pagina, from 1; Total = all), built with a fixed number of queries per page.
+        e.MapGet("/continut/parcursuri", async (int? materieId, int? pagina, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
+            if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
             var a = await acces.PentruAsync(h.User, ct);
             var q = acces.Editabile(a).AsNoTracking();
             if (materieId is not null) q = q.Where(p => p.MaterieId == materieId);
-            var ids = await q.OrderBy(p => p.MaterieId).ThenBy(p => p.Ordine).ThenBy(p => p.Titlu).Select(p => p.Id).ToListAsync(ct);
-            var lista = new List<ParcursEditabil>();
-            foreach (var id in ids) lista.Add(await Editabil(db, acces, h.User, id, ct));
-            return Lista<ParcursEditabil>.Din(lista);
+            var total = await q.CountAsync(ct);
+            var pag = q.OrderBy(p => p.MaterieId).ThenBy(p => p.Ordine).ThenBy(p => p.Titlu).ThenBy(p => p.Id)
+                .Skip(((pagina ?? 1) - 1) * LectiiPePagina).Take(LectiiPePagina);
+            return new Lista<ParcursEditabil>(await Editabile(db, h.User, pag, ct), total);
         });
 
         e.MapGet("/continut/parcursuri/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
@@ -416,27 +418,67 @@ public static class ContinutEndpoints
         return new MaterieDto(m.Id, m.Cod, m.Denumire, m.Descriere, m.Ordine, total, completate);
     }
 
-    private static async Task<List<OrganizatieAutor>> OrganizatiiPosibile(MarkAiDbContext db, AccesContinut acces, ClaimsPrincipal u, int? autorId, CancellationToken ct)
+    /// <summary>Editable Lecții per page in the editor.</summary>
+    public const int LectiiPePagina = 20;
+
+    private static async Task<List<OrganizatieAutor>> OrganizatiiPosibile(MarkAiDbContext db, AccesContinut acces, ClaimsPrincipal u, int? autorId, CancellationToken ct) =>
+        (await OrganizatiiPosibile(db, u, autorId is null ? [] : [autorId.Value], ct)).GetValueOrDefault(autorId ?? 0) ?? [];
+
+    /// <summary>
+    /// For each author, the organisations a Lecție of theirs may have as home: theirs (approved member as a professor, or admin),
+    /// with whether that organisation lets them publish publicly; for a platform admin every approved organisation. Two or three
+    /// queries whatever the number of authors. Key 0 = no author (platform Lecții).
+    /// </summary>
+    private static async Task<Dictionary<int, List<OrganizatieAutor>>> OrganizatiiPosibile(MarkAiDbContext db, ClaimsPrincipal u, IReadOnlyCollection<int> autori,
+        CancellationToken ct)
     {
-        var aleAutorului = autorId is null ? [] : (await acces.OrganizatiiAutorAsync(autorId.Value, ct)).Select(o => new OrganizatieAutor(o.Id, o.Nume, o.PoatePublicaPublic)).ToList();
-        if (!u.EsteAdmin()) return aleAutorului;
-        // Platform admins may place a Lecție in any approved organisation.
-        var toate = await db.Set<Organizatie>().AsNoTracking().Where(o => o.Stare == Organizatie.Aprobata).OrderBy(o => o.Nume).Select(o => new { o.Id, o.Nume }).ToListAsync(ct);
-        return toate.Select(o => aleAutorului.FirstOrDefault(x => x.Id == o.Id) ?? new OrganizatieAutor(o.Id, o.Nume, true)).ToList();
+        var ca = await db.Set<MembruOrganizatie>().AsNoTracking()
+            .Where(m => autori.Contains(m.UtilizatorId) && m.Rol == MembruOrganizatie.RolProfesor && m.Stare == MembruOrganizatie.Aprobat
+                && m.Organizatie.Stare == Organizatie.Aprobata)
+            .Select(m => new { m.UtilizatorId, m.OrganizatieId, m.Organizatie.Nume, m.PoatePublicaPublic }).ToListAsync(ct);
+        var conduse = await db.Set<Organizatie>().AsNoTracking().Where(o => autori.Contains(o.AdminId) && o.Stare == Organizatie.Aprobata)
+            .Select(o => new { o.AdminId, o.Id, o.Nume }).ToListAsync(ct);
+        var toate = u.EsteAdmin()
+            ? await db.Set<Organizatie>().AsNoTracking().Where(o => o.Stare == Organizatie.Aprobata).OrderBy(o => o.Nume).Select(o => new { o.Id, o.Nume }).ToListAsync(ct)
+            : null;
+        var rezultat = new Dictionary<int, List<OrganizatieAutor>>();
+        foreach (var autor in autori.Append(0).Distinct())
+        {
+            var ale = ca.Where(m => m.UtilizatorId == autor).Select(m => new OrganizatieAutor(m.OrganizatieId, m.Nume, m.PoatePublicaPublic))
+                .Concat(conduse.Where(o => o.AdminId == autor && ca.All(m => m.UtilizatorId != autor || m.OrganizatieId != o.Id)).Select(o => new OrganizatieAutor(o.Id, o.Nume, true)))
+                .OrderBy(o => o.Nume).ToList();
+            // Platform admins may place a Lecție in any approved organisation.
+            rezultat[autor] = toate is null ? ale : toate.Select(o => ale.FirstOrDefault(x => x.Id == o.Id) ?? new OrganizatieAutor(o.Id, o.Nume, true)).ToList();
+        }
+        return rezultat;
     }
 
-    private static async Task<ParcursEditabil> Editabil(MarkAiDbContext db, AccesContinut acces, ClaimsPrincipal u, int id, CancellationToken ct)
+    private static async Task<ParcursEditabil> Editabil(MarkAiDbContext db, AccesContinut acces, ClaimsPrincipal u, int id, CancellationToken ct) =>
+        (await Editabile(db, u, db.Set<Parcurs>().AsNoTracking().Where(x => x.Id == id), ct)).Single();
+
+    /// <summary>
+    /// The editor's view of these Lecții (a page of the list, or one), with a fixed number of queries: the Lecții, the authors'
+    /// organisations, and the publishing switches turned off for them.
+    /// </summary>
+    private static async Task<List<ParcursEditabil>> Editabile(MarkAiDbContext db, ClaimsPrincipal u, IQueryable<Parcurs> q, CancellationToken ct)
     {
-        var p = await db.Set<Parcurs>().AsNoTracking().Where(x => x.Id == id)
-            .Select(x => new { x.Id, x.MaterieId, Materie = x.Materie.Denumire, x.Titlu, x.Descriere, x.Clasa, x.Vizibilitate, x.Publicat, x.Ordine, x.AutorId,
-                Autor = x.Autor == null ? null : x.Autor.Nume, x.OrganizatieId, Organizatie = x.Organizatie == null ? null : x.Organizatie.Nume,
-                Partajari = x.Partajari.Select(s => s.OrganizatieId).ToList(), Capitole = x.Capitole.Count, Intrebari = x.Intrebari.Count(q => q.Activa) })
-            .SingleAsync(ct);
-        // Only the author (or a platform admin) moves a Lecție to another home organisation, and only among the author's.
-        var poateMuta = u.EsteAdmin() || (p.AutorId is not null && p.AutorId == u.Id());
-        var posibile = await OrganizatiiPosibile(db, acces, u, p.AutorId, ct);
-        return new ParcursEditabil(p.Id, p.MaterieId, p.Materie, p.Titlu, p.Descriere, p.Clasa, p.Vizibilitate, p.Publicat, p.Ordine, p.AutorId, p.Autor,
-            p.OrganizatieId, p.Organizatie, p.Partajari, p.Capitole, p.Intrebari, await acces.PoatePublicaPublicAsync(p.AutorId, p.OrganizatieId, ct), poateMuta, posibile);
+        var lectii = await q.Select(x => new { x.Id, x.MaterieId, Materie = x.Materie.Denumire, x.Titlu, x.Descriere, x.Clasa, x.Vizibilitate, x.Publicat, x.Ordine,
+                x.AutorId, Autor = x.Autor == null ? null : x.Autor.Nume, x.OrganizatieId, Organizatie = x.Organizatie == null ? null : x.Organizatie.Nume,
+                Partajari = x.Partajari.Select(s => s.OrganizatieId).ToList(), Capitole = x.Capitole.Count, Intrebari = x.Intrebari.Count(i => i.Activa) })
+            .ToListAsync(ct);
+        var autori = lectii.Where(p => p.AutorId != null).Select(p => p.AutorId!.Value).Distinct().ToList();
+        var posibile = await OrganizatiiPosibile(db, u, autori, ct);
+        // The home organisation switched off public publishing for the author (AccesContinut.PoatePublicaPublicAsync, for many at once).
+        var oprite = (await db.Set<MembruOrganizatie>().AsNoTracking()
+                .Where(m => autori.Contains(m.UtilizatorId) && m.Rol == MembruOrganizatie.RolProfesor && !m.PoatePublicaPublic)
+                .Select(m => new { m.UtilizatorId, m.OrganizatieId }).ToListAsync(ct))
+            .Select(m => (m.UtilizatorId, m.OrganizatieId)).ToHashSet();
+        return lectii.Select(p => new ParcursEditabil(p.Id, p.MaterieId, p.Materie, p.Titlu, p.Descriere, p.Clasa, p.Vizibilitate, p.Publicat, p.Ordine,
+            p.AutorId, p.Autor, p.OrganizatieId, p.Organizatie, p.Partajari, p.Capitole, p.Intrebari,
+            p.OrganizatieId is null || p.AutorId is null || !oprite.Contains((p.AutorId.Value, p.OrganizatieId.Value)),
+            // Only the author (or a platform admin) moves a Lecție to another home organisation, and only among the author's.
+            u.EsteAdmin() || (p.AutorId is not null && p.AutorId == u.Id()),
+            posibile.GetValueOrDefault(p.AutorId ?? 0) ?? [])).ToList();
     }
 
     private static async Task Aplica(Parcurs p, ParcursEditare c, ClaimsPrincipal u, MarkAiDbContext db, AccesContinut acces, bool nou, CancellationToken ct)

@@ -646,6 +646,13 @@ a.tv-pastila { text-decoration: none; }
 .tv-filtru { border: 2px solid #ece3cd; background: #fff; color: var(--navy); border-radius: 99px; padding: 6px 14px; font-weight: 800; font-size: 14px; cursor: pointer; }
 .tv-filtru[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
 .tv-filtru:focus-visible { outline: 3px solid var(--aur); outline-offset: 2px; }
+/* Bara de pagini (components/Paginare.jsx) */
+.tv-paginare { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; margin: 18px 0 4px; }
+.tv-paginare .tv-filtru { min-width: 38px; }
+.tv-paginare .tv-filtru[aria-current="page"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.tv-paginare .tv-filtru:disabled { opacity: .4; cursor: default; }
+.tv-paginare-salt { display: inline-flex; gap: 6px; align-items: center; }
+.tv-paginare-salt .tv-camp-text { width: 84px; padding: 6px 10px; }
 .tv-bara-filtre { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 14px; margin-bottom: 16px; background: #fff; border-radius: 18px; box-shadow: 0 3px 0 #ece3cd; }
 .tv-bara-filtre .tv-filtre { margin-bottom: 0; }
 .tv-bara-filtre select.tv-camp-text { width: auto; padding-top: 6px; padding-bottom: 6px; }

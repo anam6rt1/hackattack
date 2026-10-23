@@ -118,22 +118,21 @@ describe("panoul organizației: un profesor retras", () => {
 });
 
 describe("panoul organizației: pagini", () => {
-  it("„Mai mulți” aduce următorii membri", async () => {
+  it("bara de pagini aduce pagina aleasă din aceeași listă", async () => {
     const pe = (start, n) => Array.from({ length: n }, (_, i) => membru(100 + start + i, `Elev ${start + i}`, { rol: "elev" }));
     const cereri = apiFals({
       "GET /utilizatori/me": { id: 1, nume: "Dana", rol: "organizatie", stareProfesor: "aprobat", organizatii: [] },
-      "GET /organizatia-mea": { id: 1, nume: "Liceul de Test", adresa: "x", judetId: 40, localitateId: null, profesori: 0, elevi: 52, cereri: 0 },
-      "GET /organizatia-mea/membri": (c) => (new URLSearchParams(c.query).get("pagina") === "2" ? { elemente: pe(51, 2), total: 52 } : { elemente: pe(1, 50), total: 52 }),
+      "GET /organizatia-mea": { id: 1, nume: "Liceul de Test", adresa: "x", judetId: 40, localitateId: null, profesori: 0, elevi: 120, cereri: 0 },
+      "GET /organizatia-mea/membri": (c) => (new URLSearchParams(c.query).get("pagina") === "3" ? { elemente: pe(101, 20), total: 120 } : { elemente: pe(1, 50), total: 120 }),
       "GET /materii": { elemente: [] },
     });
     const u = userEvent.setup();
     render(<SesiuneProvider><PaginaOrganizatie /></SesiuneProvider>);
     await u.click(await screen.findByRole("tab", { name: "Elevi" }));
-    expect(await screen.findByText("50 din 52")).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Mai mulți" }));
-    expect(await screen.findByRole("heading", { name: "Elev 52" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mai mulți" })).not.toBeInTheDocument();
+    await u.click(await screen.findByRole("button", { name: "Pagina 3" }));
+    expect(await screen.findByRole("heading", { name: "Elev 101" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Elev 1" })).not.toBeInTheDocument();
     const ultima = new URLSearchParams(cereri.filter((c) => c.cale === "/organizatia-mea/membri").at(-1).query);
-    expect(ultima.toString()).toBe("rol=elev&stare=aprobat&pagina=2");
+    expect(ultima.toString()).toBe("rol=elev&stare=aprobat&pagina=3");
   });
 });

@@ -10,6 +10,7 @@ import { API, api, dataOra } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
+import Paginare from '@/components/Paginare'
 import AlegeLoc from '@/components/AlegeLoc'
 import { useConfirmare } from '@/components/Confirmare'
 
@@ -87,40 +88,39 @@ function Membru({ m, cale, admin, onSchimbat }) {
   )
 }
 
-// total = câți se potrivesc (serverul trimite câte 50); onMaiMulti aduce pagina următoare.
-function Lista({ membri, gol, total, onMaiMulti, ...rest }) {
+// Câți membri are o pagină (OrganizatiiEndpoints.MembriPePagina pe server).
+const PE_PAGINA = 50
+
+// total = câți se potrivesc; pagina și onAlege conduc bara de pagini.
+function Lista({ membri, gol, total, pagina, onAlege, ...rest }) {
   if (!membri) return <p className="tv-asteapta">Se încarcă...</p>
   if (membri.length === 0) return <p className="tv-gol">{gol}</p>
   return (
     <>
       <div className="tv-profesori">{membri.map((m) => <Membru key={`${m.utilizatorId}-${m.stare}`} m={m} {...rest} />)}</div>
-      {total > membri.length && (
-        <div className="tv-butoane" style={{ justifyContent: 'center' }}>
-          <span className="tv-indiciu">{membri.length} din {total}</span>
-          <button className="tv-btn tv-gri" onClick={onMaiMulti}>Mai mulți</button>
-        </div>
-      )}
+      {onAlege && <Paginare pagina={pagina} totalPagini={Math.ceil((total ?? 0) / PE_PAGINA)} onAlege={onAlege} />}
     </>
   )
 }
 
-// O listă de membri pe pagini: incarca(url) o pornește de la capăt, maiMulti() adaugă pagina următoare.
+// O listă de membri pe pagini: incarca(url) o pornește de la prima pagină, alege(p) aduce pagina p a aceleiași liste.
 function usePagini() {
   const [membri, setMembri] = useState(null)
   const [total, setTotal] = useState(0)
   const [stare, setStare] = useState({ url: null, pagina: 1 })
-  const incarca = useCallback((url) => {
-    api(url).then((r) => { setMembri(r.elemente); setTotal(r.total); setStare({ url, pagina: 1 }) }).catch(() => { setMembri([]); setTotal(0) })
+  const aduce = useCallback((url, pagina) => {
+    api(pagina > 1 ? `${url}${url.includes('?') ? '&' : '?'}pagina=${pagina}` : url)
+      .then((r) => { setMembri(r.elemente); setTotal(r.total); setStare({ url, pagina }) })
+      .catch(() => { setMembri([]); setTotal(0) })
   }, [])
-  const maiMulti = () => {
-    const pagina = stare.pagina + 1
-    api(`${stare.url}${stare.url.includes('?') ? '&' : '?'}pagina=${pagina}`).then((r) => {
-      setMembri((m) => [...m, ...r.elemente.filter((x) => !m.some((y) => y.utilizatorId === x.utilizatorId))])
-      setTotal(r.total)
-      setStare((s) => ({ ...s, pagina }))
-    }).catch(() => {})
+  const incarca = useCallback((url) => aduce(url, 1), [aduce])
+  const alege = (pagina) => {
+    aduce(stare.url, pagina)
+    window.scrollTo?.({ top: 0, behavior: 'smooth' })
   }
-  return { membri, setMembri, total, incarca, maiMulti }
+  // După o decizie (aprobare, scoatere): aceeași pagină, din nou.
+  const reincarca = () => stare.url && aduce(stare.url, stare.pagina)
+  return { membri, setMembri, total, pagina: stare.pagina, incarca, alege, reincarca }
 }
 
 const TABURI = [
@@ -167,7 +167,7 @@ function FiltreMembri({ tab, filtre, setFiltre, materii }) {
 
 function PanouAdmin({ org, onSchimbat }) {
   const [tab, setTab] = useState('cereri')
-  const { membri, setMembri, total, incarca: incarcaLista, maiMulti } = usePagini()
+  const { membri, setMembri, total, pagina, incarca: incarcaLista, alege, reincarca } = usePagini()
   const [mesaj, setMesaj] = useState(null)
   const [filtre, setFiltre] = useState(FILTRE_GOALE)
   const [materii, setMaterii] = useState([])
@@ -203,7 +203,7 @@ function PanouAdmin({ org, onSchimbat }) {
     }
   }
 
-  const schimbat = () => { incarca(); onSchimbat() }
+  const schimbat = () => { reincarca(); onSchimbat() }
   return (
     <>
       <div className="tv-taburi" role="tablist" style={{ maxWidth: 560 }}>
@@ -215,9 +215,9 @@ function PanouAdmin({ org, onSchimbat }) {
         ))}
       </div>
       {tab !== 'detalii' && <FiltreMembri key={tab} tab={tab} filtre={filtre} setFiltre={setFiltre} materii={materii} />}
-      {tab === 'cereri' && <Lista membri={membri} gol={filtre.q ? 'Nicio cerere nu se potrivește căutării.' : 'Nicio cerere în așteptare. Cererile expiră singure după 7 zile.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} onMaiMulti={maiMulti} />}
-      {tab === 'profesori' && <Lista membri={membri} gol={cuFiltre ? 'Niciun profesor nu se potrivește căutării și filtrelor.' : 'Niciun profesor aprobat încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} onMaiMulti={maiMulti} />}
-      {tab === 'elevi' && <Lista membri={membri} gol={cuFiltre ? 'Niciun elev nu se potrivește căutării și filtrelor.' : 'Niciun elev în organizație încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} onMaiMulti={maiMulti} />}
+      {tab === 'cereri' && <Lista membri={membri} gol={filtre.q ? 'Nicio cerere nu se potrivește căutării.' : 'Nicio cerere în așteptare. Cererile expiră singure după 7 zile.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} pagina={pagina} onAlege={alege} />}
+      {tab === 'profesori' && <Lista membri={membri} gol={cuFiltre ? 'Niciun profesor nu se potrivește căutării și filtrelor.' : 'Niciun profesor aprobat încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} pagina={pagina} onAlege={alege} />}
+      {tab === 'elevi' && <Lista membri={membri} gol={cuFiltre ? 'Niciun elev nu se potrivește căutării și filtrelor.' : 'Niciun elev în organizație încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} pagina={pagina} onAlege={alege} />}
       {tab === 'detalii' && (
         <form className="tv-form tv-cutie" onSubmit={salveaza} style={{ maxWidth: 640 }}>
           <label className="tv-eticheta-camp"><span>Numele organizației</span><input className="tv-camp-text" name="nume" defaultValue={org.nume} required maxLength={200} /></label>
@@ -234,7 +234,7 @@ function PanouAdmin({ org, onSchimbat }) {
 function PanouProfesor() {
   const [organizatii, setOrganizatii] = useState(null)
   const [alesa, setAlesa] = useState(null)
-  const { membri: cereri, setMembri: setCereri, total, incarca: incarcaLista, maiMulti } = usePagini()
+  const { membri: cereri, setMembri: setCereri, total, pagina, incarca: incarcaLista, alege, reincarca } = usePagini()
 
   useEffect(() => {
     api('/utilizatori/me/organizatii-predate').then((r) => {
@@ -259,7 +259,7 @@ function PanouProfesor() {
           </select>
         </label>
       )}
-      <Lista membri={cereri} gol="Niciun elev nu așteaptă confirmarea." cale={`/organizatii/${alesa}/elevi`} onSchimbat={incarca} total={total} onMaiMulti={maiMulti} />
+      <Lista membri={cereri} gol="Niciun elev nu așteaptă confirmarea." cale={`/organizatii/${alesa}/elevi`} onSchimbat={reincarca} total={total} pagina={pagina} onAlege={alege} />
     </>
   )
 }

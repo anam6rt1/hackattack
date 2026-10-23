@@ -175,12 +175,15 @@ public static class OrganizatiiEndpoints
 
         // The platform admin approves new organisations (and with them, their admins).
         var admin = app.MapGroup("/admin/organizatii").WithTags("Administrare").RequireAuthorization(Politici.Admin);
-        admin.MapGet("", async (string? stare, MarkAiDbContext db, CancellationToken ct) =>
+        // Newest first, 20 a page (pagina, from 1; Total = all in that state); one query for the page.
+        admin.MapGet("", async (string? stare, int? pagina, MarkAiDbContext db, CancellationToken ct) =>
         {
-            var ids = await db.Set<Organizatie>().Where(o => stare == null || o.Stare == stare).OrderByDescending(o => o.CreatLa).Select(o => o.Id).Take(200).ToListAsync(ct);
-            var lista = new List<OrganizatieAdminDto>();
-            foreach (var id in ids) lista.Add(await DetaliiAdmin(db, id, ct));
-            return Lista<OrganizatieAdminDto>.Din(lista);
+            if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
+            var q = db.Set<Organizatie>().AsNoTracking().Where(o => stare == null || o.Stare == stare);
+            var total = await q.CountAsync(ct);
+            var pag = await DetaliiAdmin(q.OrderByDescending(o => o.CreatLa).ThenByDescending(o => o.Id).Skip(((pagina ?? 1) - 1) * OrganizatiiPePagina).Take(OrganizatiiPePagina))
+                .ToListAsync(ct);
+            return new Lista<OrganizatieAdminDto>(pag, total);
         });
         admin.MapPost("/{id:int}/aprobare", async (int id, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, Posta posta, TimeProvider ceas, CancellationToken ct) =>
         {
@@ -269,12 +272,17 @@ public static class OrganizatiiEndpoints
         return new Lista<MembruDto>(membri, total);
     }
 
+    /// <summary>Organisations per page in the platform admin's list.</summary>
+    public const int OrganizatiiPePagina = 20;
+
     private static async Task<OrganizatieAdminDto> DetaliiAdmin(MarkAiDbContext db, int id, CancellationToken ct) =>
-        await db.Set<Organizatie>().AsNoTracking().Where(o => o.Id == id)
-            .Select(o => new OrganizatieAdminDto(o.Id, o.Nume, o.Adresa, o.JudetId, o.Judet.Nume, o.LocalitateId, o.Localitate == null ? null : o.Localitate.Nume,
+        await DetaliiAdmin(db.Set<Organizatie>().AsNoTracking().Where(o => o.Id == id)).SingleAsync(ct);
+
+    // The admin's view of organisations, as one projection (a page of the list, or a single one).
+    private static IQueryable<OrganizatieAdminDto> DetaliiAdmin(IQueryable<Organizatie> q) =>
+        q.Select(o => new OrganizatieAdminDto(o.Id, o.Nume, o.Adresa, o.JudetId, o.Judet.Nume, o.LocalitateId, o.Localitate == null ? null : o.Localitate.Nume,
                 o.Stare, o.MotivRespingere, o.CreatLa, o.AdminId, o.Admin.Nume, o.Admin.Email, o.Admin.Telefon, o.Admin.EmailConfirmatLa != null,
                 o.Membri.Count(m => m.Rol == MembruOrganizatie.RolProfesor && m.Stare == MembruOrganizatie.Aprobat),
                 o.Membri.Count(m => m.Rol == MembruOrganizatie.RolElev && m.Stare == MembruOrganizatie.Aprobat),
-                o.Membri.Count(m => m.Stare == MembruOrganizatie.InAsteptare)))
-            .SingleAsync(ct);
+                o.Membri.Count(m => m.Stare == MembruOrganizatie.InAsteptare)));
 }
