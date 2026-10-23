@@ -91,7 +91,8 @@ pe minut pe IP primesc 429; scriptul le numără separat, nu ca erori. `autentif
 cât duce procesorul.
 
 În CI (`.github/workflows/teste.yml`, jobul „Stres (API)”), la fiecare PR și push pe `main`: aceeași pregătire pe un Postgres
-de unică folosință, apoi rafalele de 100, 500 și 1000 de apeluri și 15 secunde la 200 de apeluri pe secundă, cu 100 de clienți. Tabelul cu statistici apare la finalul jurnalului și pe
+de unică folosință, apoi rafalele de 100, 500 și 1000 de apeluri și 15 secunde la 200 de apeluri pe secundă, cu 100 de clienți; autentificarea
+doar cu o rafală de 100 (verificarea parolei e lentă intenționat, așa că la 500+ ar pica pe orice mașină, la fiecare rulare). Tabelul cu statistici apare la finalul jurnalului și pe
 pagina rulării (Summary). Jobul nu pică build-ul (`continue-on-error`), fiindcă viteza mașinilor GitHub variază de la o rulare la alta.
 
 ## Reguli

@@ -129,7 +129,14 @@ jobs:
           cat api.log; exit 1
       - name: Testul de stres (statisticile apar la final și pe pagina rulării)
         working-directory: database
-        run: dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 --cereri 100,500,1000 --rata 200 --durata 15 --clienti 100 --rezumat "$GITHUB_STEP_SUMMARY"
+        # Logins check a password hash on purpose (slow by design: ~100/s on a laptop), so they only get a burst of 100; at 500+
+        # they would fail on any machine and the job would be red on every run. Both parts always run; the step fails if either does.
+        run: |
+          STRES="dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 --clienti 100 --rezumat $GITHUB_STEP_SUMMARY"
+          rc=0
+          $STRES --scenarii materii,judete,organizatii,profesori,lectii,lectie,cautare,progres,eu,mix --cereri 100,500,1000 --rata 200 --durata 15 || rc=1
+          $STRES --scenarii autentificare --cereri 100 || rc=1
+          exit $rc
       - if: failure()
         name: Jurnalul API-ului
         run: tail -n 200 database/api.log
