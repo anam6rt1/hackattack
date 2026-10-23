@@ -9,6 +9,9 @@ public partial class Materie
 
     public string Denumire { get; set; } = null!;
 
+    /// <summary>The name for search (lower case, without diacritics; computed by the database).</summary>
+    public string Cautare { get; set; } = "";
+
     public string? Descriere { get; set; }
 
     public string? Cod { get; set; }

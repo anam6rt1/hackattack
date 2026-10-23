@@ -21,6 +21,7 @@ internal static class IntegrareConfiguration
             e.Property(x => x.Cod).HasColumnName("cod");
             e.Property(x => x.Ordine).HasColumnName("ordine").HasDefaultValue(0);
             e.HasIndex(x => x.Cod, "materie_cod_key").IsUnique();
+            e.Property(x => x.Cautare).HasColumnName("cautare").HasComputedColumnSql(CautareText.Sql("denumire"), stored: true);
         });
 
         model.Entity<Curs>(e =>

@@ -899,6 +899,13 @@ namespace MarkAi.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Cautare")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare")
+                        .HasComputedColumnSql("lower(translate(denumire, 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
                     b.Property<string>("Cod")
                         .HasColumnType("text")
                         .HasColumnName("cod");
@@ -1182,6 +1189,13 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("adresa");
 
+                    b.Property<string>("Cautare")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare")
+                        .HasComputedColumnSql("lower(translate(nume, 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
                     b.Property<DateTime>("CreatLa")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("creat_la");
@@ -1224,6 +1238,11 @@ namespace MarkAi.Data.Migrations
                     b.HasIndex("JudetId");
 
                     b.HasIndex("LocalitateId");
+
+                    b.HasIndex(new[] { "Cautare" }, "idx_organizatie_cautare_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Cautare" }, "idx_organizatie_cautare_trgm"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Cautare" }, "idx_organizatie_cautare_trgm"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex(new[] { "Stare", "JudetId" }, "idx_organizatie_stare_judet");
 
@@ -1871,6 +1890,20 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("avertizat_la");
 
+                    b.Property<string>("CautareCont")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare_cont")
+                        .HasComputedColumnSql("lower(translate(nume || ' ' || username || ' ' || email, 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
+                    b.Property<string>("CautareNume")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare_nume")
+                        .HasComputedColumnSql("lower(translate(nume, 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
                     b.Property<string>("Clasa")
                         .HasColumnType("text")
                         .HasColumnName("clasa");
@@ -1935,6 +1968,16 @@ namespace MarkAi.Data.Migrations
                     b.HasIndex("JudetId");
 
                     b.HasIndex("LocalitateId");
+
+                    b.HasIndex(new[] { "CautareCont" }, "idx_utilizator_cautare_cont_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "CautareCont" }, "idx_utilizator_cautare_cont_trgm"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "CautareCont" }, "idx_utilizator_cautare_cont_trgm"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "CautareNume" }, "idx_utilizator_cautare_nume_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "CautareNume" }, "idx_utilizator_cautare_nume_trgm"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "CautareNume" }, "idx_utilizator_cautare_nume_trgm"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex(new[] { "Email" }, "utilizator_email_key")
                         .IsUnique();

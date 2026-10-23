@@ -141,4 +141,70 @@ public sealed class ProfesoriCautareTests : TestCautare
         var stefan = (await Profesori(george, "?q=stefan")).ShouldHaveSingleItem();
         stefan.Sloturi.ShouldHaveSingleItem();
     }
+
+    // ---- pages (20 a page, sorted by name, all in SQL)
+
+    private Task ProfesoriInPlus(int cati) => h.Db(async db =>
+    {
+        var rol = await db.Roluri.Where(r => r.Nume == "profesor").Select(r => r.Id).SingleAsync();
+        var cand = DateTime.UtcNow.AddDays(2);
+        for (var i = 0; i < cati; i++)
+        {
+            var u = new Utilizator { Nume = $"Zeta Profesor {i:00}", Username = $"zeta{i:00}", Email = $"zeta{i:00}@example.invalid", EmailConfirmatLa = DateTime.UtcNow };
+            u.ParolaHash = "x";
+            u.Roluri.Add(new UtilizatorRol { RolId = rol });
+            u.ProfilMentor = new ProfilMentor { StareVerificare = "aprobat", ActivatLa = DateTime.UtcNow, Materii = new List<MentorMaterie> { new() { MaterieId = 2 } } };
+            db.Add(u);
+            await db.SaveChangesAsync();
+            db.Add(new CameraTutoring { MentorId = u.Id, MaterieId = 2, Titlu = "S", Capacitate = 2, ProBono = true, Status = RezervareService.SlotDeschis,
+                InceputLa = cand, FinalizatLa = cand.AddHours(1), Tip = CameraTutoring.Online });
+        }
+        await db.SaveChangesAsync();
+    });
+
+    [Fact]
+    public async Task ListaArePagini()
+    {
+        await ProfesoriInPlus(25);
+        var p1 = await george.GetJson("/profesori");
+        p1.Int("total").ShouldBe(28);
+        var primii = p1.Lista().Select(x => x.Str("nume")).ToList();
+        primii.Count.ShouldBe(20);
+        var p2 = await george.GetJson("/profesori?pagina=2");
+        (p2.Int("total"), p2.Lista().Count).ShouldBe((28, 8));
+        // Sorted by name in the database (its collation): the pages do not overlap and together hold everyone.
+        p2.Lista().Select(x => x.Str("nume")).Intersect(primii).ShouldBeEmpty();
+        primii.Concat(p2.Lista().Select(x => x.Str("nume"))).Distinct().Count().ShouldBe(28);
+        (await george.GetJson("/profesori?pagina=3")).Lista().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task TotalulUrmeazaFiltrele()
+    {
+        await ProfesoriInPlus(25);
+        var r = await george.GetJson("/profesori?q=zeta&pagina=2");
+        (r.Int("total"), r.Lista().Count).ShouldBe((25, 5));
+        (await george.GetJson("/profesori?materieId=1")).Int("total").ShouldBe(2);
+    }
+
+    [Theory]
+    [InlineData("?pagina=0")]
+    [InlineData("?pagina=-1")]
+    [InlineData("?filtru=altceva")]
+    [InlineData("?tip=hibrid")]
+    public async Task ParametriGresitiSuntRefuzati(string query) => await george.Get("/profesori" + query).Status(HttpStatusCode.BadRequest);
+
+    [Fact]
+    public async Task OSinguraLiteraNuFiltreaza()
+    {
+        (await Gaseste("z")).Count.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task ProcenteleSiLiniuteleDinTextSuntLitere()
+    {
+        // "%" and "_" are escaped: they don't match everything.
+        (await Gaseste("%%")).ShouldBeEmpty();
+        (await Gaseste("__")).ShouldBeEmpty();
+    }
 }

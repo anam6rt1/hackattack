@@ -79,17 +79,18 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
         var materii = await db.Materii.AsNoTracking().Where(m => materieIds.Contains(m.Id)).OrderBy(m => m.Ordine)
             .Select(m => new { m.Id, m.Denumire }).ToListAsync(ct);
         if (materii.Count != materieIds.Count) throw new CerereInvalida("Materie inexistentă.");
-        // One island per published Lecție of the chosen subjects (and grade); its quiz questions are asked there.
+        // One island per published Lecție of the chosen subjects (and grade), as many as the map has, picked at random in SQL;
+        // its quiz questions are asked there.
         var lectii = await db.Set<Parcurs>().AsNoTracking()
             .Where(p => materieIds.Contains(p.MaterieId) && p.Publicat && (clasa == null || p.Clasa == clasa))
-            .OrderBy(p => p.MaterieId).ThenBy(p => p.Ordine)
+            .OrderBy(_ => EF.Functions.Random()).Take(s.Insule)
             .Select(p => new { p.Id, p.Titlu, p.MaterieId, Capitole = p.Capitole.Count(c => c.Publicat) }).ToListAsync(ct);
         var rnd = new Random();
         var capitole = lectii
             .Select(p => (p.Titlu, materii.Count > 1 ? materii.First(m => m.Id == p.MaterieId).Denumire : $"{p.Capitole} {(p.Capitole == 1 ? "capitol" : "capitole")}",
                 new[] { p.Id }))
-            .OrderBy(_ => rnd.Next()).ToList();
-        var pachet = await PachetIntrebari.IncarcaAsync(db, materieIds, clasa is null ? null : lectii.Select(p => p.Id).ToList(), ct);
+            .ToList();
+        var pachet = await PachetIntrebari.IncarcaAsync(db, materieIds, clasa, lectii.Select(p => p.Id).ToList(), ct);
         var harta = GeneratorHarta.Genereaza(s.Insule, capitole, rnd);
 
         while (true)

@@ -1,4 +1,6 @@
 using System.Net;
+using MarkAi.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace MarkAi.Tests.Integration.Organizatii;
 
@@ -63,5 +65,24 @@ public sealed class ListePubliceTests : TestOrganizatii
         await OrganizatieNoua(aprobata: true);
         (await h.Anonim().GetJson("/organizatii?judetId=1")).Lista().Single().Str("nume").ShouldBe("Centrul Alba");
         (await h.Anonim().GetJson("/organizatii?q=liceul")).Lista().Single().Str("nume").ShouldBe("Liceul de Test");
+    }
+
+    [Theory]
+    [InlineData("liceul", "Liceul de Test")]
+    [InlineData("LICEUL de", "Liceul de Test")]
+    [InlineData("test liceul", "Liceul de Test")]
+    public async Task OrganizatiileSeCautaFaraDiacriticeSiInOriceOrdine(string q, string gasita) =>
+        (await h.Anonim().GetJson($"/organizatii?q={Uri.EscapeDataString(q)}")).Lista().Select(o => o.Str("nume")).ShouldContain(gasita);
+
+    [Fact]
+    public async Task OrganizatiaCuDiacriticeSeGasesteFaraEle()
+    {
+        await h.Db(async db =>
+        {
+            db.Add(new Organizatie { Nume = "Școala Bărăbanț", Adresa = "Str. 1", JudetId = 1, LocalitateId = 1035, Stare = Organizatie.Aprobata,
+                AdminId = await db.Utilizatori.Where(u => u.Username == "admin").Select(u => u.Id).SingleAsync(), CreatLa = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        });
+        (await h.Anonim().GetJson("/organizatii?q=scoala%20barabant")).Lista().Select(o => o.Str("nume")).ShouldBe(["Școala Bărăbanț"]);
     }
 }

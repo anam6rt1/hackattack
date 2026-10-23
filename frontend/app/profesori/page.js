@@ -98,6 +98,8 @@ const TIPURI_FILTRU = [['', 'Orice ședință'], ['online', 'Online'], ['fata_in
 
 function Director({ utilizator }) {
   const [profesori, setProfesori] = useState(null)
+  const [total, setTotal] = useState(0) // toți cei care se potrivesc; serverul trimite câte 20
+  const [pagina, setPagina] = useState(1)
   const [materii, setMaterii] = useState([])
   const [pret, setPret] = useState(null)
   const [filtru, setFiltru] = useState({ materieId: '', gratuit: false, saptamana: false, unde: 'toate', tip: '', q: '' })
@@ -107,7 +109,7 @@ function Director({ utilizator }) {
   const [rezervarileMele, setRezervarileMele] = useState({}) // slotId → id-ul rezervării mele confirmate
   const [eroare, setEroare] = useState('')
 
-  const incarca = useCallback(() => {
+  const interogare = useCallback((p) => {
     const q = new URLSearchParams()
     if (filtru.materieId) q.set('materieId', filtru.materieId)
     if (filtru.gratuit) q.set('gratuit', 'true')
@@ -115,11 +117,28 @@ function Director({ utilizator }) {
     if (filtru.unde !== 'toate') q.set('filtru', filtru.unde)
     if (filtru.tip) q.set('tip', filtru.tip)
     if (filtru.q) q.set('q', filtru.q)
-    api('/profesori?' + q).then((r) => setProfesori(r.elemente)).catch((e) => setEroare(e.message))
+    if (p > 1) q.set('pagina', String(p))
+    return '/profesori?' + q
+  }, [filtru])
+
+  // Prima pagină de la capăt (la fiecare schimbare de filtru, după o rezervare sau o anulare).
+  const incarca = useCallback(() => {
+    api(interogare(1)).then((r) => { setProfesori(r.elemente); setTotal(r.total); setPagina(1) }).catch((e) => setEroare(e.message))
     api('/rezervari')
       .then((r) => setRezervarileMele(Object.fromEntries(r.elemente.filter((x) => x.status === 'confirmata').map((x) => [x.slot.id, x.id]))))
       .catch(() => {})
-  }, [filtru])
+  }, [interogare])
+
+  function maiMulti() {
+    const urmatoarea = pagina + 1
+    api(interogare(urmatoarea))
+      .then((r) => {
+        setProfesori((p) => [...p, ...r.elemente.filter((x) => !p.some((y) => y.id === x.id))])
+        setTotal(r.total)
+        setPagina(urmatoarea)
+      })
+      .catch((e) => setEroare(e.message))
+  }
 
   useEffect(() => {
     api('/materii').then((r) => setMaterii(r.elemente)).catch(() => {})
@@ -227,6 +246,12 @@ function Director({ utilizator }) {
               </ul>
             </article>
           ))}
+        </div>
+      )}
+      {profesori && profesori.length > 0 && (
+        <div className="tv-butoane" style={{ justifyContent: 'center' }}>
+          <span className="tv-indiciu">{profesori.length} din {total} {total === 1 ? 'profesor' : 'profesori'}</span>
+          {profesori.length < total && <button className="tv-btn tv-gri" onClick={maiMulti}>Mai mulți profesori</button>}
         </div>
       )}
 

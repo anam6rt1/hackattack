@@ -87,10 +87,40 @@ function Membru({ m, cale, admin, onSchimbat }) {
   )
 }
 
-function Lista({ membri, gol, ...rest }) {
+// total = câți se potrivesc (serverul trimite câte 50); onMaiMulti aduce pagina următoare.
+function Lista({ membri, gol, total, onMaiMulti, ...rest }) {
   if (!membri) return <p className="tv-asteapta">Se încarcă...</p>
   if (membri.length === 0) return <p className="tv-gol">{gol}</p>
-  return <div className="tv-profesori">{membri.map((m) => <Membru key={`${m.utilizatorId}-${m.stare}`} m={m} {...rest} />)}</div>
+  return (
+    <>
+      <div className="tv-profesori">{membri.map((m) => <Membru key={`${m.utilizatorId}-${m.stare}`} m={m} {...rest} />)}</div>
+      {total > membri.length && (
+        <div className="tv-butoane" style={{ justifyContent: 'center' }}>
+          <span className="tv-indiciu">{membri.length} din {total}</span>
+          <button className="tv-btn tv-gri" onClick={onMaiMulti}>Mai mulți</button>
+        </div>
+      )}
+    </>
+  )
+}
+
+// O listă de membri pe pagini: incarca(url) o pornește de la capăt, maiMulti() adaugă pagina următoare.
+function usePagini() {
+  const [membri, setMembri] = useState(null)
+  const [total, setTotal] = useState(0)
+  const [stare, setStare] = useState({ url: null, pagina: 1 })
+  const incarca = useCallback((url) => {
+    api(url).then((r) => { setMembri(r.elemente); setTotal(r.total); setStare({ url, pagina: 1 }) }).catch(() => { setMembri([]); setTotal(0) })
+  }, [])
+  const maiMulti = () => {
+    const pagina = stare.pagina + 1
+    api(`${stare.url}${stare.url.includes('?') ? '&' : '?'}pagina=${pagina}`).then((r) => {
+      setMembri((m) => [...m, ...r.elemente.filter((x) => !m.some((y) => y.utilizatorId === x.utilizatorId))])
+      setTotal(r.total)
+      setStare((s) => ({ ...s, pagina }))
+    }).catch(() => {})
+  }
+  return { membri, setMembri, total, incarca, maiMulti }
 }
 
 const TABURI = [
@@ -137,7 +167,7 @@ function FiltreMembri({ tab, filtre, setFiltre, materii }) {
 
 function PanouAdmin({ org, onSchimbat }) {
   const [tab, setTab] = useState('cereri')
-  const [membri, setMembri] = useState(null)
+  const { membri, setMembri, total, incarca: incarcaLista, maiMulti } = usePagini()
   const [mesaj, setMesaj] = useState(null)
   const [filtre, setFiltre] = useState(FILTRE_GOALE)
   const [materii, setMaterii] = useState([])
@@ -156,8 +186,8 @@ function PanouAdmin({ org, onSchimbat }) {
       if (tab === 'profesori' && filtre.materieId) q.set('materieId', filtre.materieId)
     }
     if (filtre.q) q.set('q', filtre.q)
-    api('/organizatia-mea/membri?' + q).then((r) => setMembri(r.elemente)).catch(() => setMembri([]))
-  }, [tab, filtre])
+    incarcaLista('/organizatia-mea/membri?' + q)
+  }, [tab, filtre, incarcaLista])
   useEffect(() => incarca(), [incarca])
   const cuFiltre = !!(filtre.q || filtre.clasa || filtre.materieId || filtre.stare !== 'aprobat')
 
@@ -185,9 +215,9 @@ function PanouAdmin({ org, onSchimbat }) {
         ))}
       </div>
       {tab !== 'detalii' && <FiltreMembri key={tab} tab={tab} filtre={filtre} setFiltre={setFiltre} materii={materii} />}
-      {tab === 'cereri' && <Lista membri={membri} gol={filtre.q ? 'Nicio cerere nu se potrivește căutării.' : 'Nicio cerere în așteptare. Cererile expiră singure după 7 zile.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
-      {tab === 'profesori' && <Lista membri={membri} gol={cuFiltre ? 'Niciun profesor nu se potrivește căutării și filtrelor.' : 'Niciun profesor aprobat încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
-      {tab === 'elevi' && <Lista membri={membri} gol={cuFiltre ? 'Niciun elev nu se potrivește căutării și filtrelor.' : 'Niciun elev în organizație încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} />}
+      {tab === 'cereri' && <Lista membri={membri} gol={filtre.q ? 'Nicio cerere nu se potrivește căutării.' : 'Nicio cerere în așteptare. Cererile expiră singure după 7 zile.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} onMaiMulti={maiMulti} />}
+      {tab === 'profesori' && <Lista membri={membri} gol={cuFiltre ? 'Niciun profesor nu se potrivește căutării și filtrelor.' : 'Niciun profesor aprobat încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} onMaiMulti={maiMulti} />}
+      {tab === 'elevi' && <Lista membri={membri} gol={cuFiltre ? 'Niciun elev nu se potrivește căutării și filtrelor.' : 'Niciun elev în organizație încă.'} cale="/organizatia-mea/membri" admin onSchimbat={schimbat} total={total} onMaiMulti={maiMulti} />}
       {tab === 'detalii' && (
         <form className="tv-form tv-cutie" onSubmit={salveaza} style={{ maxWidth: 640 }}>
           <label className="tv-eticheta-camp"><span>Numele organizației</span><input className="tv-camp-text" name="nume" defaultValue={org.nume} required maxLength={200} /></label>
@@ -204,7 +234,7 @@ function PanouAdmin({ org, onSchimbat }) {
 function PanouProfesor() {
   const [organizatii, setOrganizatii] = useState(null)
   const [alesa, setAlesa] = useState(null)
-  const [cereri, setCereri] = useState(null)
+  const { membri: cereri, setMembri: setCereri, total, incarca: incarcaLista, maiMulti } = usePagini()
 
   useEffect(() => {
     api('/utilizatori/me/organizatii-predate').then((r) => {
@@ -213,8 +243,8 @@ function PanouProfesor() {
     }).catch(() => setOrganizatii([]))
   }, [])
   const incarca = useCallback(() => {
-    if (alesa) api(`/organizatii/${alesa}/elevi?stare=in_asteptare`).then((r) => setCereri(r.elemente)).catch(() => setCereri([]))
-  }, [alesa])
+    if (alesa) incarcaLista(`/organizatii/${alesa}/elevi?stare=in_asteptare`)
+  }, [alesa, incarcaLista])
   useEffect(() => incarca(), [incarca])
 
   if (!organizatii) return <p className="tv-asteapta">Se încarcă...</p>
@@ -229,7 +259,7 @@ function PanouProfesor() {
           </select>
         </label>
       )}
-      <Lista membri={cereri} gol="Niciun elev nu așteaptă confirmarea." cale={`/organizatii/${alesa}/elevi`} onSchimbat={incarca} />
+      <Lista membri={cereri} gol="Niciun elev nu așteaptă confirmarea." cale={`/organizatii/${alesa}/elevi`} onSchimbat={incarca} total={total} onMaiMulti={maiMulti} />
     </>
   )
 }

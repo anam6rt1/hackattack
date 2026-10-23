@@ -119,4 +119,24 @@ describe("pagina Profesori (elev)", () => {
     await new Promise((r) => setTimeout(r, 400));
     expect(interogari().some((q) => q.has("q"))).toBe(false);
   });
+
+  it("„Mai mulți profesori” aduce pagina următoare și o adaugă", async () => {
+    const pe = (start, n) => Array.from({ length: n }, (_, i) => ({ ...IRINA, id: start + i, nume: `Profesor ${start + i}`, sloturi: [sedinta(100 + start + i)] }));
+    const { u, interogari } = porneste(ELEV, (c) => (new URLSearchParams(c.query).get("pagina") === "2"
+      ? { elemente: pe(21, 5), total: 25 } : { elemente: pe(1, 20), total: 25 }));
+    expect(await screen.findByText("20 din 25 profesori")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Mai mulți profesori" }));
+    expect(await screen.findByText("25 din 25 profesori")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 3 }).filter((h) => h.textContent.startsWith("Profesor "))).toHaveLength(25);
+    expect(screen.queryByRole("button", { name: "Mai mulți profesori" })).not.toBeInTheDocument();
+    expect(interogari().at(-1).get("pagina")).toBe("2");
+  });
+
+  it("o schimbare de filtru pornește de la prima pagină", async () => {
+    const { u, interogari } = porneste(ELEV, (c) => ({ elemente: [IRINA], total: new URLSearchParams(c.query).get("pagina") ? 2 : 2 }));
+    await u.click(await screen.findByRole("button", { name: "Mai mulți profesori" }));
+    await waitFor(() => expect(interogari().at(-1).get("pagina")).toBe("2"));
+    await u.click(screen.getByRole("button", { name: "Online" }));
+    await waitFor(() => expect(interogari().at(-1).toString()).toBe("tip=online"));
+  });
 });

@@ -13,6 +13,12 @@ internal static class ConturiConfiguration
             e.Property(x => x.EmailConfirmatLa).HasColumnName("email_confirmat_la");
             e.Property(x => x.AvertizatLa).HasColumnName("avertizat_la");
             e.Property(x => x.TelefonVerificatLa).HasColumnName("telefon_verificat_la");
+            // Search columns (ILIKE '%…%' on them): trigram indexes keep it fast with many accounts.
+            e.Property(x => x.CautareNume).HasColumnName("cautare_nume").HasComputedColumnSql(CautareText.Sql("nume"), stored: true);
+            e.Property(x => x.CautareCont).HasColumnName("cautare_cont")
+                .HasComputedColumnSql(CautareText.Sql("nume || ' ' || username || ' ' || email"), stored: true);
+            e.HasIndex(x => x.CautareNume, "idx_utilizator_cautare_nume_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
+            e.HasIndex(x => x.CautareCont, "idx_utilizator_cautare_cont_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
         });
 
         model.Entity<CodVerificare>(e =>

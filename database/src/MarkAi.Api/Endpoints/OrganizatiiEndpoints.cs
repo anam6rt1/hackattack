@@ -50,7 +50,7 @@ public static class OrganizatiiEndpoints
         {
             var lista = db.Set<Organizatie>().AsNoTracking().Where(o => o.Stare == Organizatie.Aprobata);
             if (judetId is not null) lista = lista.Where(o => o.JudetId == judetId);
-            if (!string.IsNullOrWhiteSpace(q)) lista = lista.Where(o => EF.Functions.ILike(o.Nume, "%" + q.Trim() + "%"));
+            foreach (var t in TermeniCautare.Optionali(q)) lista = lista.Where(o => EF.Functions.ILike(o.Cautare, t, "\\"));
             return Lista<OrganizatiePublica>.Din(await lista.OrderBy(o => o.Nume).Take(100)
                 .Select(o => new OrganizatiePublica(o.Id, o.Nume, o.Judet.Nume, o.Localitate == null ? null : o.Localitate.Nume)).ToListAsync(ct));
         });
@@ -92,8 +92,9 @@ public static class OrganizatiiEndpoints
             return await DetaliiAdmin(db, o.Id, ct);
         });
         // q: words in the name, email or username, without diacritics; clasa (students) and materieId (professors) narrow it.
-        mea.MapGet("/membri", async (string? rol, string? stare, string? q, string? clasa, int? materieId, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
-            Lista<MembruDto>.Din(await Membri(db, (await OrganizatiaMea(db, h, ct)).Id, rol, stare, ct, q, clasa, materieId)));
+        // 50 a page (pagina, from 1; Total = all that match). All filtered in SQL.
+        mea.MapGet("/membri", async (string? rol, string? stare, string? q, string? clasa, int? materieId, int? pagina, HttpContext h, MarkAiDbContext db,
+            CancellationToken ct) => await Membri(db, (await OrganizatiaMea(db, h, ct)).Id, rol, stare, ct, q, clasa, materieId, pagina));
         mea.MapPost("/membri/{uid:int}/aprobare", async (int uid, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
         {
             var o = await OrganizatiaMea(db, h, ct);
@@ -153,10 +154,10 @@ public static class OrganizatiiEndpoints
 
         // Students' requests can also be decided by the organisation's approved professors.
         var elevi = app.MapGroup("/organizatii/{id:int}/elevi").WithTags("Organizații").RequireAuthorization();
-        elevi.MapGet("", async (int id, string? stare, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
+        elevi.MapGet("", async (int id, string? stare, int? pagina, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
         {
             if (!await org.PoateDecideAsync(h.User.Id(), id, MembruOrganizatie.RolElev, ct)) return Results.Forbid();
-            return Results.Ok(Lista<MembruDto>.Din(await Membri(db, id, MembruOrganizatie.RolElev, stare, ct)));
+            return Results.Ok(await Membri(db, id, MembruOrganizatie.RolElev, stare, ct, pagina: pagina));
         });
         elevi.MapPost("/{uid:int}/aprobare", (int id, int uid, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
             DecideElev(id, uid, true, null, h, db, org, ct));
@@ -241,17 +242,23 @@ public static class OrganizatiiEndpoints
         db.Set<MembruOrganizatie>().AsNoTracking().Where(m => m.UtilizatorId == uid).OrderByDescending(m => m.CerutLa)
             .Select(m => new ApartenentaMea(m.OrganizatieId, m.Organizatie.Nume, m.Rol, m.Stare, m.CerutLa, m.ExpiraLa, m.MotivRespingere)).ToListAsync(ct);
 
-    private static async Task<List<MembruDto>> Membri(MarkAiDbContext db, int organizatieId, string? rol, string? stare, CancellationToken ct,
-        string? text = null, string? clasa = null, int? materieId = null)
+    /// <summary>Members per page in the organisation panel.</summary>
+    public const int MembriPePagina = 50;
+
+    private static async Task<Lista<MembruDto>> Membri(MarkAiDbContext db, int organizatieId, string? rol, string? stare, CancellationToken ct,
+        string? text = null, string? clasa = null, int? materieId = null, int? pagina = null)
     {
         if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
-        var cuvinte = CautareText.Normalizeaza(Validare.Optional(text, 100) ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
         var q = db.Set<MembruOrganizatie>().AsNoTracking().Where(m => m.OrganizatieId == organizatieId);
         if (!string.IsNullOrEmpty(rol)) q = q.Where(m => m.Rol == rol);
         if (!string.IsNullOrEmpty(stare)) q = q.Where(m => m.Stare == stare);
         if (!string.IsNullOrEmpty(clasa)) q = q.Where(m => m.Utilizator.Clasa == clasa);
         if (materieId is not null) q = q.Where(m => m.Utilizator.ProfilMentor != null && m.Utilizator.ProfilMentor.Materii.Any(x => x.MaterieId == materieId));
-        var membri = await q.OrderBy(m => m.Stare == MembruOrganizatie.InAsteptare ? 0 : 1).ThenByDescending(m => m.CerutLa)
+        foreach (var t in TermeniCautare.Optionali(text)) q = q.Where(m => EF.Functions.ILike(m.Utilizator.CautareCont, t, "\\"));
+        var total = await q.CountAsync(ct);
+        var membri = await q.OrderBy(m => m.Stare == MembruOrganizatie.InAsteptare ? 0 : 1).ThenByDescending(m => m.CerutLa).ThenBy(m => m.UtilizatorId)
+            .Skip(((pagina ?? 1) - 1) * MembriPePagina).Take(MembriPePagina)
             .Select(m => new MembruDto(m.UtilizatorId, m.Utilizator.Nume, m.Utilizator.Username, m.Utilizator.Email, m.Rol, m.Stare, m.CerutLa, m.ExpiraLa,
                 m.PoatePublicaPublic, m.Utilizator.Clasa,
                 m.Utilizator.ProfilMentor == null ? null : m.Utilizator.ProfilMentor.Descriere,
@@ -259,9 +266,7 @@ public static class OrganizatiiEndpoints
                 m.Utilizator.ProfilMentor == null ? new List<string>() : m.Utilizator.ProfilMentor.Materii.Select(x => x.Materie.Denumire).ToList(),
                 m.Rol == MembruOrganizatie.RolProfesor && m.Utilizator.ProfilMentor != null && m.Utilizator.ProfilMentor.RetrasLa != null))
             .ToListAsync(ct);
-        // One organisation's members: the words are matched here, the same way as everywhere else (CautareText).
-        return cuvinte.Length == 0 ? membri
-            : membri.Where(m => cuvinte.All(CautareText.Normalizeaza($"{m.Nume} {m.Email} {m.Username}").Contains)).ToList();
+        return new Lista<MembruDto>(membri, total);
     }
 
     private static async Task<OrganizatieAdminDto> DetaliiAdmin(MarkAiDbContext db, int id, CancellationToken ct) =>

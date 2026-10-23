@@ -113,4 +113,37 @@ public sealed class MembriCautareTests : TestOrganizatii
         var irina = await h.Login("irina");
         await irina.Get("/organizatia-mea/membri?q=stefania").Status(HttpStatusCode.Forbidden);
     }
+
+    [Fact]
+    public async Task ListaMembrilorArePagini()
+    {
+        await h.Db(async db =>
+        {
+            var rol = await db.Roluri.Where(r => r.Nume == "elev").Select(r => r.Id).SingleAsync();
+            for (var i = 0; i < 60; i++)
+            {
+                var u = new Utilizator { Nume = $"Elev Mulți {i:00}", Username = $"multi{i:00}", Email = $"multi{i:00}@example.invalid", EmailConfirmatLa = DateTime.UtcNow, Clasa = "X" };
+                u.ParolaHash = "x";
+                u.Roluri.Add(new UtilizatorRol { RolId = rol });
+                db.Add(new MembruOrganizatie { OrganizatieId = Liceu, Utilizator = u, Rol = MembruOrganizatie.RolElev, Stare = MembruOrganizatie.Aprobat, CerutLa = DateTime.UtcNow });
+            }
+            await db.SaveChangesAsync();
+        });
+        var p1 = await director.GetJson("/organizatia-mea/membri?rol=elev&clasa=X");
+        (p1.Int("total"), p1.Lista().Count).ShouldBe((60, 50));
+        var p2 = await director.GetJson("/organizatia-mea/membri?rol=elev&clasa=X&pagina=2");
+        p2.Lista().Count.ShouldBe(10);
+        p2.Lista().Select(m => m.Int("utilizatorId")).Intersect(p1.Lista().Select(m => m.Int("utilizatorId"))).ShouldBeEmpty();
+        // "multi" and "5": 05, 15, 25, 35, 45 and 50–59.
+        (await director.GetJson("/organizatia-mea/membri?q=multi%205&rol=elev")).Int("total").ShouldBe(15);
+        await director.Get("/organizatia-mea/membri?pagina=0").Status(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UnProfesorAlOrganizatieiVedeEleviiPePagini()
+    {
+        var irina = await h.Login("irina");
+        var r = await irina.GetJson($"/organizatii/{Liceu}/elevi");
+        r.Int("total").ShouldBe(r.Lista().Count);
+    }
 }

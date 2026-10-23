@@ -114,4 +114,26 @@ describe("panoul organizației: un profesor retras", () => {
     await u.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Anulează" }));
     expect(cereri.some((c) => c.metoda === "POST")).toBe(false);
   });
+
+});
+
+describe("panoul organizației: pagini", () => {
+  it("„Mai mulți” aduce următorii membri", async () => {
+    const pe = (start, n) => Array.from({ length: n }, (_, i) => membru(100 + start + i, `Elev ${start + i}`, { rol: "elev" }));
+    const cereri = apiFals({
+      "GET /utilizatori/me": { id: 1, nume: "Dana", rol: "organizatie", stareProfesor: "aprobat", organizatii: [] },
+      "GET /organizatia-mea": { id: 1, nume: "Liceul de Test", adresa: "x", judetId: 40, localitateId: null, profesori: 0, elevi: 52, cereri: 0 },
+      "GET /organizatia-mea/membri": (c) => (new URLSearchParams(c.query).get("pagina") === "2" ? { elemente: pe(51, 2), total: 52 } : { elemente: pe(1, 50), total: 52 }),
+      "GET /materii": { elemente: [] },
+    });
+    const u = userEvent.setup();
+    render(<SesiuneProvider><PaginaOrganizatie /></SesiuneProvider>);
+    await u.click(await screen.findByRole("tab", { name: "Elevi" }));
+    expect(await screen.findByText("50 din 52")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Mai mulți" }));
+    expect(await screen.findByRole("heading", { name: "Elev 52" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mai mulți" })).not.toBeInTheDocument();
+    const ultima = new URLSearchParams(cereri.filter((c) => c.cale === "/organizatia-mea/membri").at(-1).query);
+    expect(ultima.toString()).toBe("rol=elev&stare=aprobat&pagina=2");
+  });
 });

@@ -58,7 +58,21 @@ public static class TermeniCautare
         var text = CautareText.Normalizeaza((q ?? "").Trim());
         if (text.Length < 2) throw new CerereInvalida("Scrie cel puțin două litere.");
         if (text.Length > 100) throw new CerereInvalida("Căutarea poate avea cel mult 100 de caractere.");
-        return text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Distinct().Take(6)
-            .Select(t => "%" + t.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%").ToArray();
+        return Tipare(text);
     }
+
+    /// <summary>
+    /// For an optional search box next to filters: nothing (or a single letter) means no search, not an error; otherwise the same
+    /// ILIKE patterns as <see cref="Din"/>, matched in SQL against a <c>cautare</c> column.
+    /// </summary>
+    public static string[] Optionali(string? q)
+    {
+        var text = CautareText.Normalizeaza((q ?? "").Trim());
+        if (text.Length > 100) throw new CerereInvalida("Căutarea poate avea cel mult 100 de caractere.");
+        return text.Length < 2 ? [] : Tipare(text);
+    }
+
+    private static string[] Tipare(string text) =>
+        text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Distinct().Take(6)
+            .Select(t => "%" + t.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%").ToArray();
 }
