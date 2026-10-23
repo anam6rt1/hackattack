@@ -82,7 +82,8 @@ dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:508
 ```
 
 Opțiuni utile: `--scenarii lectii,cautare` (implicit toate: materii, judete, organizatii, profesori, lectii, lectie, cautare,
-progres, eu, autentificare, mix), `--concurenta 100` (cel mult atâtea în zbor, în loc de toate deodată), `--ip-uri-diferite`
+progres, eu, autentificare, mix), `--rata 200 --durata 30` (încărcare constantă: 200 de apeluri pe secundă timp de 30 s, mai aproape de traficul real decât o
+rafală), `--concurenta 100` (la rafale: cel mult atâtea în zbor, în loc de toate deodată), `--ip-uri-diferite`
 (fiecare client cu adresa lui, ca limitele pe IP să se vadă ca la utilizatori reali; doar conectat direct la API de pe același
 calculator), `--ajutor` pentru restul. Scenariile cu cont intră ca `vol-elev00001` … `vol-elevN` (N = `--clienti`), cu parola din
 `date-test`. Fără limite ridicate, apelurile peste `Limite:CereriPeMinut` (600/minut pe utilizator sau IP) și peste 10 autentificări
@@ -90,7 +91,7 @@ pe minut pe IP primesc 429; scriptul le numără separat, nu ca erori. `autentif
 cât duce procesorul.
 
 În CI (`.github/workflows/teste.yml`, jobul „Stres (API)”), la fiecare PR și push pe `main`: aceeași pregătire pe un Postgres
-de unică folosință, apoi treptele 100, 500 și 1000 cu 100 de clienți. Tabelul cu statistici apare la finalul jurnalului și pe
+de unică folosință, apoi rafalele de 100, 500 și 1000 de apeluri și 15 secunde la 200 de apeluri pe secundă, cu 100 de clienți. Tabelul cu statistici apare la finalul jurnalului și pe
 pagina rulării (Summary). Jobul nu pică build-ul (`continue-on-error`), fiindcă viteza mașinilor GitHub variază de la o rulare la alta.
 
 ## Reguli

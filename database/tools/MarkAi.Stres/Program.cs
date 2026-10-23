@@ -1,5 +1,5 @@
-// Stress test for a running API: for every scenario and every level, fires that many calls at once (all released together) and
-// reports how the API held up: status codes, rate-limited calls (429), transport errors and timeouts, latency percentiles and
+// Stress test for a running API. For every scenario, two kinds of levels: bursts (--cereri: that many calls released together,
+// the worst case) and sustained load (--rata: that many calls per second for --durata seconds, closer to real traffic). Reports how the API held up: status codes, rate-limited calls (429), transport errors and timeouts, latency percentiles and
 // throughput. Exits with 1 when a level breaks a threshold (--prag-erori, --prag-p95), with 2 when the setup fails.
 // Only against a TEST API whose database has the volume data (date-volum): the signed-in scenarios use vol-elev00001, vol-elev00002, …
 // Usage: dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 [options]   (--ajutor lists them)
@@ -36,8 +36,9 @@ if (necunoscute.Count > 0)
     return 2;
 }
 
-Console.WriteLine($"Target {o.Url} · levels {string.Join(", ", o.Cereri)} calls · "
-    + (o.Concurenta is int c ? $"at most {c} in flight" : "all at once") + $" · {o.Clienti} clients"
+var trepte = (o.Cereri ?? []).Select(n => $"{n} at once").Concat((o.Rata ?? []).Select(r => $"{r}/s for {o.Durata} s"));
+Console.WriteLine($"Target {o.Url} · levels: {string.Join(", ", trepte)}"
+    + (o.Concurenta is int c ? $" (bursts: at most {c} in flight)" : "") + $" · {o.Clienti} clients"
     + (o.IpuriDiferite ? " (each with its own X-Forwarded-For address)" : "") + $" · timeout {o.Timeout.TotalSeconds:0} s");
 Context ctx;
 try { ctx = await Context.PregatesteAsync(http, o, scenarii.Any(s => s.CuCont)); }
@@ -53,9 +54,14 @@ foreach (var s in scenarii)
     if (s.Nume == "lectie" && ctx.Lectii.Count == 0) { Console.WriteLine("lectie: skipped (no Lecții visible to the test accounts)."); continue; }
     Console.WriteLine();
     Console.WriteLine($"{s.Nume}: {s.Descriere}");
-    foreach (var n in o.Cereri)
+    // A few calls first, not counted: the API compiles code and prepares queries on first use, which would make whichever
+    // scenario runs first look slower than it is.
+    for (var k = 0; k < Scenarii.Incalzire; k++) await Trimite(s, k);
+    var deRulat = (o.Cereri ?? []).Select(n => (Func<Task<Rezultat>>)(() => Ruleaza(s, n)))
+        .Concat((o.Rata ?? []).Select(rata => (Func<Task<Rezultat>>)(() => RuleazaRata(s, rata))));
+    foreach (var treapta in deRulat)
     {
-        var r = await Ruleaza(s, n);
+        var r = await treapta();
         rezultate.Add(r);
         Console.WriteLine("  " + r.Rand(o));
         if (r.Limitate > 0)
@@ -73,7 +79,7 @@ if (o.Rezumat is not null)
     await File.AppendAllTextAsync(o.Rezumat, $"## Test de stres ({o.Url})\n\n{Rezultat.Tabel(rezultate, o, markdown: true)}\n");
 Console.WriteLine(picate.Count == 0
     ? $"All {rezultate.Count} levels passed (errors ≤ {o.PragErori:0.##} %, p95 ≤ {o.PragP95} ms)."
-    : $"{picate.Count} of {rezultate.Count} levels failed: " + string.Join(", ", picate.Select(r => $"{r.Scenariu} × {r.Cereri}")) + ".");
+    : $"{picate.Count} of {rezultate.Count} levels failed: " + string.Join(", ", picate.Select(r => $"{r.Scenariu} ({r.Nivel})")) + ".");
 return picate.Count == 0 ? 0 : 1;
 
 async Task<Rezultat> Ruleaza(Scenariu s, int n)
@@ -84,36 +90,58 @@ async Task<Rezultat> Ruleaza(Scenariu s, int n)
     {
         await start.Task;
         if (limita is not null) await limita.WaitAsync();
-        try
-        {
-            using var cerere = s.Cerere(ctx, i);
-            ctx.Identifica(cerere, i);
-            var ceas = Stopwatch.StartNew();
-            using var cts = new CancellationTokenSource(o.Timeout);
-            try
-            {
-                using var raspuns = await http.SendAsync(cerere, HttpCompletionOption.ResponseContentRead, cts.Token);
-                return new Apel((int)raspuns.StatusCode, ceas.Elapsed.TotalMilliseconds, null);
-            }
-            catch (OperationCanceledException) { return new Apel(0, ceas.Elapsed.TotalMilliseconds, "timeout"); }
-            catch (HttpRequestException e) { return new Apel(0, ceas.Elapsed.TotalMilliseconds, e.HttpRequestError.ToString()); }
-        }
+        try { return await Trimite(s, i); }
         finally { limita?.Release(); }
     }).ToArray();
     var total = Stopwatch.StartNew();
     start.SetResult();
     var apeluri = await Task.WhenAll(sarcini);
-    return new Rezultat(s.Nume, n, total.Elapsed, apeluri);
+    return new Rezultat(s.Nume, o.Concurenta is int c ? $"{n} (≤ {c} in flight)" : $"{n} at once", n, total.Elapsed, apeluri);
 }
 
-sealed record Optiuni(Uri Url, int[] Cereri, int? Concurenta, string[] Scenarii, int Clienti, string Parola, bool IpuriDiferite,
+// Sustained load: one call every 1/rata seconds, each started on schedule whether or not the earlier ones have answered (as
+// real visitors do); a slow API shows as growing response times instead of a lower rate.
+async Task<Rezultat> RuleazaRata(Scenariu s, int rata)
+{
+    var n = rata * o.Durata;
+    var sarcini = new Task<Apel>[n];
+    var ceas = Stopwatch.StartNew();
+    for (var i = 0; i < n; i++)
+    {
+        var ramas = TimeSpan.FromSeconds((double)i / rata) - ceas.Elapsed;
+        if (ramas > TimeSpan.FromMilliseconds(1)) await Task.Delay(ramas);
+        sarcini[i] = Trimite(s, i);
+    }
+    var apeluri = await Task.WhenAll(sarcini);
+    return new Rezultat(s.Nume, $"{rata}/s × {o.Durata} s", n, ceas.Elapsed, apeluri);
+}
+
+async Task<Apel> Trimite(Scenariu s, int i)
+{
+    using var cerere = s.Cerere(ctx, i);
+    ctx.Identifica(cerere, i);
+    var ceas = Stopwatch.StartNew();
+    using var cts = new CancellationTokenSource(o.Timeout);
+    try
+    {
+        using var raspuns = await http.SendAsync(cerere, HttpCompletionOption.ResponseContentRead, cts.Token);
+        return new Apel((int)raspuns.StatusCode, ceas.Elapsed.TotalMilliseconds, null);
+    }
+    catch (OperationCanceledException) { return new Apel(0, ceas.Elapsed.TotalMilliseconds, "timeout"); }
+    catch (HttpRequestException e) { return new Apel(0, ceas.Elapsed.TotalMilliseconds, e.HttpRequestError.ToString()); }
+}
+
+sealed record Optiuni(Uri Url, int[]? Cereri, int[]? Rata, int Durata, int? Concurenta, string[] Scenarii, int Clienti, string Parola, bool IpuriDiferite,
     TimeSpan Timeout, double PragErori, int PragP95, bool PermiteLive, string? Rezumat, bool Ajutor)
 {
     public static readonly string TextAjutor = """
         Options:
           --url <adresa>          the test API, e.g. http://127.0.0.1:5082 (required; never the live one on 5080)
-          --cereri <n[,n…]>       calls per level, fired together; one level per number (default 100,500,1000)
-          --concurenta <n>        at most n calls in flight (default: all of a level at once)
+          --cereri <n[,n…]>       bursts: n calls released together, one level per number (default 100,500,1000 when
+                                  --rata is not given either)
+          --rata <n[,n…]>         sustained load: n calls per second for --durata seconds, one level per number
+          --durata <secunde>      how long each --rata level lasts (default 30)
+          --concurenta <n>        bursts only: at most n calls in flight (default: all of a level at once)
           --scenarii <a[,b…]>     which scenarios (default: all): materii, judete, organizatii, profesori, lectii, lectie,
                                   cautare, progres, eu, autentificare, mix
           --clienti <n>           simulated users: calls go round-robin over vol-elev00001…n (default 50)
@@ -131,7 +159,7 @@ sealed record Optiuni(Uri Url, int[] Cereri, int? Concurenta, string[] Scenarii,
     public static Optiuni Citeste(string[] args)
     {
         var parolaImplicita = Environment.GetEnvironmentVariable("MARKAI_PAROLA_TEST") is { Length: >= 8 } p ? p : "HackAttack";
-        var o = new Optiuni(null!, [100, 500, 1000], null, [], 50, parolaImplicita, false, TimeSpan.FromSeconds(30), 1, 2000, false, null, false);
+        var o = new Optiuni(null!, null, null, 30, null, [], 50, parolaImplicita, false, TimeSpan.FromSeconds(30), 1, 2000, false, null, false);
         for (var i = 0; i < args.Length; i++)
         {
             string Valoare() => i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} needs a value.");
@@ -140,6 +168,8 @@ sealed record Optiuni(Uri Url, int[] Cereri, int? Concurenta, string[] Scenarii,
             {
                 "--url" => o with { Url = Uri.TryCreate(Valoare().TrimEnd('/') + "/", UriKind.Absolute, out var u) ? u : throw new ArgumentException("--url is not a URL.") },
                 "--cereri" => o with { Cereri = Valoare().Split(',', StringSplitOptions.RemoveEmptyEntries).Select(v => Numar(v)).ToArray() },
+                "--rata" => o with { Rata = Valoare().Split(',', StringSplitOptions.RemoveEmptyEntries).Select(v => Numar(v)).ToArray() },
+                "--durata" => o with { Durata = Numar(Valoare()) },
                 "--concurenta" => o with { Concurenta = Numar(Valoare()) },
                 "--scenarii" => o with { Scenarii = Valoare().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) },
                 "--clienti" => o with { Clienti = Numar(Valoare()) },
@@ -156,6 +186,7 @@ sealed record Optiuni(Uri Url, int[] Cereri, int? Concurenta, string[] Scenarii,
             };
         }
         if (o.Url is null && !o.Ajutor) throw new ArgumentException("--url is required.");
+        if (o.Cereri is null && o.Rata is null) o = o with { Cereri = [100, 500, 1000] };
         return o;
     }
 }
@@ -202,7 +233,8 @@ sealed class Context(Optiuni o)
         }));
         Console.WriteLine(" done.");
 
-        // Lecții the first client can open, for the "lectie" scenario: the first page of every subject.
+        // Public Lecții from the first page of every subject, for the "lectie" scenario: every client can open them (an
+        // organisation-only one would be a correct 404 for the clients outside that organisation).
         foreach (var m in ctx.Materii)
         {
             using var cerere = new HttpRequestMessage(HttpMethod.Get, $"materii/{m}/parcursuri?pagina=1");
@@ -211,7 +243,7 @@ sealed class Context(Optiuni o)
             using var r = await http.SendAsync(cerere);
             if (!r.IsSuccessStatusCode) continue;
             foreach (var p in (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("elemente").EnumerateArray())
-                ctx.Lectii.Add(p.GetProperty("id").GetInt32());
+                if (p.GetProperty("vizibilitate").GetString() == "public") ctx.Lectii.Add(p.GetProperty("id").GetInt32());
         }
         Console.WriteLine($"{ctx.Materii.Count} subjects, {ctx.Lectii.Count} Lecții to pick from.");
         return ctx;
@@ -243,6 +275,7 @@ sealed record Scenariu(string Nume, bool CuCont, string Descriere, Func<Context,
 static class Scenarii
 {
     public static readonly TimeSpan PauzaIntreTrepte = TimeSpan.FromSeconds(2);
+    public const int Incalzire = 10;
     // Words from the date-volum topics, so the searches find something.
     private static readonly string[] Cuvinte = ["functia", "romantismul", "celula", "algoritmi", "genetica", "optica", "progresii", "eseul", "grafuri", "clima"];
 
@@ -287,7 +320,7 @@ static class Scenarii
 /// <summary>One call: its status (0 when it never got an answer), how long it took, and why it failed.</summary>
 readonly record struct Apel(int Status, double Ms, string? Eroare);
 
-sealed record Rezultat(string Scenariu, int Cereri, TimeSpan Durata, Apel[] Apeluri)
+sealed record Rezultat(string Scenariu, string Nivel, int Cereri, TimeSpan Durata, Apel[] Apeluri)
 {
     public int Limitate => Apeluri.Count(a => a.Status == 429);
     /// <summary>Server errors, other refusals (except the rate limiter's) and calls that never got an answer.</summary>
@@ -303,10 +336,10 @@ sealed record Rezultat(string Scenariu, int Cereri, TimeSpan Durata, Apel[] Apel
     /// <summary>Every level in one table: as text for the console, or as Markdown for a CI summary.</summary>
     public static string Tabel(IEnumerable<Rezultat> rezultate, Optiuni o, bool markdown)
     {
-        string[] cap = ["scenario", "calls", "time (s)", "calls/s", "p50 ms", "p95 ms", "p99 ms", "max ms", "2xx", "429", "errors", "result"];
+        string[] cap = ["scenario", "level", "calls", "time (s)", "calls/s", "p50 ms", "p95 ms", "p99 ms", "max ms", "2xx", "429", "errors", "result"];
         var randuri = rezultate.Select(r => new[]
         {
-            r.Scenariu, r.Cereri.ToString(), r.Durata.TotalSeconds.ToString("0.00"), (r.Cereri / r.Durata.TotalSeconds).ToString("0.0"),
+            r.Scenariu, r.Nivel, r.Cereri.ToString(), r.Durata.TotalSeconds.ToString("0.00"), (r.Cereri / r.Durata.TotalSeconds).ToString("0.0"),
             r.Percentila(50).ToString("0"), r.Percentila(95).ToString("0"), r.Percentila(99).ToString("0"), r.Percentila(100).ToString("0"),
             r.Apeluri.Count(a => a.Status is >= 200 and < 300).ToString(), r.Limitate.ToString(), $"{r.Erori} ({r.ProcentErori:0.#} %)",
             r.Trece(o) ? "ok" : "FAIL",
@@ -314,7 +347,7 @@ sealed record Rezultat(string Scenariu, int Cereri, TimeSpan Durata, Apel[] Apel
         if (markdown)
             return string.Join("\n", new[] { cap, cap.Select(_ => "---").ToArray() }.Concat(randuri).Select(c => "| " + string.Join(" | ", c) + " |")) + "\n";
         var latimi = cap.Select((c, i) => randuri.Select(x => x[i].Length).Prepend(c.Length).Max()).ToArray();
-        string Rand(string[] c) => string.Join("  ", c.Select((x, i) => i == 0 ? x.PadRight(latimi[i]) : x.PadLeft(latimi[i])));
+        string Rand(string[] c) => string.Join("  ", c.Select((x, i) => i <= 1 ? x.PadRight(latimi[i]) : x.PadLeft(latimi[i])));
         return string.Join("\n", new[] { Rand(cap), new string('-', latimi.Sum() + 2 * (latimi.Length - 1)) }.Concat(randuri.Select(Rand)));
     }
 
@@ -325,7 +358,7 @@ sealed record Rezultat(string Scenariu, int Cereri, TimeSpan Durata, Apel[] Apel
         var coduri = Apeluri.GroupBy(a => a.Status == 0 ? a.Eroare! : a.Status.ToString()).OrderBy(g => g.Key)
             .Select(g => $"{g.Key}×{g.Count()}");
         var verdict = Trece(o) ? "ok" : $"FAIL ({(ProcentErori > o.PragErori ? $"errors {ProcentErori:0.#} % > {o.PragErori:0.##} %" : $"p95 > {o.PragP95} ms")})";
-        return $"{Cereri,6} calls  {Durata.TotalSeconds,6:0.00} s  {Cereri / Durata.TotalSeconds,7:0.0}/s  "
+        return $"{Nivel,-16} {Cereri,6} calls  {Durata.TotalSeconds,6:0.00} s  {Cereri / Durata.TotalSeconds,7:0.0}/s  "
             + $"p50 {Percentila(50),6:0} ms  p95 {Percentila(95),6:0} ms  p99 {Percentila(99),6:0} ms  max {Percentila(100),6:0} ms  "
             + $"[{string.Join(" ", coduri)}]  {verdict}";
     }

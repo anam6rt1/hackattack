@@ -71,7 +71,7 @@ public static class ContinutEndpoints
             Pagini.Fereastra(lista, pagina, marime);
             var total = await ordonate.CountAsync(ct);
             return new Lista<MaterieDto>(await CuNumere(ordonate.Pagina(lista, pagina, marime), acces, a).ToListAsync(ct), total);
-        }).AllowAnonymous();
+        }).AllowAnonymous().CacheOutput(CacheListe.DoarAnonim(TimeSpan.FromSeconds(30)));
 
         g.MapGet("/materii/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
             await CuNumere(db.Materii.AsNoTracking().Where(m => m.Id == id), acces, await acces.PentruAsync(h.User, ct)).SingleOrDefaultAsync(ct)

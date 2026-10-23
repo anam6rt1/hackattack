@@ -2,7 +2,8 @@
 # Testul de stres al API-ului, pe o bază de test separată (nu pe cea live): containerul Postgres markai-stres (port 5433, cu datele
 # de volum, create doar prima dată, ~2 minute), un API de test pe 127.0.0.1:5082 cu limitele ridicate, apoi tools/MarkAi.Stres.
 # Tabelul cu statistici apare la final. API-ul de test se oprește la sfârșit; baza rămâne pentru data viitoare.
-# Utilizare: ./stres-test.sh [opțiuni MarkAi.Stres]   (implicit --cereri 100,500,1000 --clienti 100; --ajutor le arată pe toate)
+# Utilizare: ./stres-test.sh [opțiuni MarkAi.Stres]   (implicit --cereri 100,500,1000 --rata 200 --durata 15 --clienti 100;
+#            --ajutor le arată pe toate)
 # Ștergerea bazei de test: ./stres-test.sh sterge
 set -euo pipefail
 cd "$(dirname "$0")/database"
@@ -40,5 +41,5 @@ trap 'kill -- -$API 2>/dev/null || true' EXIT
 for _ in $(seq 1 120); do curl -sf -o /dev/null "http://127.0.0.1:$PORT_API/judete" && break; sleep 1; done
 curl -sf -o /dev/null "http://127.0.0.1:$PORT_API/judete" || { echo "API-ul de test nu a pornit; vezi $LOG/stres-api.log."; exit 1; }
 
-[[ $# -eq 0 ]] && set -- --cereri 100,500,1000 --clienti 100
+[[ $# -eq 0 ]] && set -- --cereri 100,500,1000 --rata 200 --durata 15 --clienti 100
 dotnet run --project tools/MarkAi.Stres -c Release -- --url "http://127.0.0.1:$PORT_API" "$@"

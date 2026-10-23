@@ -129,7 +129,7 @@ jobs:
           cat api.log; exit 1
       - name: Testul de stres (statisticile apar la final și pe pagina rulării)
         working-directory: database
-        run: dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 --cereri 100,500,1000 --clienti 100 --rezumat "$GITHUB_STEP_SUMMARY"
+        run: dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 --cereri 100,500,1000 --rata 200 --durata 15 --clienti 100 --rezumat "$GITHUB_STEP_SUMMARY"
       - if: failure()
         name: Jurnalul API-ului
         run: tail -n 200 database/api.log
