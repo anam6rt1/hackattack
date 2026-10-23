@@ -66,3 +66,6 @@ Desktop.ini
 
 # Uploaded professor photos and qualification documents (API local storage)
 /database/src/MarkAi.Api/uploads/
+
+# Starea lui client-setup.sh (copia .env.local, jurnalul site-ului)
+.client-setup/
