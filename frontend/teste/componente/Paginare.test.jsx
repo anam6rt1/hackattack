@@ -20,6 +20,14 @@ describe("paginiVizibile", () => {
     [50, 100, [1, 2, null, 49, 50, 51, null, 99, 100]],
   ])("pagina %i din %i", (pagina, total, asteptat) => expect(paginiVizibile(pagina, total)).toEqual(asteptat));
 
+  it.each([
+    [1, 9, [1, 2, null, 9]],
+    [5, 9, [1, null, 4, 5, 6, null, 9]],
+    [9, 9, [1, null, 8, 9]],
+    [128, 255, [1, null, 127, 128, 129, null, 255]],
+  ])("compact: pagina %i din %i are doar prima și ultima la capete", (pagina, total, asteptat) =>
+    expect(paginiVizibile(pagina, total, 1)).toEqual(asteptat));
+
   it("nicio pagină nu apare de două ori și ordinea crește", () => {
     for (let total = 1; total <= 30; total++)
       for (let p = 1; p <= total; p++) {
@@ -110,5 +118,12 @@ describe("bara de pagini", () => {
     await u.click(screen.getAllByRole("button", { name: "Alege pagina" })[1]);
     expect(screen.getAllByRole("spinbutton")).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Alege pagina" })).toHaveLength(1);
+  });
+
+  it("varianta compactă are clasa ei și mai puține pagini", () => {
+    render(<Paginare compact pagina={5} totalPagini={9} onAlege={() => {}} />);
+    expect(screen.getByRole("navigation", { name: "Pagini" })).toHaveClass("tv-paginare-compacta");
+    expect(screen.queryByRole("button", { name: "Pagina 2" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pagina 9" })).toBeInTheDocument();
   });
 });

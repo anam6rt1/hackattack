@@ -119,7 +119,8 @@ public sealed class VizibilitateTests : TestLectii
         var progres = await george.GetJson("/progres");
         progres.Lista("lectiiCompletate").ShouldNotContain(c => c.Int("parcursId") == l);
         progres.GetProperty("ultimaLectie").ValueKind.ShouldBe(JsonValueKind.Null);
-        progres.Lista("materii").Single(m => m.Int("materieId") == 1).Int("totalLectii").ShouldBe(1);
+        // A subject appears in the progress only through a Lecție the student may still see.
+        (await george.GetJson("/progres/materii")).Lista().ShouldNotContain(m => m.Int("materieId") == 1);
     }
 
     [Fact]

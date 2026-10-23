@@ -8,11 +8,17 @@ import { textLoc } from '@/lib/sedinte'
 import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
 import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
+import Paginare from '@/components/Paginare'
+import { PROGRES_MATERII_PE_PAGINA_ACASA_ELEV, cuPagina } from '@/lib/pagini'
 
 const DECOR = decorSVG(29)
 
 export default function AcasaElev({ utilizator }) {
   const [progres, setProgres] = useState(null)
+  // Progresul pe materii: doar materiile în care a deschis o lecție, câte o pagină.
+  const [materii, setMaterii] = useState(null)
+  const [totalMaterii, setTotalMaterii] = useState(0)
+  const [paginaMaterii, setPaginaMaterii] = useState(1)
   const [rezervari, setRezervari] = useState([])
   const [eroare, setEroare] = useState('')
 
@@ -21,13 +27,19 @@ export default function AcasaElev({ utilizator }) {
 
   useEffect(() => {
     api('/progres').then(setProgres).catch((e) => setEroare(e.message))
+  }, [])
+  useEffect(() => {
+    api(cuPagina('/progres/materii', paginaMaterii, PROGRES_MATERII_PE_PAGINA_ACASA_ELEV))
+      .then((r) => { setMaterii(r.elemente); setTotalMaterii(r.total) }).catch(() => setMaterii([]))
+  }, [paginaMaterii])
+  useEffect(() => {
     api('/rezervari').then((r) => setRezervari(r.elemente.filter((x) => x.status === 'confirmata' && new Date(x.slot.inceputLa) > new Date()))).catch(() => {})
   }, [])
 
   if (eroare) return <Incarcare text={eroare} />
   if (!progres) return <Incarcare />
 
-  const { nivel, materii, ultimaLectie, lectiiCompletate } = progres
+  const { nivel, ultimaLectie, lectiiCompletate } = progres
   const pana = nivel.xpUrmatorNivel ? nivel.xpUrmatorNivel - nivel.xpNivel : 1
   const procent = nivel.xpUrmatorNivel ? Math.round(((nivel.xpTotal - nivel.xpNivel) / pana) * 100) : 100
 
@@ -86,8 +98,11 @@ export default function AcasaElev({ utilizator }) {
           <div className="tv-panou">
             <div className="tv-cutie tv-panou-lat">
               <h3>Progresul pe materii</h3>
+              {materii && materii.length === 0 && (
+                <p className="tv-indiciu">Deschide o lecție din <Link href="/materiale">Materiale</Link> și materia ei apare aici, cu progresul tău.</p>
+              )}
               <ul className="tv-lista">
-                {materii.map((m) => (
+                {(materii ?? []).map((m) => (
                   <li key={m.materieId}>
                     <Link className="tv-rand" href={`/materiale/${m.materieId}`}>
                       <div>
@@ -101,6 +116,7 @@ export default function AcasaElev({ utilizator }) {
                   </li>
                 ))}
               </ul>
+              <Paginare compact pagina={paginaMaterii} totalPagini={Math.ceil(totalMaterii / PROGRES_MATERII_PE_PAGINA_ACASA_ELEV)} onAlege={setPaginaMaterii} />
             </div>
 
             <div className="tv-cutie">

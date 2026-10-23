@@ -57,19 +57,23 @@ public static class ContinutEndpoints
     {
         var g = app.MapGroup("").WithTags("Conținut").RequireAuthorization();
 
-        // Anonymous too: the professor sign-up form lists the subjects (anonymous counts show only public content).
-        g.MapGet("/materii", async (HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        // Anonymous too: the professor sign-up form lists the subjects (anonymous counts show only public content). The counts are
+        // computed in SQL. With pagina or marime (the Materiale overview), a page at a time (Pagini.Materii*, by role); without them
+        // every subject, for the subject pickers (a short reference list).
+        g.MapGet("/materii", async (int? pagina, int? marime, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
-            var numere = await Numere(acces, h.User, null, ct);
-            var materii = await db.Materii.AsNoTracking().OrderBy(m => m.Ordine).ThenBy(m => m.Denumire).ToListAsync(ct);
-            return Lista<MaterieDto>.Din(materii.Select(m => Dto(m, numere)).ToList());
+            var a = await acces.PentruAsync(h.User, ct);
+            var ordonate = db.Materii.AsNoTracking().OrderBy(m => m.Ordine).ThenBy(m => m.Denumire).ThenBy(m => m.Id);
+            if (pagina is null && marime is null) return Lista<MaterieDto>.Din(await CuNumere(ordonate, acces, a).ToListAsync(ct));
+            var lista = h.User.EsteAdmin() ? Pagini.MateriiAdmin : Pagini.MateriiElev;
+            Pagini.Fereastra(lista, pagina, marime);
+            var total = await ordonate.CountAsync(ct);
+            return new Lista<MaterieDto>(await CuNumere(ordonate.Pagina(lista, pagina, marime), acces, a).ToListAsync(ct), total);
         }).AllowAnonymous();
 
         g.MapGet("/materii/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
-        {
-            var m = await db.Materii.AsNoTracking().SingleOrDefaultAsync(m => m.Id == id, ct) ?? throw new KeyNotFoundException("Materia nu există.");
-            return Dto(m, await Numere(acces, h.User, id, ct));
-        });
+            await CuNumere(db.Materii.AsNoTracking().Where(m => m.Id == id), acces, await acces.PentruAsync(h.User, ct)).SingleOrDefaultAsync(ct)
+            ?? throw new KeyNotFoundException("Materia nu există."));
 
         // The subject's Lecții the user may see, a page at a time (pagina from 1, marime: Pagini.LectiiMaterie* by role; Total = all).
         // clasa: one or more of IX, X, XI, XII, Bac (comma-separated); filtru: toate | organizatia-mea | public | local (see
@@ -406,14 +410,14 @@ public static class ContinutEndpoints
     }
 
     // Published Lecții a student would see, per subject: (total, completed by the user).
-    private static async Task<Dictionary<int, (int Total, int Completate)>> Numere(AccesContinut acces, ClaimsPrincipal u, int? materieId, CancellationToken ct)
+    /// <summary>Subjects with the user's counts (published Lecții they may see, and those they passed), counted in SQL.</summary>
+    private static IQueryable<MaterieDto> CuNumere(IQueryable<Materie> materii, AccesContinut acces, ContextAcces a)
     {
-        var a = await acces.PentruAsync(u, ct);
         var uid = a.UtilizatorId;
-        var q = acces.Parcursuri(a).AsNoTracking().Where(p => p.Publicat);
-        if (materieId is not null) q = q.Where(p => p.MaterieId == materieId);
-        var randuri = await q.Select(p => new { p.MaterieId, Gata = p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null) }).ToListAsync(ct);
-        return randuri.GroupBy(r => r.MaterieId).ToDictionary(g => g.Key, g => (g.Count(), g.Count(r => r.Gata)));
+        var vizibile = acces.Parcursuri(a).Where(p => p.Publicat);
+        return materii.Select(m => new MaterieDto(m.Id, m.Cod, m.Denumire, m.Descriere, m.Ordine,
+            vizibile.Count(p => p.MaterieId == m.Id),
+            vizibile.Count(p => p.MaterieId == m.Id && p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null))));
     }
 
     /// <summary>The Lecții list's order, in SQL: those in <paramref name="primaLocalitate"/> first (for "near me"), then the recommended order.</summary>
@@ -432,12 +436,6 @@ public static class ContinutEndpoints
                 p.Organizatie == null ? null : (p.Organizatie.Localitate == null ? "" : p.Organizatie.Localitate.Nume + ", ") + p.Organizatie.Judet.Nume,
                 localitate != null && p.Organizatie != null && p.Organizatie.LocalitateId == localitate))
             .ToListAsync(ct);
-    }
-
-    private static MaterieDto Dto(Materie m, Dictionary<int, (int Total, int Completate)> numere)
-    {
-        var (total, completate) = numere.GetValueOrDefault(m.Id);
-        return new MaterieDto(m.Id, m.Cod, m.Denumire, m.Descriere, m.Ordine, total, completate);
     }
 
     private static async Task<List<OrganizatieAutor>> OrganizatiiPosibile(MarkAiDbContext db, AccesContinut acces, ClaimsPrincipal u, int? autorId, CancellationToken ct) =>

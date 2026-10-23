@@ -4,9 +4,13 @@
 
 import { useState } from 'react'
 
-/** Numerele de pagină de arătat, cu null unde sunt sărite pagini (acolo apare „…”). */
-export function paginiVizibile(pagina, total) {
-  const alese = new Set([1, 2, total - 1, total, pagina - 1, pagina, pagina + 1].filter((p) => p >= 1 && p <= total))
+/**
+ * Numerele de pagină de arătat, cu null unde sunt sărite pagini (acolo apare „…”). margine = câte pagini de la început și de la
+ * sfârșit (2 în bara obișnuită, 1 în cea compactă, pentru locuri înguste).
+ */
+export function paginiVizibile(pagina, total, margine = 2) {
+  const capete = [...Array(margine).keys()].flatMap((i) => [1 + i, total - i])
+  const alese = new Set([...capete, pagina - 1, pagina, pagina + 1].filter((p) => p >= 1 && p <= total))
   const sortate = [...alese].sort((a, b) => a - b)
   const rezultat = []
   sortate.forEach((p, i) => {
@@ -46,14 +50,15 @@ function Salt({ total, onAlege }) {
 
 /**
  * pagina: pagina curentă (de la 1); totalPagini: câte sunt; onAlege(p): cere pagina p. Fără bară când e o singură pagină.
+ * compact: butoane mai mici și doar prima și ultima pagină la capete (‹ 1 … 4 5 6 … 9 ›), pentru coloane înguste.
  */
-export default function Paginare({ pagina, totalPagini, onAlege }) {
+export default function Paginare({ pagina, totalPagini, onAlege, compact = false }) {
   // Și fără un total valid (NaN, undefined): nicio bară.
   if (!(totalPagini > 1)) return null
   return (
-    <nav className="tv-paginare" aria-label="Pagini">
+    <nav className={compact ? 'tv-paginare tv-paginare-compacta' : 'tv-paginare'} aria-label="Pagini">
       <button type="button" className="tv-filtru" aria-label="Pagina anterioară" disabled={pagina <= 1} onClick={() => onAlege(pagina - 1)}>‹</button>
-      {paginiVizibile(pagina, totalPagini).map((p, i) =>
+      {paginiVizibile(pagina, totalPagini, compact ? 1 : 2).map((p, i) =>
         p === null ? (
           <Salt key={`salt-${i}`} total={totalPagini} onAlege={onAlege} />
         ) : (

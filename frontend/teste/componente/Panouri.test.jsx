@@ -13,13 +13,15 @@ const ieri = new Date(Date.now() - 86400_000).toISOString();
 
 const PROGRES = {
   nivel: { nivel: 2, titlu: "Ucenic", xpTotal: 150, xpNivel: 100, xpUrmatorNivel: 300, titluUrmator: "Cititor" },
-  materii: [
-    { materieId: 1, denumire: "Limba și literatura română", puncte: 20, lectiiCompletate: 2, totalLectii: 5 },
-    { materieId: 2, denumire: "Matematică", puncte: 0, lectiiCompletate: 0, totalLectii: 0 },
-  ],
   ultimaLectie: { parcursId: 7, titlu: "Ion", materie: "Limba și literatura română", completata: false, capitol: "Glasul pământului" },
   lectiiCompletate: [{ parcursId: 3, titlu: "Luceafărul" }],
 };
+
+// GET /progres/materii: only the subjects where the student opened a Lecție, a page at a time.
+const MATERII = [
+  { materieId: 1, denumire: "Limba și literatura română", puncte: 20, lectiiCompletate: 2, totalLectii: 5 },
+  { materieId: 2, denumire: "Matematică", puncte: 0, lectiiCompletate: 0, totalLectii: 3 },
+];
 
 const rezervare = (id, extra = {}, slot = {}) => ({
   id, status: "confirmata", profesor: "Irina Marin", participare: "online",
@@ -27,8 +29,8 @@ const rezervare = (id, extra = {}, slot = {}) => ({
 });
 
 describe("panoul elevului", () => {
-  const porneste = (progres = PROGRES, rezervari = []) => {
-    const cereri = apiFals({ "GET /progres": progres, "GET /rezervari": { elemente: rezervari }, "DELETE /rezervari/1": raspuns(204) });
+  const porneste = (progres = PROGRES, rezervari = [], materii = () => ({ elemente: MATERII, total: MATERII.length })) => {
+    const cereri = apiFals({ "GET /progres": progres, "GET /progres/materii": materii, "GET /rezervari": { elemente: rezervari }, "DELETE /rezervari/1": raspuns(204) });
     render(<AcasaElev utilizator={{ nume: "Ana Țăranu" }} />);
     return cereri;
   };
@@ -55,10 +57,29 @@ describe("panoul elevului", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
   });
 
-  it("progresul pe materii, și la o materie fără lecții", async () => {
+  it("progresul pe materii vine din materiile deschise", async () => {
     porneste();
     expect(await screen.findByText("2 din 5 lecții · 20 puncte")).toBeInTheDocument();
-    expect(screen.getByText("0 din 0 lecții · 0 puncte")).toBeInTheDocument();
+    expect(screen.getByText("0 din 3 lecții · 0 puncte")).toBeInTheDocument();
+  });
+
+  it("fără lecții deschise, un îndemn către Materiale", async () => {
+    porneste(PROGRES, [], () => ({ elemente: [], total: 0 }));
+    expect(await screen.findByText(/și materia ei apare aici/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Materiale" })).toHaveAttribute("href", "/materiale");
+  });
+
+  it("progresul pe materii are pagini, cu bara compactă", async () => {
+    const cereri = porneste(PROGRES, [], (c) => (new URLSearchParams(c.query).get("pagina") === "2"
+      ? { elemente: [{ ...MATERII[1], materieId: 9, denumire: "Chimie" }], total: 5 }
+      : { elemente: MATERII, total: 5 }));
+    const u = userEvent.setup();
+    await screen.findByText("2 din 5 lecții · 20 puncte");
+    expect(screen.getByRole("navigation", { name: "Pagini" })).toHaveClass("tv-paginare-compacta");
+    await u.click(screen.getByRole("button", { name: "Pagina 2" }));
+    expect(await screen.findByText("Chimie")).toBeInTheDocument();
+    const ultima = new URLSearchParams(cereri.filter((c) => c.cale === "/progres/materii").at(-1).query);
+    expect([ultima.get("pagina"), ultima.get("marime")]).toEqual(["2", "4"]);
   });
 
   it("elevul nou primește un îndemn, fără „Recapitulează”", async () => {

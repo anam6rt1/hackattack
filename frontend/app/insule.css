@@ -50,6 +50,14 @@
   box-shadow: inset 0 0 0 6px #ffffff2e, inset 0 0 60px #0b4f8f99, 0 18px 40px -16px #021d3acc;
 }
 .tv-harta svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* Cadrul hărții: pe ecrane înguste harta are o lățime minimă și se glisează în lateral (lățimea minimă vine din Harta.js). */
+.tv-harta-cadru { min-width: 0; }
+.tv-harta-indiciu { display: none; margin: 6px 4px 0; font-size: 12px; font-weight: 700; color: var(--gri-text); text-align: center; }
+@media (max-width: 700px) {
+  .tv-harta-cadru { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; border-radius: 30px; }
+  .tv-harta-cadru .tv-harta { min-width: var(--harta-latime-min, 560px); }
+  .tv-harta-indiciu { display: block; }
+}
 .tv-poate { cursor: pointer; }
 .tv-poate .tv-inel { stroke: var(--aur); stroke-width: 6; stroke-dasharray: 14 10; animation: tv-mars 1s linear infinite; }
 .tv-poate:hover .tv-nisip { filter: brightness(1.06); }
@@ -288,6 +296,11 @@ html[data-tema="iarna-noapte"] .tv-harta, html[data-tema="iarna-noapte"] .harta-
 .tv-eticheta-camp input[type="range"] { width: 100%; accent-color: var(--ocean); }
 .tv-bifa { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--navy); cursor: pointer; }
 .tv-bifa input { width: 18px; height: 18px; accent-color: var(--ocean); }
+/* Materiile camerei Triviador: o grilă compactă care se derulează când sunt multe. */
+.tv-materii-joc { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 10px; max-height: 172px; overflow-y: auto;
+  padding: 6px 8px; border: 2px solid #ece3cd; border-radius: 14px; background: #fff; }
+.tv-materii-joc .tv-bifa { font-size: 13px; gap: 6px; line-height: 1.2; }
+.tv-materii-joc .tv-bifa input { width: 16px; height: 16px; flex: none; }
 .tv-boti { display: flex; flex-wrap: wrap; gap: 6px; }
 .tv-boti .tv-btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; font-size: 13px; }
 .tv-lista-simpla { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 6px; }
@@ -362,8 +375,14 @@ button.tv-pastila { border: 0; cursor: pointer; font: inherit; font-size: 12px; 
 button.tv-pastila:disabled { opacity: .5; cursor: not-allowed; }
 a.tv-pastila { text-decoration: none; }
 .tv-rand-buton { width: 100%; border: 2px solid transparent; text-align: left; font: inherit; cursor: pointer; }
+/* Titlul unui rând cu etichete pe același rând (editorul de conținut): titlul se taie, etichetele rămân întregi. */
+.tv-rand-titlu { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tv-rand-titlu b { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-pastila-mica { flex: none; padding: 1px 7px; font-size: 11px; }
 .tv-rand-activ { border-color: var(--aur); background: #fff8dc; }
 .tv-editor { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
+/* The sidebar's single column stays as wide as the sidebar: one-line titles (with „…”) and the page bar must not widen it. */
+.tv-editor > aside.tv-cutie, .tv-editor > aside .tv-lista { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 900px) { .tv-editor { grid-template-columns: minmax(0, 1fr); } }
 .tv-sectiune-editor { display: grid; gap: 6px; padding: 10px; border: 2px dashed #e4ebf6; border-radius: 16px; }
 .tv-sectiune-editor .tv-pastila { justify-self: start; }
@@ -653,6 +672,10 @@ a.tv-pastila { text-decoration: none; }
 .tv-paginare .tv-filtru:disabled { opacity: .4; cursor: default; }
 .tv-paginare-salt { display: inline-flex; gap: 6px; align-items: center; }
 .tv-paginare-salt .tv-camp-text { width: 84px; padding: 6px 10px; }
+/* Compactă (coloane înguste, ~280px): un singur rând; dacă tot n-ar încăpea, se derulează în cutie în loc să treacă pe două rânduri. */
+.tv-paginare-compacta { gap: 3px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; justify-content: safe center; }
+.tv-paginare-compacta .tv-filtru { flex: none; min-width: 0; padding: 4px 5px; font-size: 12px; border-width: 1.5px; }
+.tv-paginare-compacta .tv-paginare-salt .tv-camp-text { width: 60px; padding: 4px 6px; }
 .tv-bara-filtre { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 14px; margin-bottom: 16px; background: #fff; border-radius: 18px; box-shadow: 0 3px 0 #ece3cd; }
 .tv-bara-filtre .tv-filtre { margin-bottom: 0; }
 .tv-bara-filtre select.tv-camp-text { width: auto; padding-top: 6px; padding-bottom: 6px; }

@@ -738,22 +738,23 @@ export default function AdminContinut() {
                   <li key={l.id}>
                     <button className={`tv-rand tv-rand-buton ${lectie?.id === l.id ? 'tv-rand-activ' : ''}`} onClick={() => deschideLectie(l)}>
                       <div>
-                        <b>{l.titlu}</b>
+                        {/* Etichetele stau pe rândul titlului, ca rândul să rămână lat și scund. */}
+                        <span className="tv-rand-titlu">
+                          <b>{l.titlu}</b>
+                          {l.vizibilitate === 'organizatie' && <span className="tv-pastila tv-pastila-mica">Organizație</span>}
+                          {!l.publicat && <span className="tv-pastila tv-pastila-mica">Ciornă</span>}
+                        </span>
                         <small>
                           {l.materie} · {numeClasa(l.clasa)} · {l.organizatie ?? 'platformă'}
                           {l.autorId !== utilizator.id && l.autor ? ` · de ${l.autor}` : ''}
                         </small>
                       </div>
-                      <span className="tv-butoane" style={{ gap: 4 }}>
-                        {l.vizibilitate === 'organizatie' && <span className="tv-pastila">Organizație</span>}
-                        {!l.publicat && <span className="tv-pastila">Ciornă</span>}
-                      </span>
                     </button>
                   </li>
                 ))}
                 {vizibile.length === 0 && <p className="tv-indiciu">{lectiiFiltrate ? 'Nicio lecție nu se potrivește căutării și filtrelor.' : 'Nu ai încă lecții aici.'}</p>}
               </ul>
-              <Paginare pagina={paginaLectii} totalPagini={Math.ceil(totalLectii / marimeLectii)} onAlege={setPaginaLectii} />
+              <Paginare compact pagina={paginaLectii} totalPagini={Math.ceil(totalLectii / marimeLectii)} onAlege={setPaginaLectii} />
             </aside>
 
             <section className="tv-cutie">

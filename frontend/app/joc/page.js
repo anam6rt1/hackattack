@@ -63,12 +63,14 @@ export default function PaginaJoc() {
               Cucerește insulele răspunzând la întrebări din lecții. 2–4 jucători, fiecare de pe telefonul lui; locurile libere le pot lua roboți.
             </p>
             <fieldset className="tv-eticheta-camp">
-              <span>Materiile jocului</span>
-              {materii.map((m) => (
-                <label key={m.id} className="tv-bifa">
-                  <input type="checkbox" checked={alese.includes(m.id)} onChange={() => comuta(m.id)} /> {m.denumire}
-                </label>
-              ))}
+              <span>Materiile jocului{alese.length ? ` (${alese.length} ${alese.length === 1 ? 'aleasă' : 'alese'})` : ''}</span>
+              <div className="tv-materii-joc">
+                {materii.map((m) => (
+                  <label key={m.id} className="tv-bifa">
+                    <input type="checkbox" checked={alese.includes(m.id)} onChange={() => comuta(m.id)} /> {m.denumire}
+                  </label>
+                ))}
+              </div>
             </fieldset>
             <label className="tv-eticheta-camp">
               <span>Clasa</span>

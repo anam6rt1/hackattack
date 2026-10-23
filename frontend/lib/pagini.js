@@ -24,8 +24,15 @@ export const PROFESORI_APROBATI_PE_PAGINA_ADMIN = 6
 export const PROFESORI_RESPINSI_PE_PAGINA_ADMIN = 6
 
 // Conținut — lista de lecții din editor.
-export const LECTII_PE_PAGINA_EDITOR_PROFESOR = 10
-export const LECTII_PE_PAGINA_EDITOR_ADMIN = 10
+export const LECTII_PE_PAGINA_EDITOR_PROFESOR = 8
+export const LECTII_PE_PAGINA_EDITOR_ADMIN = 8
+
+// Acasă (elev) — progresul pe materii (doar materiile în care a deschis o lecție).
+export const PROGRES_MATERII_PE_PAGINA_ACASA_ELEV = 4
+
+// Materiale — lista materiilor.
+export const MATERII_PE_PAGINA_MATERIALE_ELEV = 8
+export const MATERII_PE_PAGINA_MATERIALE_ADMIN = 8
 
 // Materiale → o materie: lecțiile ei.
 export const LECTII_PE_PAGINA_MATERIE_ELEV = 9

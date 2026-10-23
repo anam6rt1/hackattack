@@ -45,4 +45,15 @@ describe("Triviador: crearea unei camere", () => {
     await u.click(romana);
     expect(screen.getByRole("button", { name: "Creează o cameră" })).toBeDisabled();
   });
+
+  it("materiile stau într-o grilă compactă, iar eticheta spune câte sunt alese", async () => {
+    const { u } = porneste();
+    const romana = await screen.findByLabelText("Limba și literatura română");
+    expect(romana.closest(".tv-materii-joc")).not.toBeNull();
+    expect(screen.getByText("Materiile jocului")).toBeInTheDocument();
+    await u.click(romana);
+    expect(screen.getByText("Materiile jocului (1 aleasă)")).toBeInTheDocument();
+    await u.click(screen.getByLabelText("Biologie"));
+    expect(screen.getByText("Materiile jocului (2 alese)")).toBeInTheDocument();
+  });
 });

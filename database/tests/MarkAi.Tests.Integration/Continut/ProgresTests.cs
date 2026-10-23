@@ -88,11 +88,44 @@ public sealed class ProgresTests : TestCuHarness
     public async Task MateriileAratLectiileTerminateDinTotal()
     {
         await Promoveaza(roRomantism);
-        var m = (await Progres()).Lista("materii").ToDictionary(x => x.Str("denumire"));
-        (m["Limba și literatura română"].Int("lectiiCompletate"), m["Limba și literatura română"].Int("totalLectii")).ShouldBe((1, 2));
-        (m["Matematică"].Int("lectiiCompletate"), m["Matematică"].Int("totalLectii")).ShouldBe((0, 1));
-        m["Limba și literatura română"].Int("puncte").ShouldBe(10);
-        m["Biologie"].Int("puncte").ShouldBe(0);
+        var r = await george.GetJson("/progres/materii");
+        // Only the subjects where george opened a Lecție: Mathematics and Biology stay hidden.
+        r.Int("total").ShouldBe(1);
+        var ro = r.Lista().ShouldHaveSingleItem();
+        ro.Str("denumire").ShouldBe("Limba și literatura română");
+        (ro.Int("lectiiCompletate"), ro.Int("totalLectii"), ro.Int("puncte")).ShouldBe((1, 2, 10));
+    }
+
+    [Fact]
+    public async Task OLectieDeschisaDarNeterminataAduceMateria()
+    {
+        await h.Db(async db =>
+        {
+            var georgeId = await db.Utilizatori.Where(u => u.Username == "george").Select(u => u.Id).SingleAsync();
+            db.Add(new ProgresLectie { UtilizatorId = georgeId, ParcursId = mateFunctii, UltimaAccesare = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        });
+        var m = (await george.GetJson("/progres/materii")).Lista().ShouldHaveSingleItem();
+        (m.Str("denumire"), m.Int("lectiiCompletate"), m.Int("totalLectii"), m.Int("puncte")).ShouldBe(("Matematică", 0, 1, 0));
+    }
+
+    [Fact]
+    public async Task FaraLectiiDeschiseListaEsteGoala()
+    {
+        var r = await george.GetJson("/progres/materii");
+        (r.Int("total"), r.Lista().Count).ShouldBe((0, 0));
+    }
+
+    [Fact]
+    public async Task ProgresulPeMateriiArePagini()
+    {
+        await Promoveaza(roRomantism);
+        await Promoveaza(bioCelula);
+        var p1 = await george.GetJson("/progres/materii?marime=1");
+        (p1.Int("total"), p1.Lista().Count).ShouldBe((2, 1));
+        var p2 = await george.GetJson("/progres/materii?marime=1&pagina=2");
+        p2.Lista().Single().Int("materieId").ShouldNotBe(p1.Lista().Single().Int("materieId"));
+        await george.Get("/progres/materii?marime=101").Status(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -139,8 +172,9 @@ public sealed class ProgresTests : TestCuHarness
     [Fact]
     public async Task LectiaNepublicataNuConteazaLaTotal()
     {
+        await Promoveaza(roRomantism);
         await h.Db(db => db.Set<Parcurs>().Where(p => p.Id == roInterbelic).ExecuteUpdateAsync(s => s.SetProperty(p => p.Publicat, false)));
-        (await Progres()).Lista("materii").Single(m => m.Int("materieId") == 1).Int("totalLectii").ShouldBe(1);
+        (await george.GetJson("/progres/materii")).Lista().Single(m => m.Int("materieId") == 1).Int("totalLectii").ShouldBe(1);
     }
 
     [Fact]
@@ -179,4 +213,23 @@ public sealed class ProgresTests : TestCuHarness
         l[0].Int("numarCapitole").ShouldBe(2);
         (await george.GetJson("/materii/3/parcursuri")).Lista().Single().Str("clasa").ShouldBe("Bac");
     }
+
+    [Fact]
+    public async Task MateriileSuntPePaginiDoarCandSeCere()
+    {
+        await Promoveaza(roRomantism);
+        var toate = await george.GetJson("/materii");
+        toate.Int("total").ShouldBe(toate.Lista().Count);
+        var p1 = await george.GetJson("/materii?marime=2");
+        (p1.Int("total"), p1.Lista().Count).ShouldBe((toate.Int("total"), 2));
+        var p2 = await george.GetJson("/materii?marime=2&pagina=2");
+        p2.Lista().Select(m => m.Int("id")).Intersect(p1.Lista().Select(m => m.Int("id"))).ShouldBeEmpty();
+        // The counts are the same paged or not.
+        var ro = toate.Lista().Single(m => m.Int("id") == 1);
+        var roPagina = p1.Lista().Concat(p2.Lista()).Single(m => m.Int("id") == 1);
+        (roPagina.Int("numarLectii"), roPagina.Int("lectiiCompletate")).ShouldBe((ro.Int("numarLectii"), ro.Int("lectiiCompletate")));
+        (ro.Int("numarLectii"), ro.Int("lectiiCompletate")).ShouldBe((2, 1));
+        await george.Get("/materii?marime=0").Status(HttpStatusCode.BadRequest);
+    }
 }
+

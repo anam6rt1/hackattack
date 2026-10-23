@@ -36,6 +36,13 @@ public static class Pagini
     public static readonly Marime LectiiEditorProfesor = new(20, 100);
     public static readonly Marime LectiiEditorAdmin = new(20, 100);
 
+    // A student's progress per subject (home page): only the subjects where they opened a Lecție.
+    public static readonly Marime ProgresMateriiElev = new(20, 100);
+
+    // The subjects overview (Materiale), for a student and for the platform admin.
+    public static readonly Marime MateriiElev = new(20, 100);
+    public static readonly Marime MateriiAdmin = new(20, 100);
+
     // A subject's Lecții (Materiale), for a student and for the platform admin.
     public static readonly Marime LectiiMaterieElev = new(20, 100);
     public static readonly Marime LectiiMaterieAdmin = new(20, 100);
