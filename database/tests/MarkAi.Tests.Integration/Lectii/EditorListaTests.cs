@@ -91,4 +91,49 @@ public sealed class EditorListaTests : TestLectii
         r.Lista().Select(l => l.Int("id")).ShouldBe([aPetrei]);
         r.Int("total").ShouldBe(1);
     }
+
+    // ---- search and filters (in SQL)
+
+    private async Task<List<string>> Editor(HttpClient c, string query) =>
+        (await c.GetJson("/continut/parcursuri?marime=100&" + query)).Lista().Select(l => l.Str("titlu")).Order().ToList();
+
+    private async Task LectiiIrinei()
+    {
+        await Creeaza(irina, Lectie("Luceafărul de Eminescu", Liceu, clasa: "XII"));
+        await Creeaza(irina, Lectie("Plumb de Bacovia", Liceu, clasa: "XI", vizibilitate: "organizatie"));
+        var ciorna = await Creeaza(irina, Lectie("Ion de Rebreanu", Liceu, clasa: "IX"));
+        await irina.Put($"/parcursuri/{ciorna}", Lectie("Ion de Rebreanu", Liceu, clasa: "IX", publicat: false)).Status(HttpStatusCode.OK);
+    }
+
+    [Theory]
+    [InlineData("q=luceafarul", new[] { "Luceafărul de Eminescu" })]
+    [InlineData("q=EMINESCU", new[] { "Luceafărul de Eminescu" })]
+    [InlineData("q=de", new[] { "Ion de Rebreanu", "Luceafărul de Eminescu", "Plumb de Bacovia" })]
+    [InlineData("q=plumb%20bacovia", new[] { "Plumb de Bacovia" })]
+    [InlineData("clasa=XI", new[] { "Plumb de Bacovia" })]
+    [InlineData("vizibilitate=organizatie", new[] { "Plumb de Bacovia" })]
+    [InlineData("vizibilitate=public", new[] { "Ion de Rebreanu", "Luceafărul de Eminescu" })]
+    [InlineData("publicat=false", new[] { "Ion de Rebreanu" })]
+    [InlineData("publicat=true&clasa=XII", new[] { "Luceafărul de Eminescu" })]
+    [InlineData("q=zzz", new string[0])]
+    public async Task ProfesorulCautaSiFiltreaza(string query, string[] gasite)
+    {
+        await LectiiIrinei();
+        (await Editor(irina, query)).ShouldBe(gasite.Order());
+    }
+
+    [Fact]
+    public async Task FiltreleGresiteSuntRefuzate()
+    {
+        await irina.Get("/continut/parcursuri?clasa=XIII").Status(HttpStatusCode.BadRequest);
+        await irina.Get("/continut/parcursuri?vizibilitate=secret").Status(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CautareaNuArataCeNuPoateEdita()
+    {
+        await LectiiIrinei();
+        (await Editor(petra, "q=luceafarul")).ShouldBeEmpty();
+    }
 }
+

@@ -71,16 +71,21 @@ public static class ContinutEndpoints
             return Dto(m, await Numere(acces, h.User, id, ct));
         });
 
-        // The subject's Lecții the user may see. clasa: one or more of IX, X, XI, XII, Bac (comma-separated);
-        // filtru: toate | organizatia-mea | public | local (see FiltreLectii); under "local", the user's own locality comes first.
-        g.MapGet("/materii/{id:int}/parcursuri", async (int id, string? clasa, string? filtru, HttpContext h, MarkAiDbContext db, AccesContinut acces,
-            CancellationToken ct) =>
+        // The subject's Lecții the user may see, a page at a time (pagina from 1, marime: Pagini.LectiiMaterie* by role; Total = all).
+        // clasa: one or more of IX, X, XI, XII, Bac (comma-separated); filtru: toate | organizatia-mea | public | local (see
+        // FiltreLectii); under "local", the user's own locality comes first; ascundeTerminate: without the ones the user passed.
+        g.MapGet("/materii/{id:int}/parcursuri", async (int id, string? clasa, string? filtru, bool? ascundeTerminate, int? pagina, int? marime,
+            HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
+            var lista = h.User.EsteAdmin() ? Pagini.LectiiMaterieAdmin : Pagini.LectiiMaterieElev;
+            Pagini.Fereastra(lista, pagina, marime);
             var a = await acces.PentruAsync(h.User, ct);
             var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
             var q = FiltreLectii.Aplica(acces.Parcursuri(a).AsNoTracking().Where(p => p.MaterieId == id), a, loc, filtru, clasa);
-            var lista = await Rezumate(q, a.UtilizatorId, loc, ct);
-            return Lista<ParcursRezumat>.Din(filtru == "local" ? lista.OrderByDescending(p => p.InLocalitateaTa).ToList() : lista);
+            var uid = a.UtilizatorId;
+            if (ascundeTerminate == true) q = q.Where(p => !p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null));
+            var total = await q.CountAsync(ct);
+            return new Lista<ParcursRezumat>(await Rezumate(Ordonate(q, filtru == "local" ? loc.LocalitateId : null).Pagina(lista, pagina, marime), uid, loc, ct), total);
         });
 
         // Lecții and chapters whose title or description has every word of q (without diacritics: "sarpe" finds "Șarpe"),
@@ -100,11 +105,12 @@ public static class ContinutEndpoints
                 lectii = lectii.Where(p => EF.Functions.ILike(p.Cautare, t, "\\"));
                 capitole = capitole.Where(c => EF.Functions.ILike(c.Cautare, t, "\\"));
             }
-            var gasite = await Rezumate(lectii.OrderBy(p => p.Titlu).Take(30), a.UtilizatorId, loc, ct);
+            var gasite = await Rezumate((filtru == "local" ? Ordonate(lectii, loc.LocalitateId) : lectii.OrderBy(p => p.Titlu).ThenBy(p => p.Id)).Take(30),
+                a.UtilizatorId, loc, ct);
             var cap = await capitole.OrderBy(c => c.Titlu).Take(30)
                 .Select(c => new CapitolGasit(c.Id, c.Titlu, c.Capitol, c.ParcursId, c.Parcurs.Titlu, c.Parcurs.Clasa, c.MaterieId, c.Materie.Denumire))
                 .ToListAsync(ct);
-            return new RezultatCautare(filtru == "local" ? gasite.OrderByDescending(p => p.InLocalitateaTa).ToList() : gasite, cap);
+            return new RezultatCautare(gasite, cap);
         });
 
         g.MapGet("/parcursuri/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
@@ -178,16 +184,26 @@ public static class ContinutEndpoints
             Lista<OrganizatieAutor>.Din(await OrganizatiiPosibile(db, acces, h.User, h.User.Id(), ct)));
 
         // Everything the current user may edit, published or not.
-        // The Lecții the user may edit, 20 a page (pagina, from 1; Total = all), built with a fixed number of queries per page.
-        e.MapGet("/continut/parcursuri", async (int? materieId, int? pagina, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        // The Lecții the user may edit, a page at a time (pagina from 1, marime: Pagini.LectiiEditor* by role; Total = all that match),
+        // built with a fixed number of queries per page. Filters, all in SQL: materieId, clasa, vizibilitate (public | organizatie),
+        // publicat (false = drafts), q — words in the title or description, without diacritics.
+        e.MapGet("/continut/parcursuri", async (int? materieId, string? clasa, string? vizibilitate, bool? publicat, string? q, int? pagina, int? marime,
+            HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
-            if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
+            var lista = h.User.EsteAdmin() ? Pagini.LectiiEditorAdmin : Pagini.LectiiEditorProfesor;
+            Pagini.Fereastra(lista, pagina, marime);
+            if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+            if (vizibilitate is not (null or "" or Parcurs.Public or Parcurs.DoarOrganizatie))
+                throw new CerereInvalida("Vizibilitatea trebuie să fie „public” sau „organizatie”.");
             var a = await acces.PentruAsync(h.User, ct);
-            var q = acces.Editabile(a).AsNoTracking();
-            if (materieId is not null) q = q.Where(p => p.MaterieId == materieId);
-            var total = await q.CountAsync(ct);
-            var pag = q.OrderBy(p => p.MaterieId).ThenBy(p => p.Ordine).ThenBy(p => p.Titlu).ThenBy(p => p.Id)
-                .Skip(((pagina ?? 1) - 1) * LectiiPePagina).Take(LectiiPePagina);
+            var lectii = acces.Editabile(a).AsNoTracking();
+            if (materieId is not null) lectii = lectii.Where(p => p.MaterieId == materieId);
+            if (!string.IsNullOrEmpty(clasa)) lectii = lectii.Where(p => p.Clasa == clasa);
+            if (!string.IsNullOrEmpty(vizibilitate)) lectii = lectii.Where(p => p.Vizibilitate == vizibilitate);
+            if (publicat is not null) lectii = lectii.Where(p => p.Publicat == publicat);
+            foreach (var t in TermeniCautare.Optionali(q)) lectii = lectii.Where(p => EF.Functions.ILike(p.Cautare, t, "\\"));
+            var total = await lectii.CountAsync(ct);
+            var pag = lectii.OrderBy(p => p.MaterieId).ThenBy(p => p.Ordine).ThenBy(p => p.Titlu).ThenBy(p => p.Id).Pagina(lista, pagina, marime);
             return new Lista<ParcursEditabil>(await Editabile(db, h.User, pag, ct), total);
         });
 
@@ -400,10 +416,16 @@ public static class ContinutEndpoints
         return randuri.GroupBy(r => r.MaterieId).ToDictionary(g => g.Key, g => (g.Count(), g.Count(r => r.Gata)));
     }
 
+    /// <summary>The Lecții list's order, in SQL: those in <paramref name="primaLocalitate"/> first (for "near me"), then the recommended order.</summary>
+    private static IOrderedQueryable<Parcurs> Ordonate(IQueryable<Parcurs> q, int? primaLocalitate) =>
+        (primaLocalitate is null ? q.OrderBy(p => 0) : q.OrderByDescending(p => p.Organizatie != null && p.Organizatie.LocalitateId == primaLocalitate))
+            .ThenBy(p => p.Ordine).ThenBy(p => p.Titlu).ThenBy(p => p.Id);
+
+    /// <param name="q">Already ordered (and paged); the order is kept.</param>
     private static async Task<List<ParcursRezumat>> Rezumate(IQueryable<Parcurs> q, int uid, LocUtilizator loc, CancellationToken ct)
     {
         var localitate = loc.LocalitateId;
-        return await q.OrderBy(p => p.Ordine).ThenBy(p => p.Titlu)
+        return await q
             .Select(p => new ParcursRezumat(p.Id, p.MaterieId, p.Titlu, p.Descriere, p.Clasa, p.Autor == null ? null : p.Autor.Nume,
                 p.Organizatie == null ? null : p.Organizatie.Nume, p.Vizibilitate, p.Publicat,
                 p.Ordine, p.Capitole.Count(c => c.Publicat), p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null),
@@ -417,9 +439,6 @@ public static class ContinutEndpoints
         var (total, completate) = numere.GetValueOrDefault(m.Id);
         return new MaterieDto(m.Id, m.Cod, m.Denumire, m.Descriere, m.Ordine, total, completate);
     }
-
-    /// <summary>Editable Lecții per page in the editor.</summary>
-    public const int LectiiPePagina = 20;
 
     private static async Task<List<OrganizatieAutor>> OrganizatiiPosibile(MarkAiDbContext db, AccesContinut acces, ClaimsPrincipal u, int? autorId, CancellationToken ct) =>
         (await OrganizatiiPosibile(db, u, autorId is null ? [] : [autorId.Value], ct)).GetValueOrDefault(autorId ?? 0) ?? [];

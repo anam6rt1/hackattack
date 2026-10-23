@@ -8,6 +8,13 @@ import { API, api, dataOra, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import { useConfirmare } from '@/components/Confirmare'
+import Paginare from '@/components/Paginare'
+import {
+  PROFESORI_APROBATI_PE_PAGINA_ADMIN, PROFESORI_IN_ASTEPTARE_PE_PAGINA_ADMIN, PROFESORI_RESPINSI_PE_PAGINA_ADMIN, cuPagina,
+} from '@/lib/pagini'
+
+// Câți profesori arată fiecare tab.
+const MARIME = { in_asteptare: PROFESORI_IN_ASTEPTARE_PE_PAGINA_ADMIN, aprobat: PROFESORI_APROBATI_PE_PAGINA_ADMIN, respins: PROFESORI_RESPINSI_PE_PAGINA_ADMIN }
 
 const STARI = [
   { id: 'in_asteptare', nume: 'În așteptare' },
@@ -97,12 +104,28 @@ function Cerere({ c, pret, onSchimbat }) {
 export default function AdminProfesori() {
   const admin = usePagina('admin')
   const [stare, setStare] = useState('in_asteptare')
+  const [pagina, setPagina] = useState(1)
+  const [total, setTotal] = useState(0)
   const [cereri, setCereri] = useState(null)
+  // Căutare după nume, utilizator sau email; textul pleacă după o scurtă pauză.
+  const [text, setText] = useState('')
+  const [cautat, setCautat] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (text.trim() === cautat) return
+      setCautat(text.trim())
+      setPagina(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [text, cautat])
   const [pret, setPret] = useState(null)
 
   const incarca = useCallback(() => {
-    api(`/admin/profesori?stare=${stare}`).then((r) => setCereri(r.elemente)).catch(() => setCereri([]))
-  }, [stare])
+    const q = new URLSearchParams({ stare })
+    if (cautat) q.set('q', cautat)
+    api(cuPagina(`/admin/profesori?${q}`, pagina, MARIME[stare]))
+      .then((r) => { setCereri(r.elemente); setTotal(r.total) }).catch(() => setCereri([]))
+  }, [stare, pagina, cautat])
 
   useEffect(() => {
     if (admin) api('/tarif').then(setPret).catch(() => {})
@@ -124,19 +147,26 @@ export default function AdminProfesori() {
         <div className="tv-coala">
           <div className="tv-taburi" role="tablist" style={{ maxWidth: 480 }}>
             {STARI.map((s) => (
-              <button key={s.id} role="tab" aria-selected={stare === s.id} className={stare === s.id ? 'tv-tab-activ' : ''} onClick={() => setStare(s.id)}>
+              <button key={s.id} role="tab" aria-selected={stare === s.id} className={stare === s.id ? 'tv-tab-activ' : ''} onClick={() => { setStare(s.id); setPagina(1) }}>
                 {s.nume}
               </button>
             ))}
           </div>
+          <div className="tv-bara-filtre">
+            <input type="search" className="tv-camp-text" aria-label="Caută un profesor" placeholder="Caută după nume, utilizator sau email" maxLength={100}
+              value={text} onChange={(e) => setText(e.target.value)} />
+          </div>
           {!cereri ? (
             <p className="tv-asteapta">Se încarcă...</p>
           ) : cereri.length === 0 ? (
-            <p className="tv-gol">Nicio cerere aici.</p>
+            <p className="tv-gol">{cautat ? 'Niciun profesor nu se potrivește căutării.' : 'Nicio cerere aici.'}</p>
           ) : (
-            <div className="tv-profesori">
-              {cereri.map((c) => <Cerere key={c.id} c={c} pret={pret} onSchimbat={incarca} />)}
-            </div>
+            <>
+              <div className="tv-profesori">
+                {cereri.map((c) => <Cerere key={c.id} c={c} pret={pret} onSchimbat={incarca} />)}
+              </div>
+              <Paginare pagina={pagina} totalPagini={Math.ceil(total / MARIME[stare])} onAlege={(p) => { setPagina(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />
+            </>
           )}
         </div>
       </div>

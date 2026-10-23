@@ -85,6 +85,6 @@ describe("admin → profesori: retragerea aprobării", () => {
     await u.click(screen.getByRole("tab", { name: "Respinși" }));
     await u.click(screen.getByRole("tab", { name: "Aprobați" }));
     await waitFor(() => expect(cereri.filter((c) => c.cale === "/admin/profesori").map((c) => c.query))
-      .toEqual(["?stare=in_asteptare", "?stare=respins", "?stare=aprobat"]));
+      .toEqual(["?stare=in_asteptare&marime=6", "?stare=respins&marime=6", "?stare=aprobat&marime=6"]));
   });
 });

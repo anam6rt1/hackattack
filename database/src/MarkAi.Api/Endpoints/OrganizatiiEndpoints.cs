@@ -92,9 +92,19 @@ public static class OrganizatiiEndpoints
             return await DetaliiAdmin(db, o.Id, ct);
         });
         // q: words in the name, email or username, without diacritics; clasa (students) and materieId (professors) narrow it.
-        // 50 a page (pagina, from 1; Total = all that match). All filtered in SQL.
-        mea.MapGet("/membri", async (string? rol, string? stare, string? q, string? clasa, int? materieId, int? pagina, HttpContext h, MarkAiDbContext db,
-            CancellationToken ct) => await Membri(db, (await OrganizatiaMea(db, h, ct)).Id, rol, stare, ct, q, clasa, materieId, pagina));
+        // A page at a time (pagina from 1, marime; Total = all that match), each tab its own size: requests (no rol), professors,
+        // students. All filtered in SQL.
+        mea.MapGet("/membri", async (string? rol, string? stare, string? q, string? clasa, int? materieId, int? pagina, int? marime, HttpContext h,
+            MarkAiDbContext db, CancellationToken ct) =>
+        {
+            var lista = rol switch
+            {
+                MembruOrganizatie.RolProfesor => Pagini.ProfesoriOrganizatie,
+                MembruOrganizatie.RolElev => Pagini.EleviOrganizatie,
+                _ => Pagini.CereriOrganizatie,
+            };
+            return await Membri(db, (await OrganizatiaMea(db, h, ct)).Id, rol, stare, ct, lista, q, clasa, materieId, pagina, marime);
+        });
         mea.MapPost("/membri/{uid:int}/aprobare", async (int uid, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
         {
             var o = await OrganizatiaMea(db, h, ct);
@@ -154,10 +164,10 @@ public static class OrganizatiiEndpoints
 
         // Students' requests can also be decided by the organisation's approved professors.
         var elevi = app.MapGroup("/organizatii/{id:int}/elevi").WithTags("Organizații").RequireAuthorization();
-        elevi.MapGet("", async (int id, string? stare, int? pagina, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
+        elevi.MapGet("", async (int id, string? stare, int? pagina, int? marime, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
         {
             if (!await org.PoateDecideAsync(h.User.Id(), id, MembruOrganizatie.RolElev, ct)) return Results.Forbid();
-            return Results.Ok(await Membri(db, id, MembruOrganizatie.RolElev, stare, ct, pagina: pagina));
+            return Results.Ok(await Membri(db, id, MembruOrganizatie.RolElev, stare, ct, Pagini.EleviDeConfirmatProfesor, pagina: pagina, marime: marime));
         });
         elevi.MapPost("/{uid:int}/aprobare", (int id, int uid, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, CancellationToken ct) =>
             DecideElev(id, uid, true, null, h, db, org, ct));
@@ -175,14 +185,24 @@ public static class OrganizatiiEndpoints
 
         // The platform admin approves new organisations (and with them, their admins).
         var admin = app.MapGroup("/admin/organizatii").WithTags("Administrare").RequireAuthorization(Politici.Admin);
-        // Newest first, 20 a page (pagina, from 1; Total = all in that state); one query for the page.
-        admin.MapGet("", async (string? stare, int? pagina, MarkAiDbContext db, CancellationToken ct) =>
+        // Newest first, a page at a time (pagina from 1, marime; Total = all that match), each state tab its own size. Filters:
+        // judetId, localitateId, and q — words found in the name, the county or the locality, without diacritics. One query for the page.
+        admin.MapGet("", async (string? stare, int? judetId, int? localitateId, string? q, int? pagina, int? marime, MarkAiDbContext db, CancellationToken ct) =>
         {
-            if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
-            var q = db.Set<Organizatie>().AsNoTracking().Where(o => stare == null || o.Stare == stare);
-            var total = await q.CountAsync(ct);
-            var pag = await DetaliiAdmin(q.OrderByDescending(o => o.CreatLa).ThenByDescending(o => o.Id).Skip(((pagina ?? 1) - 1) * OrganizatiiPePagina).Take(OrganizatiiPePagina))
-                .ToListAsync(ct);
+            var lista = stare switch
+            {
+                Organizatie.Aprobata => Pagini.OrganizatiiAprobateAdmin,
+                Organizatie.Respinsa => Pagini.OrganizatiiRespinseAdmin,
+                _ => Pagini.OrganizatiiInAsteptareAdmin,
+            };
+            var org = db.Set<Organizatie>().AsNoTracking().Where(o => stare == null || o.Stare == stare);
+            if (judetId is not null) org = org.Where(o => o.JudetId == judetId);
+            if (localitateId is not null) org = org.Where(o => o.LocalitateId == localitateId);
+            foreach (var t in TermeniCautare.Optionali(q))
+                org = org.Where(o => EF.Functions.ILike(o.Cautare, t, "\\") || EF.Functions.ILike(o.Judet.Cautare, t, "\\")
+                    || (o.Localitate != null && EF.Functions.ILike(o.Localitate.Cautare, t, "\\")));
+            var total = await org.CountAsync(ct);
+            var pag = await DetaliiAdmin(org.OrderByDescending(o => o.CreatLa).ThenByDescending(o => o.Id).Pagina(lista, pagina, marime)).ToListAsync(ct);
             return new Lista<OrganizatieAdminDto>(pag, total);
         });
         admin.MapPost("/{id:int}/aprobare", async (int id, HttpContext h, MarkAiDbContext db, ServiciuOrganizatii org, Posta posta, TimeProvider ceas, CancellationToken ct) =>
@@ -245,14 +265,11 @@ public static class OrganizatiiEndpoints
         db.Set<MembruOrganizatie>().AsNoTracking().Where(m => m.UtilizatorId == uid).OrderByDescending(m => m.CerutLa)
             .Select(m => new ApartenentaMea(m.OrganizatieId, m.Organizatie.Nume, m.Rol, m.Stare, m.CerutLa, m.ExpiraLa, m.MotivRespingere)).ToListAsync(ct);
 
-    /// <summary>Members per page in the organisation panel.</summary>
-    public const int MembriPePagina = 50;
-
     private static async Task<Lista<MembruDto>> Membri(MarkAiDbContext db, int organizatieId, string? rol, string? stare, CancellationToken ct,
-        string? text = null, string? clasa = null, int? materieId = null, int? pagina = null)
+        Pagini.Marime lista, string? text = null, string? clasa = null, int? materieId = null, int? pagina = null, int? marime = null)
     {
         if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
-        if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
+        Pagini.Fereastra(lista, pagina, marime);
         var q = db.Set<MembruOrganizatie>().AsNoTracking().Where(m => m.OrganizatieId == organizatieId);
         if (!string.IsNullOrEmpty(rol)) q = q.Where(m => m.Rol == rol);
         if (!string.IsNullOrEmpty(stare)) q = q.Where(m => m.Stare == stare);
@@ -261,7 +278,7 @@ public static class OrganizatiiEndpoints
         foreach (var t in TermeniCautare.Optionali(text)) q = q.Where(m => EF.Functions.ILike(m.Utilizator.CautareCont, t, "\\"));
         var total = await q.CountAsync(ct);
         var membri = await q.OrderBy(m => m.Stare == MembruOrganizatie.InAsteptare ? 0 : 1).ThenByDescending(m => m.CerutLa).ThenBy(m => m.UtilizatorId)
-            .Skip(((pagina ?? 1) - 1) * MembriPePagina).Take(MembriPePagina)
+            .Pagina(lista, pagina, marime)
             .Select(m => new MembruDto(m.UtilizatorId, m.Utilizator.Nume, m.Utilizator.Username, m.Utilizator.Email, m.Rol, m.Stare, m.CerutLa, m.ExpiraLa,
                 m.PoatePublicaPublic, m.Utilizator.Clasa,
                 m.Utilizator.ProfilMentor == null ? null : m.Utilizator.ProfilMentor.Descriere,
@@ -271,9 +288,6 @@ public static class OrganizatiiEndpoints
             .ToListAsync(ct);
         return new Lista<MembruDto>(membri, total);
     }
-
-    /// <summary>Organisations per page in the platform admin's list.</summary>
-    public const int OrganizatiiPePagina = 20;
 
     private static async Task<OrganizatieAdminDto> DetaliiAdmin(MarkAiDbContext db, int id, CancellationToken ct) =>
         await DetaliiAdmin(db.Set<Organizatie>().AsNoTracking().Where(o => o.Id == id)).SingleAsync(ct);

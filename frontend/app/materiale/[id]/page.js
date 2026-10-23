@@ -10,6 +10,8 @@ import { useParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
+import Paginare from '@/components/Paginare'
+import { LECTII_PE_PAGINA_MATERIE_ADMIN, LECTII_PE_PAGINA_MATERIE_ELEV, cuPagina } from '@/lib/pagini'
 import { CLASE, numeClasa } from '@/lib/clase'
 
 export default function PaginaMaterie() {
@@ -17,11 +19,17 @@ export default function PaginaMaterie() {
   const elev = usePagina('elev', 'admin')
   const [materie, setMaterie] = useState(null)
   const [lectii, setLectii] = useState(null)
-  const [aleseDeElev, setAlese] = useState(null) // null = implicitul de mai jos; [] = toate
-  const [unde, setUnde] = useState('toate')
+  const [total, setTotal] = useState(0)
+  const [pagina, setPagina] = useState(1)
+  const [aleseDeElev, setAleseDeElev] = useState(null) // null = implicitul de mai jos; [] = toate
+  const [unde, setUndeFiltru] = useState('toate')
   const [ascunde, setAscunde] = useState(false)
   const [eroare, setEroare] = useState('')
   const esteElev = elev?.rol === 'elev'
+  const marime = esteElev ? LECTII_PE_PAGINA_MATERIE_ELEV : LECTII_PE_PAGINA_MATERIE_ADMIN
+  // Orice filtru nou pornește de la prima pagină.
+  const setAlese = (v) => { setAleseDeElev(v); setPagina(1) }
+  const setUnde = (v) => { setUndeFiltru(v); setPagina(1) }
 
   const alese = aleseDeElev ?? (elev?.clasa ? [elev.clasa, 'Bac'] : [])
 
@@ -36,23 +44,25 @@ export default function PaginaMaterie() {
 
   function comutaAscunde(valoare) {
     setAscunde(valoare)
+    setPagina(1)
     api('/utilizatori/me/preferinte', { metoda: 'PUT', corp: { ascundeLectiiTerminate: valoare } }).catch(() => {})
   }
 
   const q = new URLSearchParams()
   if (alese.length) q.set('clasa', alese.join(','))
   if (unde !== 'toate') q.set('filtru', unde)
-  const filtru = q.size ? `?${q}` : ''
+  if (esteElev && ascunde) q.set('ascundeTerminate', 'true')
+  const url = cuPagina(`/materii/${id}/parcursuri?${q}`, pagina, marime)
   useEffect(() => {
     if (!elev) return
-    api(`/materii/${id}/parcursuri${filtru}`).then((r) => setLectii(r.elemente)).catch((e) => setEroare(e.message))
-  }, [elev, id, filtru])
+    api(url).then((r) => { setLectii(r.elemente); setTotal(r.total) }).catch((e) => setEroare(e.message))
+  }, [elev, url])
 
   if (eroare) return <Incarcare text={eroare} />
   if (!elev || !materie || !lectii) return <Incarcare />
 
   const comuta = (c) => setAlese(alese.includes(c) ? alese.filter((x) => x !== c) : [...alese, c])
-  const vizibile = ascunde ? lectii.filter((l) => !l.completata) : lectii
+  const vizibile = lectii
 
   return (
     <main className="tv-pagina">
@@ -102,13 +112,14 @@ export default function PaginaMaterie() {
               </Link>
             ))}
           </div>
-          {lectii.length > 0 && vizibile.length === 0 && (
+          <Paginare pagina={pagina} totalPagini={Math.ceil(total / marime)} onAlege={(p) => { setPagina(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />
+          {lectii.length === 0 && esteElev && ascunde && (
             <p className="tv-gol">
-              Ai terminat toate lecțiile de aici{lectii.length === 1 ? '' : ` (${lectii.length})`}.{' '}
-              <button type="button" className="tv-pastila tv-pastila-aur" onClick={() => comutaAscunde(false)}>Arată-le</button>
+              Nicio lecție neterminată aici.{' '}
+              <button type="button" className="tv-pastila tv-pastila-aur" onClick={() => comutaAscunde(false)}>Arată și lecțiile terminate</button>
             </p>
           )}
-          {lectii.length === 0 && (
+          {lectii.length === 0 && !(esteElev && ascunde) && (
             <p className="tv-gol">
               {unde === 'local' ? 'Nu există lecții ale organizațiilor din județul tău aici.' : unde !== 'toate' ? 'Nu există lecții pentru filtrul ales.'
                 : alese.length ? 'Nu există lecții pentru clasa aleasă. Alege „Toate” sau altă clasă.' : 'Materia nu are încă lecții.'}

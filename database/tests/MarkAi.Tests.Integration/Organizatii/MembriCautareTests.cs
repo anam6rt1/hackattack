@@ -129,9 +129,9 @@ public sealed class MembriCautareTests : TestOrganizatii
             }
             await db.SaveChangesAsync();
         });
-        var p1 = await director.GetJson("/organizatia-mea/membri?rol=elev&clasa=X");
+        var p1 = await director.GetJson("/organizatia-mea/membri?rol=elev&clasa=X&marime=50");
         (p1.Int("total"), p1.Lista().Count).ShouldBe((60, 50));
-        var p2 = await director.GetJson("/organizatia-mea/membri?rol=elev&clasa=X&pagina=2");
+        var p2 = await director.GetJson("/organizatia-mea/membri?rol=elev&clasa=X&pagina=2&marime=50");
         p2.Lista().Count.ShouldBe(10);
         p2.Lista().Select(m => m.Int("utilizatorId")).Intersect(p1.Lista().Select(m => m.Int("utilizatorId"))).ShouldBeEmpty();
         // "multi" and "5": 05, 15, 25, 35, 45 and 50–59.

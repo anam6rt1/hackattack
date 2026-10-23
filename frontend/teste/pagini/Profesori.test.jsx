@@ -61,7 +61,7 @@ describe("pagina Profesori (elev)", () => {
     await screen.findByRole("heading", { name: "Irina Marin" });
     await u.click(screen.getByRole("button", { name: "Aproape de mine" }));
     await u.type(screen.getByRole("searchbox"), "mate");
-    await waitFor(() => expect(interogari().at(-1).toString()).toBe("filtru=local&q=mate"));
+    await waitFor(() => expect(interogari().at(-1).toString()).toBe("filtru=local&q=mate&marime=6"));
   });
 
   it("fără localitate „Aproape de mine” e oprit și trimite la Setări", async () => {
@@ -122,15 +122,16 @@ describe("pagina Profesori (elev)", () => {
 
   it("bara de pagini cere pagina aleasă și arată doar profesorii ei", async () => {
     const pe = (start, n) => Array.from({ length: n }, (_, i) => ({ ...IRINA, id: start + i, nume: `Profesor ${start + i}`, sloturi: [sedinta(100 + start + i)] }));
-    const { u, interogari } = porneste(ELEV, (c) => (new URLSearchParams(c.query).get("pagina") === "3"
+    const { u, interogari } = porneste(ELEV, (c) => (new URLSearchParams(c.query).get("pagina") === "2"
       ? { elemente: pe(41, 5), total: 45 } : { elemente: pe(1, 20), total: 45 }));
     expect(await screen.findByText("45 profesori")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pagina 1" })).toHaveAttribute("aria-current", "page");
-    await u.click(screen.getByRole("button", { name: "Pagina 3" }));
+    await u.click(screen.getByRole("button", { name: "Pagina 2" }));
     expect(await screen.findByRole("heading", { name: "Profesor 41" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Profesor 1" })).not.toBeInTheDocument();
-    expect(interogari().at(-1).get("pagina")).toBe("3");
-    expect(screen.getByRole("button", { name: "Pagina 3" })).toHaveAttribute("aria-current", "page");
+    expect(interogari().at(-1).get("pagina")).toBe("2");
+    expect(interogari().at(-1).get("marime")).toBe("6");
+    expect(screen.getByRole("button", { name: "Pagina 2" })).toHaveAttribute("aria-current", "page");
   });
 
   it("o singură pagină nu are bară", async () => {
@@ -144,6 +145,6 @@ describe("pagina Profesori (elev)", () => {
     await u.click(await screen.findByRole("button", { name: "Pagina 2" }));
     await waitFor(() => expect(interogari().at(-1).get("pagina")).toBe("2"));
     await u.click(screen.getByRole("button", { name: "Online" }));
-    await waitFor(() => expect(interogari().at(-1).toString()).toBe("tip=online"));
+    await waitFor(() => expect(interogari().at(-1).toString()).toBe("tip=online&marime=6"));
   });
 });

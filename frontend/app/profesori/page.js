@@ -12,6 +12,7 @@ import { api, dataOra, urlApi } from '@/lib/api'
 import { PARTICIPARE, TIPURI_SEDINTA, textLoc } from '@/lib/sedinte'
 import { esteProfesor, usePagina } from '@/lib/sesiune'
 import Paginare from '@/components/Paginare'
+import { PROFESORI_PE_PAGINA_ELEV } from '@/lib/pagini'
 import { decorSVG } from '../joc/arta'
 import Incarcare from '@/components/Incarcare'
 import SloturileMele from '@/components/profesori/SloturileMele'
@@ -94,9 +95,6 @@ function Rezervare({ slot, profesor, pret, onInchide, onRezervat }) {
   )
 }
 
-// Câți profesori are o pagină (ProfesoriEndpoints.PePagina pe server).
-const PE_PAGINA = 20
-
 const FILTRE = [['toate', 'Toți profesorii'], ['organizatia-mea', 'Din organizația mea'], ['local', 'Aproape de mine']]
 const TIPURI_FILTRU = [['', 'Orice ședință'], ['online', 'Online'], ['fata_in_fata', 'Față în față']]
 
@@ -123,6 +121,7 @@ function Director({ utilizator }) {
     if (filtru.tip) q.set('tip', filtru.tip)
     if (filtru.q) q.set('q', filtru.q)
     if (filtru.pagina > 1) q.set('pagina', String(filtru.pagina))
+    q.set('marime', String(PROFESORI_PE_PAGINA_ELEV))
     api('/profesori?' + q).then((r) => { setProfesori(r.elemente); setTotal(r.total) }).catch((e) => setEroare(e.message))
     api('/rezervari')
       .then((r) => setRezervarileMele(Object.fromEntries(r.elemente.filter((x) => x.status === 'confirmata').map((x) => [x.slot.id, x.id]))))
@@ -244,7 +243,7 @@ function Director({ utilizator }) {
       )}
       {profesori && profesori.length > 0 && (
         <>
-          <Paginare pagina={filtru.pagina} totalPagini={Math.ceil(total / PE_PAGINA)} onAlege={alegePagina} />
+          <Paginare pagina={filtru.pagina} totalPagini={Math.ceil(total / PROFESORI_PE_PAGINA_ELEV)} onAlege={alegePagina} />
           <p className="tv-indiciu" style={{ textAlign: 'center' }}>{total} {total === 1 ? 'profesor' : 'profesori'}</p>
         </>
       )}

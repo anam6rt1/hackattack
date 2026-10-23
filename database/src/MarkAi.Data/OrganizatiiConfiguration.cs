@@ -14,6 +14,7 @@ internal static class OrganizatiiConfiguration
             e.HasKey(x => x.Id).HasName("judet_pkey");
             e.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
             e.Property(x => x.Nume).HasColumnName("nume");
+            e.Property(x => x.Cautare).HasColumnName("cautare").HasComputedColumnSql(CautareText.Sql("nume"), stored: true);
         });
 
         model.Entity<Localitate>(e =>

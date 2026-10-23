@@ -14,11 +14,10 @@ import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
 import Paginare from '@/components/Paginare'
+import { LECTII_PE_PAGINA_EDITOR_ADMIN, LECTII_PE_PAGINA_EDITOR_PROFESOR, cuPagina } from '@/lib/pagini'
 import { useConfirmare } from '@/components/Confirmare'
 
 const CURS_GOL = { titlu: '', descriere: '', capitol: '', ordine: '', videoUrl: '', continut: '', publicat: true, materiale: [{ titlu: '', text: '' }] }
-// Câte lecții are o pagină în editor (ContinutEndpoints.LectiiPePagina pe server).
-const LECTII_PE_PAGINA = 20
 const LECTIE_GOALA = { titlu: '', descriere: '', clasa: 'Bac', vizibilitate: 'public', organizatieId: null, partajari: [], publicat: true }
 
 function MaterieNoua({ onCreata }) {
@@ -636,16 +635,33 @@ export default function AdminContinut() {
     return (await api('/profesori/me')).profil.materii.map((m) => toate.find((x) => x.id === m.id)).filter(Boolean)
   }, [esteAdmin])
 
-  // Lecțiile pe care le poate edita, câte o pagină, cu filtrul de materie aplicat de server.
+  // Lecțiile pe care le poate edita, câte o pagină; căutarea și filtrele le aplică serverul.
+  const marimeLectii = esteAdmin ? LECTII_PE_PAGINA_EDITOR_ADMIN : LECTII_PE_PAGINA_EDITOR_PROFESOR
   const [paginaLectii, setPaginaLectii] = useState(1)
   const [totalLectii, setTotalLectii] = useState(0)
   const [toateMateriile, setToateMateriile] = useState([])
+  const [filtre, setFiltre] = useState({ clasa: '', vizibilitate: '', ciorne: false })
+  const [textLectii, setTextLectii] = useState('')
+  const [cautatLectii, setCautatLectii] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (textLectii.trim() === cautatLectii) return
+      setCautatLectii(textLectii.trim())
+      setPaginaLectii(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [textLectii, cautatLectii])
+  const schimbaFiltru = (modificare) => { setFiltre((f) => ({ ...f, ...modificare })); setPaginaLectii(1) }
   const incarcaLectii = useCallback(() => {
     const q = new URLSearchParams()
     if (filtruMaterie) q.set('materieId', filtruMaterie)
-    if (paginaLectii > 1) q.set('pagina', String(paginaLectii))
-    return api('/continut/parcursuri' + (q.size ? `?${q}` : '')).then((r) => { setLectii(r.elemente); setTotalLectii(r.total) })
-  }, [filtruMaterie, paginaLectii])
+    if (filtre.clasa) q.set('clasa', filtre.clasa)
+    if (filtre.vizibilitate) q.set('vizibilitate', filtre.vizibilitate)
+    if (filtre.ciorne) q.set('publicat', 'false')
+    if (cautatLectii) q.set('q', cautatLectii)
+    return api(cuPagina(`/continut/parcursuri?${q}`, paginaLectii, marimeLectii)).then((r) => { setLectii(r.elemente); setTotalLectii(r.total) })
+  }, [filtruMaterie, filtre, cautatLectii, paginaLectii, marimeLectii])
+  const lectiiFiltrate = !!(filtruMaterie || filtre.clasa || filtre.vizibilitate || filtre.ciorne || cautatLectii)
 
   useEffect(() => {
     if (!utilizator) return
@@ -691,6 +707,29 @@ export default function AdminContinut() {
                   {materiiFiltru.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
                 </select>
               </label>
+              <label className="tv-eticheta-camp">
+                <span>Caută</span>
+                <input type="search" className="tv-camp-text" aria-label="Caută o lecție" placeholder="Titlu sau descriere" maxLength={100}
+                  value={textLectii} onChange={(e) => setTextLectii(e.target.value)} />
+              </label>
+              <div className="tv-grid-2">
+                <label className="tv-eticheta-camp">
+                  <span>Clasa</span>
+                  <select className="tv-camp-text" value={filtre.clasa} onChange={(e) => schimbaFiltru({ clasa: e.target.value })}>
+                    <option value="">Toate</option>
+                    {CLASE.map((c) => <option key={c} value={c}>{numeClasa(c)}</option>)}
+                  </select>
+                </label>
+                <label className="tv-eticheta-camp">
+                  <span>Cine o vede</span>
+                  <select className="tv-camp-text" value={filtre.vizibilitate} onChange={(e) => schimbaFiltru({ vizibilitate: e.target.value })}>
+                    <option value="">Oricine</option>
+                    <option value="public">Pentru toți</option>
+                    <option value="organizatie">Doar organizația</option>
+                  </select>
+                </label>
+              </div>
+              <label className="tv-optiune"><input type="checkbox" checked={filtre.ciorne} onChange={(e) => schimbaFiltru({ ciorne: e.target.checked })} /> Doar ciornele</label>
               {esteAdmin && <MaterieNoua onCreata={async (m) => { setMaterii(await materiiPermise()); setFiltruMaterie(String(m.id)); setPaginaLectii(1) }} />}
               <button className="tv-btn" onClick={() => deschideLectie('noua')} disabled={materii.length === 0}>+ Lecție nouă</button>
               {materii.length === 0 && <p className="tv-indiciu">Adaugă în profilul de profesor materiile pe care le predai, ca să poți crea lecții.</p>}
@@ -712,9 +751,9 @@ export default function AdminContinut() {
                     </button>
                   </li>
                 ))}
-                {vizibile.length === 0 && <p className="tv-indiciu">Nu ai încă lecții aici.</p>}
+                {vizibile.length === 0 && <p className="tv-indiciu">{lectiiFiltrate ? 'Nicio lecție nu se potrivește căutării și filtrelor.' : 'Nu ai încă lecții aici.'}</p>}
               </ul>
-              <Paginare pagina={paginaLectii} totalPagini={Math.ceil(totalLectii / LECTII_PE_PAGINA)} onAlege={setPaginaLectii} />
+              <Paginare pagina={paginaLectii} totalPagini={Math.ceil(totalLectii / marimeLectii)} onAlege={setPaginaLectii} />
             </aside>
 
             <section className="tv-cutie">

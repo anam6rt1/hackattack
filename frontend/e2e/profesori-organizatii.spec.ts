@@ -25,6 +25,7 @@ test("adminul retrage aprobarea, iar organizația îl aprobă din nou", async ({
   await intraRapid(page, "admin");
   await page.goto("/admin/profesori");
   await page.getByRole("tab", { name: "Aprobați" }).click();
+  await page.getByRole("searchbox", { name: "Caută un profesor" }).fill(username);
   const card = page.locator("article").filter({ hasText: nume });
   await card.getByRole("button", { name: "Retrage aprobarea" }).click();
   await card.getByLabel("Motivul retragerii").fill("Test de retragere.");
@@ -32,6 +33,7 @@ test("adminul retrage aprobarea, iar organizația îl aprobă din nou", async ({
   await page.getByRole("alertdialog").getByRole("button", { name: "Retrage aprobarea" }).click();
   await expect(card).toBeHidden();
   await page.getByRole("tab", { name: "Respinși" }).click();
+  await page.getByRole("searchbox", { name: "Caută un profesor" }).fill(username);
   await expect(page.locator("article").filter({ hasText: nume }).getByText(/Aprobare retrasă pe .*: Test de retragere\./)).toBeVisible();
 
   const prof = await browser.newPage();

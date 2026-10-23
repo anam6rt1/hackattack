@@ -838,6 +838,13 @@ namespace MarkAi.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id");
 
+                    b.Property<string>("Cautare")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasColumnName("cautare")
+                        .HasComputedColumnSql("lower(translate(nume, 'ĂÂÎȘŞȚŢăâîșşțţÁÀÄÉÈËÍÌÏÓÒÖÚÙÜÇÑáàäéèëíìïóòöúùüçñ-', 'aaissttaaissttaaaeeeiiiooouuucnaaaeeeiiiooouuucn '))", true);
+
                     b.Property<string>("Nume")
                         .IsRequired()
                         .HasColumnType("text")

@@ -53,20 +53,20 @@ public static class ProfesoriEndpoints
 
         g.MapGet("/tarif", async (MarkAiDbContext db, CancellationToken ct) => await Pret(db, ct));
 
-        // Only professors with at least one upcoming session are listed (the profile below still opens without one), 20 a page
-        // (pagina, from 1; Total = all that match). Everything is filtered in SQL:
+        // Only professors with at least one upcoming session are listed (the profile below still opens without one), a page at a
+        // time (pagina from 1, marime: Pagini.ProfesoriPentruElevi; Total = all that match). Everything is filtered in SQL:
         // filtru: toate | organizatia-mea (teaches in one of the user's organisations) | local (teaches in the user's locality).
         // tip: online | fata_in_fata (hybrid sessions count for both): only those sessions count and are listed. q: words found in
         // the name or the subjects, without diacritics ("ionescu mate" finds Mihai Ionescu, Matematică).
-        g.MapGet("/profesori", async (int? materieId, bool? gratuit, int? zile, string? filtru, string? tip, string? q, int? pagina, HttpContext h,
-            MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        g.MapGet("/profesori", async (int? materieId, bool? gratuit, int? zile, string? filtru, string? tip, string? q, int? pagina, int? marime,
+            HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             if (tip is not (null or "" or CameraTutoring.Online or CameraTutoring.FataInFata))
                 throw new CerereInvalida("Tipul ședinței trebuie să fie „online” sau „fata_in_fata”.");
             if (filtru is not (null or "" or "toate" or "organizatia-mea" or "local"))
                 throw new CerereInvalida("Filtrul trebuie să fie „toate”, „organizatia-mea” sau „local”.");
-            if (pagina is < 1) throw new CerereInvalida("Pagina începe de la 1.");
             var termeni = TermeniCautare.Optionali(q);
+            Pagini.Fereastra(Pagini.ProfesoriPentruElevi, pagina, marime);
             var a = await acces.PentruAsync(h.User, ct);
             var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
             var tipul = string.IsNullOrEmpty(tip) ? null : tip;
@@ -104,7 +104,7 @@ public static class ProfesoriEndpoints
                 p = p.Where(m => EF.Functions.ILike(m.Utilizator.CautareNume, t, "\\") || m.Materii.Any(x => EF.Functions.ILike(x.Materie.Cautare, t, "\\")));
 
             var total = await p.CountAsync(ct);
-            var pag = p.OrderBy(m => m.Utilizator.Nume).ThenBy(m => m.UtilizatorId).Skip(((pagina ?? 1) - 1) * PePagina).Take(PePagina);
+            var pag = p.OrderBy(m => m.Utilizator.Nume).ThenBy(m => m.UtilizatorId).Pagina(Pagini.ProfesoriPentruElevi, pagina, marime);
             return new Lista<ProfesorDto>((await ProfesoriCuLoc(db, pag, Utilizator(h), loc, ct, tipul)).Select(x => x.Dto).ToList(), total);
         });
 
@@ -227,17 +227,27 @@ public static class ProfesoriEndpoints
         });
 
         var admin = app.MapGroup("/admin").WithTags("Administrare").RequireAuthorization(Politici.Admin);
-        admin.MapGet("/profesori", async (string? stare, MarkAiDbContext db, CancellationToken ct) =>
+        // One tab per state, each its own page size (Pagini.Profesori*Admin); oldest application first. q: words in the name, username
+        // or email, without diacritics (in SQL).
+        admin.MapGet("/profesori", async (string? stare, string? q, int? pagina, int? marime, MarkAiDbContext db, CancellationToken ct) =>
         {
-            var q = db.ProfiluriMentor.AsNoTracking();
-            if (!string.IsNullOrEmpty(stare)) q = q.Where(m => m.StareVerificare == stare);
-            var cereri = await q.OrderBy(m => m.Utilizator.CreatLa)
+            var lista = stare switch
+            {
+                RezervareService.MentorAprobat => Pagini.ProfesoriAprobatiAdmin,
+                AutentificareEndpoints.StareRespins => Pagini.ProfesoriRespinsiAdmin,
+                _ => Pagini.ProfesoriInAsteptareAdmin,
+            };
+            var prof = db.ProfiluriMentor.AsNoTracking();
+            if (!string.IsNullOrEmpty(stare)) prof = prof.Where(m => m.StareVerificare == stare);
+            foreach (var t in TermeniCautare.Optionali(q)) prof = prof.Where(m => EF.Functions.ILike(m.Utilizator.CautareCont, t, "\\"));
+            var total = await prof.CountAsync(ct);
+            var cereri = await prof.OrderBy(m => m.Utilizator.CreatLa).ThenBy(m => m.UtilizatorId).Pagina(lista, pagina, marime)
                 .Select(m => new CerereProfesor(m.UtilizatorId, m.Utilizator.Nume, m.Utilizator.Username, m.Utilizator.Email, m.Utilizator.Telefon,
                     m.Descriere, m.PozaUrl == null ? null : $"/profesori/{m.UtilizatorId}/poza", m.DovadaCalificareUrl != null, m.StareVerificare,
                     m.MotivRespingere, m.OnorariuNegociat, m.Materii.Select(x => new MaterieScurta(x.MaterieId, x.Materie.Denumire)).ToList(), m.Utilizator.CreatLa,
                     m.RetrasLa))
                 .ToListAsync(ct);
-            return Lista<CerereProfesor>.Din(cereri);
+            return new Lista<CerereProfesor>(cereri, total);
         });
         admin.MapGet("/profesori/{id:int}/dovada", async (int id, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
             stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.DovadaCalificareUrl).SingleOrDefaultAsync(ct),
@@ -305,9 +315,6 @@ public static class ProfesoriEndpoints
             s.LocLocalitate == null ? null : s.LocLocalitate.Nume, s.LocJudet!.Nume),
         uid != null && (s.MentorId == uid || s.Rezervari.Any(r => r.ElevId == uid && r.Status == RezervareService.RezervareConfirmata))
             ? s.NotaLoc : null)));
-
-    /// <summary>Professors per page of the list.</summary>
-    public const int PePagina = 20;
 
     /// <summary>Open sessions not started yet, of the given type (a hybrid one counts for both); null = any type.</summary>
     private static IQueryable<CameraTutoring> SedinteViitoare(MarkAiDbContext db, string? tip)

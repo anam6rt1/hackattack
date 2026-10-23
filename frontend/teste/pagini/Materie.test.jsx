@@ -17,7 +17,11 @@ function porneste({ utilizator = ELEV, ascunde = false, lectii = [lectie(1, "Luc
   const cereri = apiFals({
     "GET /utilizatori/me": utilizator,
     "GET /materii/1": { id: 1, denumire: "Română", lectiiCompletate: 1, numarLectii: 2 },
-    "GET /materii/1/parcursuri": { elemente: lectii },
+    // Like the server: ascundeTerminate leaves out the finished ones; the total follows.
+    "GET /materii/1/parcursuri": (c) => {
+      const elemente = new URLSearchParams(c.query).get("ascundeTerminate") === "true" ? lectii.filter((l) => !l.completata) : lectii;
+      return { elemente, total: elemente.length };
+    },
     "GET /utilizatori/me/preferinte": { mod: "auto", tema: null, interfata: null, avatar: null, ascundeLectiiTerminate: ascunde },
     "PUT /utilizatori/me/preferinte": (c) => ({ mod: "auto", ascundeLectiiTerminate: c.corp.ascundeLectiiTerminate }),
   });
@@ -53,18 +57,19 @@ describe("lecțiile unei materii: „Ascunde lecțiile terminate”", () => {
   });
 
   it("când toate sunt terminate și ascunse, spune asta și le poate arăta din nou", async () => {
-    const { u, puneri } = porneste({ ascunde: true, lectii: [lectie(1, "Luceafărul", true), lectie(2, "Plumb", true)] });
-    expect(await screen.findByText(/Ai terminat toate lecțiile de aici \(2\)/)).toBeInTheDocument();
+    const { u, puneri, cereri } = porneste({ ascunde: true, lectii: [lectie(1, "Luceafărul", true), lectie(2, "Plumb", true)] });
+    expect(await screen.findByText(/Nicio lecție neterminată aici/)).toBeInTheDocument();
     expect(screen.queryByText("Materia nu are încă lecții.")).not.toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Arată-le" }));
-    expect(screen.getByRole("heading", { name: "Luceafărul" })).toBeInTheDocument();
+    expect(new URLSearchParams(cereri.filter((c) => c.cale === "/materii/1/parcursuri").at(-1).query).get("ascundeTerminate")).toBe("true");
+    await u.click(screen.getByRole("button", { name: "Arată și lecțiile terminate" }));
+    expect(await screen.findByRole("heading", { name: "Luceafărul" })).toBeInTheDocument();
     await waitFor(() => expect(puneri()).toEqual([{ ascundeLectiiTerminate: false }]));
   });
 
   it("o materie fără lecții nu pretinde că le-ai terminat", async () => {
-    porneste({ ascunde: true, lectii: [] });
+    porneste({ ascunde: false, lectii: [] });
     expect(await screen.findByText(/Nu există lecții pentru clasa aleasă/)).toBeInTheDocument();
-    expect(screen.queryByText(/Ai terminat/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/neterminată/)).not.toBeInTheDocument();
   });
 
   it("administratorul nu are comutatorul și nu i se cer preferințele", async () => {
@@ -79,14 +84,18 @@ describe("lecțiile unei materii: „Ascunde lecțiile terminate”", () => {
     apiFals({
       "GET /utilizatori/me": ELEV,
       "GET /materii/1": { id: 1, denumire: "Română", lectiiCompletate: 1, numarLectii: 2 },
-      "GET /materii/1/parcursuri": { elemente: [lectie(1, "Luceafărul", true), lectie(2, "Plumb", false)] },
+      "GET /materii/1/parcursuri": (c) => {
+        const toate = [lectie(1, "Luceafărul", true), lectie(2, "Plumb", false)];
+        const elemente = new URLSearchParams(c.query).get("ascundeTerminate") === "true" ? toate.filter((l) => !l.completata) : toate;
+        return { elemente, total: elemente.length };
+      },
       "GET /utilizatori/me/preferinte": { mod: "auto", ascundeLectiiTerminate: false },
       "PUT /utilizatori/me/preferinte": raspuns(500, { mesaj: "Eroare." }),
     });
     const u = userEvent.setup();
     render(<SesiuneProvider><PaginaMaterie /></SesiuneProvider>);
     await u.click(await screen.findByRole("checkbox", { name: "Ascunde lecțiile terminate" }));
-    expect(screen.queryByRole("heading", { name: "Luceafărul" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Luceafărul" })).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Plumb" })).toBeInTheDocument();
   });
 });

@@ -50,7 +50,7 @@ describe("panoul organizației: căutare și filtre", () => {
     await u.selectOptions(screen.getByRole("combobox", { name: "Materie" }), "2");
     await u.selectOptions(screen.getByRole("combobox", { name: "Stare" }), "");
     await u.type(screen.getByRole("searchbox"), " serban ");
-    await waitFor(() => expect(interogari().at(-1).toString()).toBe("rol=profesor&materieId=2&q=serban"));
+    await waitFor(() => expect(interogari().at(-1).toString()).toBe("rol=profesor&materieId=2&q=serban&marime=8"));
   });
 
   it("schimbarea tabului pornește filtrele de la capăt, cu o singură cerere", async () => {
@@ -61,13 +61,13 @@ describe("panoul organizației: căutare și filtre", () => {
     const inainte = interogari().length;
     await deschide(u, "Profesori");
     await waitFor(() => expect(interogari().length).toBe(inainte + 1));
-    expect(interogari().at(-1).toString()).toBe("rol=profesor&stare=aprobat");
+    expect(interogari().at(-1).toString()).toBe("rol=profesor&stare=aprobat&marime=8");
   });
 
   it("cererile se pot căuta", async () => {
     const { u, interogari } = porneste();
     await u.type(await screen.findByRole("searchbox"), "andrei");
-    await waitFor(() => expect(interogari().at(-1).toString()).toBe("stare=in_asteptare&q=andrei"));
+    await waitFor(() => expect(interogari().at(-1).toString()).toBe("stare=in_asteptare&q=andrei&marime=8"));
   });
 
   it("lista goală cu filtre spune că nimic nu se potrivește", async () => {
@@ -123,16 +123,16 @@ describe("panoul organizației: pagini", () => {
     const cereri = apiFals({
       "GET /utilizatori/me": { id: 1, nume: "Dana", rol: "organizatie", stareProfesor: "aprobat", organizatii: [] },
       "GET /organizatia-mea": { id: 1, nume: "Liceul de Test", adresa: "x", judetId: 40, localitateId: null, profesori: 0, elevi: 120, cereri: 0 },
-      "GET /organizatia-mea/membri": (c) => (new URLSearchParams(c.query).get("pagina") === "3" ? { elemente: pe(101, 20), total: 120 } : { elemente: pe(1, 50), total: 120 }),
+      "GET /organizatia-mea/membri": (c) => (new URLSearchParams(c.query).get("pagina") === "2" ? { elemente: pe(101, 12), total: 120 } : { elemente: pe(1, 50), total: 120 }),
       "GET /materii": { elemente: [] },
     });
     const u = userEvent.setup();
     render(<SesiuneProvider><PaginaOrganizatie /></SesiuneProvider>);
     await u.click(await screen.findByRole("tab", { name: "Elevi" }));
-    await u.click(await screen.findByRole("button", { name: "Pagina 3" }));
+    await u.click(await screen.findByRole("button", { name: "Pagina 2" }));
     expect(await screen.findByRole("heading", { name: "Elev 101" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Elev 1" })).not.toBeInTheDocument();
     const ultima = new URLSearchParams(cereri.filter((c) => c.cale === "/organizatia-mea/membri").at(-1).query);
-    expect(ultima.toString()).toBe("rol=elev&stare=aprobat&pagina=3");
+    expect(ultima.toString()).toBe("rol=elev&stare=aprobat&pagina=2&marime=12");
   });
 });

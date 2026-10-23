@@ -8,10 +8,14 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/profesori");
 });
 
+// The list has a page at a time, and other tests add professors: look irina and director up by name, as a student would.
 test("lista are doar profesorii cu ședințe programate", async ({ page }) => {
+  const cauta = page.getByRole("searchbox", { name: "Caută un profesor" });
+  await cauta.fill("irina marin");
   await expect(page.getByRole("heading", { name: "Irina Marin" })).toBeVisible();
   await expect(page.getByText("Recapitulare pentru bacalaureat")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Dana Director" })).toBeHidden();
+  await cauta.fill("dana director");
+  await expect(page.getByText(/Niciun profesor cu ședințe programate nu se potrivește/)).toBeVisible();
 });
 
 test("căutarea după nume sau materie, fără diacritice", async ({ page }) => {
@@ -26,6 +30,8 @@ test("căutarea după nume sau materie, fără diacritice", async ({ page }) => 
 });
 
 test("o ședință rezervată arată „Rezervat”, fără linkul de intrare", async ({ page }) => {
+  await page.getByRole("searchbox", { name: "Caută un profesor" }).fill("irina marin");
+  await expect(page.getByRole("heading", { name: "Irina Marin" })).toBeVisible();
   const rezervata = page.getByRole("listitem").filter({ hasText: "Rezervat" }).first();
   await expect(rezervata).toBeVisible();
   await expect(rezervata.getByRole("button", { name: /Anulează/ })).toBeVisible();
