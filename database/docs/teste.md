@@ -54,12 +54,44 @@ rulează doar în containerul oficial Playwright: `npm run test:e2e:webkit`.
 ## Date de volum (pentru a vedea listele pe pagini)
 
 ```bash
-dotnet run --project tools/MarkAi.Database -- date-volum            # ~5 800 de conturi vol-…, 200 de organizații, 2 000 de lecții
+dotnet run --project tools/MarkAi.Database -- date-volum            # ~51 000 de conturi vol-… (50 000 de elevi, 1 000 de profesori), 180 de organizații, 5–10 lecții de fiecare profesor aprobat (~7 500)
 dotnet run --project tools/MarkAi.Database -- date-volum --sterge   # scoate exact ce a generat
 ```
 
 Doar pe baze de test sau demo. Toate conturile sunt `vol-…@volum.hackattack.com`, cu parola din `date-test`. Mărimile paginilor:
 `src/MarkAi.Api/Infrastructura/Pagini.cs` (limitele API-ului) și `frontend/lib/pagini.js` (ce arată site-ul).
+
+## Test de stres (multe apeluri deodată)
+
+`tools/MarkAi.Stres` trimite la un API pornit, pentru fiecare scenariu, câte N apeluri deodată (pornite toate în același moment)
+și arată cum a răspuns: coduri, apeluri refuzate de limitator (429), erori și timeout-uri, timpi (p50/p95/p99/max), apeluri pe
+secundă. Iese cu 1 dacă o treaptă depășește pragurile (`--prag-erori`, implicit 1 %; `--prag-p95`, implicit 2000 ms).
+
+Niciodată pe API-ul live (5080; scriptul refuză 5080 și 3000): pe o bază de test cu datele de volum și un API separat,
+cu limitele ridicate, ca să măsori API-ul și nu limitatorul:
+
+```bash
+podman run -d --name markai-stres -e POSTGRES_PASSWORD=stres -p 5433:5432 postgres:18
+export MARKAI_CONNECTION_STRING="Host=127.0.0.1;Port=5433;Database=postgres;Username=postgres;Password=stres"
+for pas in migrate seed-localitati seed date-volum; do dotnet run --project tools/MarkAi.Database -- $pas; done   # date-volum: câteva minute
+# jurnal: niciun email sau SMS real, chiar dacă terminalul are deja setările din markai.env
+MARKAI_JWT_KEY=$(openssl rand -base64 48) Email__Furnizor=jurnal Sms__Furnizor=jurnal ASPNETCORE_URLS=http://127.0.0.1:5082 \
+  Limite__CereriPeMinut=1000000 Limite__AutentificariPeMinut=1000000 dotnet run --project src/MarkAi.Api -c Release --no-launch-profile
+# în alt terminal:
+dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 --cereri 100,500,1000,2000 --clienti 200
+```
+
+Opțiuni utile: `--scenarii lectii,cautare` (implicit toate: materii, judete, organizatii, profesori, lectii, lectie, cautare,
+progres, eu, autentificare, mix), `--concurenta 100` (cel mult atâtea în zbor, în loc de toate deodată), `--ip-uri-diferite`
+(fiecare client cu adresa lui, ca limitele pe IP să se vadă ca la utilizatori reali; doar conectat direct la API de pe același
+calculator), `--ajutor` pentru restul. Scenariile cu cont intră ca `vol-elev00001` … `vol-elevN` (N = `--clienti`), cu parola din
+`date-test`. Fără limite ridicate, apelurile peste `Limite:CereriPeMinut` (600/minut pe utilizator sau IP) și peste 10 autentificări
+pe minut pe IP primesc 429; scriptul le numără separat, nu ca erori. `autentificare` verifică parola la fiecare apel, deci arată
+cât duce procesorul.
+
+În CI (`.github/workflows/teste.yml`, jobul „Stres (API)”), la fiecare PR și push pe `main`: aceeași pregătire pe un Postgres
+de unică folosință, apoi treptele 100, 500 și 1000 cu 100 de clienți. Tabelul cu statistici apare la finalul jurnalului și pe
+pagina rulării (Summary). Jobul nu pică build-ul (`continue-on-error`), fiindcă viteza mașinilor GitHub variază de la o rulare la alta.
 
 ## Reguli
 - Un test care pică uneori se repară (sau se pune deoparte cu o problemă deschisă) înainte de merge; nu se reîncearcă orbește.

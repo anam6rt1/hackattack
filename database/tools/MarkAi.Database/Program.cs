@@ -9,7 +9,7 @@ if (args.Length < 1 || args[0] is not ("migrate" or "verify" or "seed" or "setea
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- seed-localitati [siruta.csv]   (counties and localities, SIRUTA)");
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- organizatie-demo <admin-username> [name] [county-id] [locality-siruta]");
     Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- date-test [api-storage-dir]   (test accounts and content; TEST databases only)");
-    Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- date-volum [--sterge]   (thousands of marked records to try the lists; --sterge removes them)");
+    Console.WriteLine("       dotnet run --project tools/MarkAi.Database -- date-volum [--sterge]   (~51 000 marked accounts for the lists and the stress test; --sterge removes them)");
     Console.WriteLine("Set MARKAI_CONNECTION_STRING in your environment. Never put passwords in Git.");
     return 1;
 }
