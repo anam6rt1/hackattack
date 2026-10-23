@@ -46,13 +46,14 @@ public static class OrganizatiiEndpoints
             await db.Set<Localitate>().AsNoTracking().Where(l => l.Id == id).Select(l => new LocalitateDto(l.Id, l.Nume, l.UatNume, l.JudetId)).SingleOrDefaultAsync(ct)
             ?? throw new KeyNotFoundException("Localitatea nu există."));
 
+        // The sign-up and join pickers: approved organisations by name, county or locality, the first 100 (total says how many match).
         publice.MapGet("/organizatii", async (int? judetId, string? q, MarkAiDbContext db, CancellationToken ct) =>
         {
-            var lista = db.Set<Organizatie>().AsNoTracking().Where(o => o.Stare == Organizatie.Aprobata);
+            var lista = Cauta(db.Set<Organizatie>().AsNoTracking().Where(o => o.Stare == Organizatie.Aprobata), q);
             if (judetId is not null) lista = lista.Where(o => o.JudetId == judetId);
-            foreach (var t in TermeniCautare.Optionali(q)) lista = lista.Where(o => EF.Functions.ILike(o.Cautare, t, "\\"));
-            return Lista<OrganizatiePublica>.Din(await lista.OrderBy(o => o.Nume).Take(100)
-                .Select(o => new OrganizatiePublica(o.Id, o.Nume, o.Judet.Nume, o.Localitate == null ? null : o.Localitate.Nume)).ToListAsync(ct));
+            var total = await lista.CountAsync(ct);
+            return new Lista<OrganizatiePublica>(await lista.OrderBy(o => o.Nume).ThenBy(o => o.Id).Take(100)
+                .Select(o => new OrganizatiePublica(o.Id, o.Nume, o.Judet.Nume, o.Localitate == null ? null : o.Localitate.Nume)).ToListAsync(ct), total);
         });
 
         // The signed-in person's own memberships and requests.
@@ -198,9 +199,7 @@ public static class OrganizatiiEndpoints
             var org = db.Set<Organizatie>().AsNoTracking().Where(o => stare == null || o.Stare == stare);
             if (judetId is not null) org = org.Where(o => o.JudetId == judetId);
             if (localitateId is not null) org = org.Where(o => o.LocalitateId == localitateId);
-            foreach (var t in TermeniCautare.Optionali(q))
-                org = org.Where(o => EF.Functions.ILike(o.Cautare, t, "\\") || EF.Functions.ILike(o.Judet.Cautare, t, "\\")
-                    || (o.Localitate != null && EF.Functions.ILike(o.Localitate.Cautare, t, "\\")));
+            org = Cauta(org, q);
             var total = await org.CountAsync(ct);
             var pag = await DetaliiAdmin(org.OrderByDescending(o => o.CreatLa).ThenByDescending(o => o.Id).Pagina(lista, pagina, marime)).ToListAsync(ct);
             return new Lista<OrganizatieAdminDto>(pag, total);
@@ -252,6 +251,15 @@ public static class OrganizatiiEndpoints
     private static async Task<MembruOrganizatie> Membru(MarkAiDbContext db, int organizatieId, int uid, CancellationToken ct) =>
         await db.Set<MembruOrganizatie>().SingleOrDefaultAsync(m => m.OrganizatieId == organizatieId && m.UtilizatorId == uid, ct)
         ?? throw new KeyNotFoundException("Persoana nu face parte din organizație și nu are o cerere aici.");
+
+    /// <summary>Organisations whose name, county or locality holds every word of <paramref name="q"/> (in SQL, without diacritics).</summary>
+    private static IQueryable<Organizatie> Cauta(IQueryable<Organizatie> org, string? q)
+    {
+        foreach (var t in TermeniCautare.Optionali(q))
+            org = org.Where(o => EF.Functions.ILike(o.Cautare, t, "\\") || EF.Functions.ILike(o.Judet.Cautare, t, "\\")
+                || (o.Localitate != null && EF.Functions.ILike(o.Localitate.Cautare, t, "\\")));
+        return org;
+    }
 
     public static async Task<(int JudetId, int? LocalitateId)> ValideazaLocul(MarkAiDbContext db, int judetId, int? localitateId, CancellationToken ct)
     {

@@ -59,11 +59,13 @@ public static class ContinutEndpoints
 
         // Anonymous too: the professor sign-up form lists the subjects (anonymous counts show only public content). The counts are
         // computed in SQL. With pagina or marime (the Materiale overview), a page at a time (Pagini.Materii*, by role); without them
-        // every subject, for the subject pickers (a short reference list).
-        g.MapGet("/materii", async (int? pagina, int? marime, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        // every subject, for the subject pickers; q searches the name (in SQL, without diacritics).
+        g.MapGet("/materii", async (string? q, int? pagina, int? marime, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             var a = await acces.PentruAsync(h.User, ct);
-            var ordonate = db.Materii.AsNoTracking().OrderBy(m => m.Ordine).ThenBy(m => m.Denumire).ThenBy(m => m.Id);
+            var materii = db.Materii.AsNoTracking();
+            foreach (var t in TermeniCautare.Optionali(q)) materii = materii.Where(m => EF.Functions.ILike(m.Cautare, t, "\\"));
+            var ordonate = materii.OrderBy(m => m.Ordine).ThenBy(m => m.Denumire).ThenBy(m => m.Id);
             if (pagina is null && marime is null) return Lista<MaterieDto>.Din(await CuNumere(ordonate, acces, a).ToListAsync(ct));
             var lista = h.User.EsteAdmin() ? Pagini.MateriiAdmin : Pagini.MateriiElev;
             Pagini.Fereastra(lista, pagina, marime);
@@ -537,6 +539,8 @@ public static class ContinutEndpoints
         var permise = aleAutorului.Select(o => o.Id).Concat(p.Partajari.Select(s => s.OrganizatieId)).ToHashSet();
         if (partajari.Any(id => !permise.Contains(id)))
             throw new CerereInvalida("O lecție poate fi arătată doar în celelalte organizații ale autorului.");
+        if (partajari.Count > Alegeri.PartajariLectie)
+            throw new CerereInvalida($"O lecție poate fi arătată în cel mult {Alegeri.PartajariLectie} alte organizații.");
         foreach (var s in p.Partajari.Where(s => !partajari.Contains(s.OrganizatieId)).ToList()) p.Partajari.Remove(s);
         foreach (var id in partajari.Where(id => p.Partajari.All(s => s.OrganizatieId != id)))
             p.Partajari.Add(new ParcursOrganizatie { OrganizatieId = id });

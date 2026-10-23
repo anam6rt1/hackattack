@@ -16,6 +16,8 @@ import Incarcare from '@/components/Incarcare'
 import Paginare from '@/components/Paginare'
 import { LECTII_PE_PAGINA_EDITOR_ADMIN, LECTII_PE_PAGINA_EDITOR_PROFESOR, cuPagina } from '@/lib/pagini'
 import { useConfirmare } from '@/components/Confirmare'
+import AlegeMultiplu from '@/components/AlegeMultiplu'
+import { PARTAJARI_LECTIE, potriveste } from '@/lib/alegeri'
 
 const CURS_GOL = { titlu: '', descriere: '', capitol: '', ordine: '', videoUrl: '', continut: '', publicat: true, materiale: [{ titlu: '', text: '' }] }
 const LECTIE_GOALA = { titlu: '', descriere: '', clasa: 'Bac', vizibilitate: 'public', organizatieId: null, partajari: [], publicat: true }
@@ -98,7 +100,6 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
     }
   }
 
-  const comutaPartajare = (id) => setDate({ ...date, partajari: date.partajari.includes(id) ? date.partajari.filter((x) => x !== id) : [...date.partajari, id] })
   const dePartajat = posibile.filter((o) => o.id !== date.organizatieId)
 
   return (
@@ -146,16 +147,14 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
         </div>
         {!publicPermis && <small className="tv-indiciu">Organizația nu permite autorului să publice lecții pentru toți, așa că lecția rămâne doar pentru organizație.</small>}
       </fieldset>
+      {/* Doar celelalte organizații ale autorului (câteva), venite deja cu lecția: căutarea lor rămâne aici. */}
       {dePartajat.length > 0 && (
-        <fieldset className="tv-eticheta-camp">
-          <span>Arată lecția și în (doar vizualizare)</span>
-          {dePartajat.map((o) => (
-            <label key={o.id} className="tv-bifa">
-              <input type="checkbox" checked={date.partajari.includes(o.id)} onChange={() => comutaPartajare(o.id)} /> {o.nume}
-            </label>
-          ))}
-          <small className="tv-indiciu">Elevii acestor organizații o văd; administratorii lor nu o pot edita.</small>
-        </fieldset>
+        <AlegeMultiplu eticheta="Arată lecția și în (doar vizualizare)" buton="Adaugă organizație" titlu="Arată lecția și în"
+          etichetaCautare="Caută o organizație" maxim={PARTAJARI_LECTIE} cheieCautare={dePartajat.length}
+          alese={date.partajari.map((id) => dePartajat.find((o) => o.id === id) ?? { id, nume: `Organizația ${id}` }).map(({ id, nume }) => ({ id, nume }))}
+          onChange={(alese) => setDate({ ...date, partajari: alese.map((a) => a.id) })}
+          cauta={async (q) => ({ elemente: dePartajat.filter((o) => potriveste(o.nume, q)).map(({ id, nume }) => ({ id, nume })) })}
+          indiciu="Elevii acestor organizații o văd; administratorii lor nu o pot edita." />
       )}
       <label className="tv-optiune" style={{ justifySelf: 'start' }}>
         <input type="checkbox" checked={date.publicat} onChange={(e) => setDate({ ...date, publicat: e.target.checked })} /> Publicată

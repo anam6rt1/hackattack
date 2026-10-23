@@ -7,6 +7,7 @@ import { API, api, EroareApi } from '@/lib/api'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import SetariOrganizatie from '@/components/SetariOrganizatie'
+import AlegeMaterii, { materie } from '@/components/AlegeMaterii'
 import { useConfirmare } from '@/components/Confirmare'
 import './setari.css'
 
@@ -210,7 +211,7 @@ export default function SetariCont() {
           {tab === 'organizatie' && utilizator.rol !== 'admin' && <SetariOrganizatie utilizator={utilizator} onSchimbat={reincarca} />}
           {tab === 'profesor' && teacher && <><p className="sc-intro">Ajută elevii să te cunoască. Aceste informații apar pe profilul tău de profesor.</p>
             <div className="sc-status"><Icon name="shield" /><span>{data.profesor?.stareVerificare === 'aprobat' ? 'Profil verificat de echipa noastră' : 'Profilul este în curs de verificare sau necesită actualizare'}</span></div>
-            <form className="sc-form" onSubmit={save}><fieldset className="sc-subjects"><legend>Materii predate</legend>{subjects.map(subject => <label key={subject.id}><input type="checkbox" checked={form.materieIds.includes(subject.id)} onChange={e => update('materieIds', e.target.checked ? [...form.materieIds, subject.id] : form.materieIds.filter(id => id !== subject.id))} />{subject.denumire}</label>)}</fieldset>
+            <form className="sc-form" onSubmit={save}><AlegeMaterii alese={form.materieIds.map(id => subjects.find(subject => subject.id === id)).filter(Boolean).map(materie)} onChange={alese => update('materieIds', alese.map(a => a.id))} />
               <label className="sc-field"><span>Despre tine <small>(apare pe profilul public)</small></span><textarea name="descriere" value={form.descriere} onChange={e => update('descriere', e.target.value)} required maxLength={2000} rows={5} placeholder="Experiență, ce pregătești, cum lucrezi cu elevii" /></label>
               <p className="sc-hint">Schimbarea materiilor predate solicită o nouă verificare a profilului.</p>
               {error && <div className="sc-error" role="alert">{error}</div>}

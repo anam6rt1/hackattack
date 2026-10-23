@@ -85,12 +85,14 @@ public static class AutentificareEndpoints
             // Every professor belongs to at least one organisation, whose admin approves them.
             var organizatii = (c.OrganizatieIds ?? []).Distinct().ToList();
             if (organizatii.Count == 0) throw new CerereInvalida("Alege cel puțin o organizație în care predai.");
+            if (organizatii.Count > Alegeri.OrganizatiiProfesor) throw new CerereInvalida($"Alege cel mult {Alegeri.OrganizatiiProfesor} organizații.");
             if (await db.Set<Organizatie>().CountAsync(o => organizatii.Contains(o.Id) && o.Stare == Organizatie.Aprobata, ct) != organizatii.Count)
                 throw new CerereInvalida("Una dintre organizații nu există sau nu este încă aprobată.");
             var (judetId, localitateId) = await OrganizatiiEndpoints.ValideazaLocul(db, c.JudetId ?? 0, c.LocalitateId, ct);
             var telefon = Validare.Telefon(c.Telefon) ?? throw new CerereInvalida("Numărul de telefon este obligatoriu pentru profesori.");
             var materii = (c.MaterieIds ?? []).Distinct().ToList();
             if (materii.Count == 0) throw new CerereInvalida("Alege cel puțin o materie predată.");
+            if (materii.Count > Alegeri.MateriiProfesor) throw new CerereInvalida($"Alege cel mult {Alegeri.MateriiProfesor} materii.");
             if (await db.Materii.CountAsync(m => materii.Contains(m.Id), ct) != materii.Count) throw new CerereInvalida("Materie inexistentă.");
             if (c.Poza is null) throw new CerereInvalida("Adaugă o fotografie.");
             if (c.Dovada is null) throw new CerereInvalida("Adaugă dovada calificării (diplomă sau certificat).");

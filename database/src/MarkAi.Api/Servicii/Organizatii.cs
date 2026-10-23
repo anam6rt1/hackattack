@@ -109,6 +109,9 @@ public sealed class ServiciuOrganizatii(MarkAiDbContext db, Posta posta, TimePro
         if (rol == MembruOrganizatie.RolElev && await db.Set<MembruOrganizatie>().AnyAsync(m => m.UtilizatorId == u.Id && m.Rol == MembruOrganizatie.RolElev
                 && m.OrganizatieId != organizatieId && (m.Stare == MembruOrganizatie.Aprobat || m.Stare == MembruOrganizatie.InAsteptare), ct))
             throw new Conflict("Ești deja într-o organizație sau ai o cerere în așteptare. Ieși din ea înainte să ceri alta.");
+        if (rol == MembruOrganizatie.RolProfesor && await db.Set<MembruOrganizatie>().CountAsync(m => m.UtilizatorId == u.Id && m.Rol == MembruOrganizatie.RolProfesor
+                && m.OrganizatieId != organizatieId && (m.Stare == MembruOrganizatie.Aprobat || m.Stare == MembruOrganizatie.InAsteptare), ct) >= Alegeri.OrganizatiiProfesor)
+            throw new Conflict($"Un profesor poate preda în cel mult {Alegeri.OrganizatiiProfesor} organizații (cu tot cu cererile în așteptare). Ieși dintr-una înainte să ceri alta.");
         var m = await db.Set<MembruOrganizatie>().SingleOrDefaultAsync(x => x.OrganizatieId == organizatieId && x.UtilizatorId == u.Id, ct);
         if (m is { Stare: MembruOrganizatie.Aprobat or MembruOrganizatie.InAsteptare })
             throw new Conflict(m.Stare == MembruOrganizatie.Aprobat ? "Faci deja parte din această organizație." : "Ai deja o cerere în așteptare la această organizație.");
