@@ -7,7 +7,8 @@ import { api } from '@/lib/api'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import AlegeLoc from '@/components/AlegeLoc'
-import AlegeOrganizatie from '@/components/AlegeOrganizatie'
+import AlegeOrganizatie, { AlegeOrganizatii } from '@/components/AlegeOrganizatie'
+import AlegeMaterii from '@/components/AlegeMaterii'
 
 const DECOR = decorSVG(13)
 
@@ -236,13 +237,10 @@ function FormularElev({ onConfirmare }) {
 function FormularProfesor({ onConfirmare }) {
   const { inregistreazaProfesor } = useSesiune()
   const [materii, setMaterii] = useState([])
+  const [organizatii, setOrganizatii] = useState([])
   const [eroare, setEroare] = useState('')
   const [trimite, setTrimite] = useState(false)
   const [judetId, setJudetId] = useState(null)
-
-  useEffect(() => {
-    api('/materii').then((r) => setMaterii(r.elemente)).catch((e) => setEroare(e.message))
-  }, [])
 
   async function trimiteFormular(e) {
     e.preventDefault()
@@ -271,16 +269,7 @@ function FormularProfesor({ onConfirmare }) {
       </div>
       <Camp eticheta="Email" name="email" type="email" autoComplete="email" required />
       <Camp eticheta="Parolă (minim 8 caractere)" name="parola" type="password" autoComplete="new-password" required minLength={8} />
-      <fieldset className="tv-eticheta-camp">
-        <span>Materii predate</span>
-        <div className="tv-optiuni">
-          {materii.map((m) => (
-            <label key={m.id} className="tv-optiune">
-              <input type="checkbox" name="materieIds" value={m.id} /> {m.denumire}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <AlegeMaterii alese={materii} onChange={setMaterii} name="materieIds" />
       <label className="tv-eticheta-camp">
         <span>Despre tine (apare pe profilul public)</span>
         <textarea className="tv-camp-text" name="descriere" rows={3} required maxLength={2000} placeholder="Experiență, ce pregătești, cum lucrezi cu elevii" />
@@ -296,7 +285,7 @@ function FormularProfesor({ onConfirmare }) {
         </label>
       </div>
       <AlegeLoc obligatoriu onChange={(v) => setJudetId(v.judetId)} />
-      <AlegeOrganizatie judetId={judetId} multiplu obligatoriu />
+      <AlegeOrganizatii judetId={judetId} alese={organizatii} onChange={setOrganizatii} />
       <p className="tv-indiciu">Administratorii organizațiilor alese îți verifică cererea. Dacă nu ești aprobat în 7 zile, contul se șterge automat.</p>
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
       <button className="tv-btn tv-aur" disabled={trimite}>{trimite ? 'Se trimite...' : 'Trimite cererea'}</button>

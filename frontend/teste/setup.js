@@ -2,12 +2,13 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
-import { router } from "./ajutor";
+import { parametri, router } from "./ajutor";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   usePathname: () => window.location.pathname,
   useSearchParams: () => new URLSearchParams(window.location.search),
+  useParams: () => parametri,
 }));
 
 // A plain link: the tests check where it goes, not Next's prefetching.
@@ -27,5 +28,6 @@ afterEach(() => {
   localStorage.clear();
   router.replace.mockClear();
   router.push.mockClear();
+  for (const k of Object.keys(parametri)) delete parametri[k];
   window.history.replaceState(null, "", "/");
 });

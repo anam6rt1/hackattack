@@ -38,7 +38,8 @@ dotnet run --project tools/MarkAi.Previzualizare            # 127.0.0.1:5081
 dotnet run --project tools/MarkAi.Previzualizare -- --port 5090
 ```
 
-Aceeași aplicație și aceleași fixturi (george, irina, admin, director; parola `Test-demo-2026!`), cu ceasul real, serviciile de fundal
+Aceeași aplicație și aceleași fixturi (george, irina, admin, director; parola `Test-demo-2026!`), plus ședințele programate din
+`date-test` (`tools/MarkAi.Database/SedinteTest.cs`: irina are trei, director niciuna, george e înscris la câteva), cu ceasul real, serviciile de fundal
 pornite și furnizorul „jurnal” (codurile apar la admin, pagina „Mesaje trimise”). Baza e o copie de unică folosință. Un frontend de test
 trebuie construit cu `API_INTERN_URL=http://127.0.0.1:5081`, altfel `/api` ajunge la API-ul real.
 
@@ -49,6 +50,16 @@ fără pauză între teste) și un build separat al site-ului; vezi frontend/REA
 rulează la fiecare PR și push pe main: `dotnet test`, lint + Vitest + build, apoi Playwright în Chromium, Firefox și WebKit
 (motorul din Safari), câte un job pe browser. Eșecurile WebKit apar în raport, dar nu opresc încă rularea. Pe Bazzite WebKit
 rulează doar în containerul oficial Playwright: `npm run test:e2e:webkit`.
+
+## Date de volum (pentru a vedea listele pe pagini)
+
+```bash
+dotnet run --project tools/MarkAi.Database -- date-volum            # ~5 800 de conturi vol-…, 200 de organizații, 2 000 de lecții
+dotnet run --project tools/MarkAi.Database -- date-volum --sterge   # scoate exact ce a generat
+```
+
+Doar pe baze de test sau demo. Toate conturile sunt `vol-…@volum.hackattack.com`, cu parola din `date-test`. Mărimile paginilor:
+`src/MarkAi.Api/Infrastructura/Pagini.cs` (limitele API-ului) și `frontend/lib/pagini.js` (ce arată site-ul).
 
 ## Reguli
 - Un test care pică uneori se repară (sau se pune deoparte cu o problemă deschisă) înainte de merge; nu se reîncearcă orbește.

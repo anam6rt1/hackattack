@@ -21,6 +21,7 @@ internal static class IntegrareConfiguration
             e.Property(x => x.Cod).HasColumnName("cod");
             e.Property(x => x.Ordine).HasColumnName("ordine").HasDefaultValue(0);
             e.HasIndex(x => x.Cod, "materie_cod_key").IsUnique();
+            e.Property(x => x.Cautare).HasColumnName("cautare").HasComputedColumnSql(CautareText.Sql("denumire"), stored: true);
         });
 
         model.Entity<Curs>(e =>
@@ -86,6 +87,7 @@ internal static class IntegrareConfiguration
             e.Property(x => x.VitezaTutor).HasColumnName("viteza_tutor").HasDefaultValue(100);
             e.Property(x => x.TonTutor).HasColumnName("ton_tutor").HasDefaultValue(0);
             e.Property(x => x.Avatar).HasColumnName("avatar");
+            e.Property(x => x.AscundeLectiiTerminate).HasColumnName("ascunde_lectii_terminate").HasDefaultValue(false);
         });
 
         model.Entity<CameraTutoring>(e =>

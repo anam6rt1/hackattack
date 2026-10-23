@@ -34,51 +34,56 @@ export default function Harta({ harta = HARTA_DEMO, proprietari = {}, jucatori =
   const compact = harta.insule.length > 15
 
   return (
-    <div className="tv-harta" style={{ aspectRatio: `${latime} / ${inaltime}` }}>
-      <svg viewBox={`0 0 ${latime} ${inaltime}`} role="img" aria-label="Harta jocului cu insule">
-        <g dangerouslySetInnerHTML={{ __html: decor }} />
+    // Pe telefon harta își păstrează o lățime minimă (după mărimea ei), într-un cadru care se glisează în lateral, ca insulele și
+    // etichetele să rămână lizibile.
+    <div className="tv-harta-cadru" style={{ '--harta-latime-min': `${Math.max(560, Math.round(latime * 0.45))}px` }}>
+      <div className="tv-harta" style={{ aspectRatio: `${latime} / ${inaltime}` }}>
+        <svg viewBox={`0 0 ${latime} ${inaltime}`} role="img" aria-label="Harta jocului cu insule">
+          <g dangerouslySetInnerHTML={{ __html: decor }} />
+          {harta.insule.map((ins) => {
+            const p = juc(proprietari[ins.id])
+            const mare = cetati.includes(ins.id)
+            const poate = tinte.includes(ins.id)
+            const html = insulaSVG(ins, mare) + (p ? proprietarSVG(ins, mare, p.culoare) : '')
+            return (
+              <g
+                key={ins.id + (p ? p.id : '')}
+                className={`tv-insula ${poate ? 'tv-poate' : ''} ${atacata === ins.id ? 'tv-clipeste' : ''}`}
+                onClick={poate ? () => onAlege(ins.id) : undefined}
+                onKeyDown={poate ? (e) => (e.key === 'Enter' || e.key === ' ') && onAlege(ins.id) : undefined}
+                tabIndex={poate ? 0 : undefined}
+                role={poate ? 'button' : undefined}
+                aria-label={poate ? `Atacă ${ins.nume}` : undefined}
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+          })}
+        </svg>
+
+        {/* Etichetele: numele insulei și cine o deține */}
         {harta.insule.map((ins) => {
           const p = juc(proprietari[ins.id])
           const mare = cetati.includes(ins.id)
-          const poate = tinte.includes(ins.id)
-          const html = insulaSVG(ins, mare) + (p ? proprietarSVG(ins, mare, p.culoare) : '')
+          const stanga = (ins.x / latime) * 100 + '%'
           return (
-            <g
-              key={ins.id + (p ? p.id : '')}
-              className={`tv-insula ${poate ? 'tv-poate' : ''} ${atacata === ins.id ? 'tv-clipeste' : ''}`}
-              onClick={poate ? () => onAlege(ins.id) : undefined}
-              onKeyDown={poate ? (e) => (e.key === 'Enter' || e.key === ' ') && onAlege(ins.id) : undefined}
-              tabIndex={poate ? 0 : undefined}
-              role={poate ? 'button' : undefined}
-              aria-label={poate ? `Atacă ${ins.nume}` : undefined}
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+            <div key={ins.id}>
+              <div className="tv-eticheta" style={{ left: stanga, top: ((ins.y - (mare ? 92 : 86)) / inaltime) * 100 + '%' }}>
+                <b>
+                  {p && <span className="tv-punct" style={{ background: p.culoare }} />}
+                  {ins.nume}
+                </b>
+                {!compact && <small>{ins.autor}</small>}
+              </div>
+              {!compact && (
+                <div className="tv-chip" style={{ left: stanga, top: ((ins.y + 74) / inaltime) * 100 + '%' }}>
+                  {mare && p ? `Cetatea lui ${p.nume}` : p ? p.nume : 'Liberă'}
+                </div>
+              )}
+            </div>
           )
         })}
-      </svg>
-
-      {/* Etichetele: numele insulei și cine o deține */}
-      {harta.insule.map((ins) => {
-        const p = juc(proprietari[ins.id])
-        const mare = cetati.includes(ins.id)
-        const stanga = (ins.x / latime) * 100 + '%'
-        return (
-          <div key={ins.id}>
-            <div className="tv-eticheta" style={{ left: stanga, top: ((ins.y - (mare ? 92 : 86)) / inaltime) * 100 + '%' }}>
-              <b>
-                {p && <span className="tv-punct" style={{ background: p.culoare }} />}
-                {ins.nume}
-              </b>
-              {!compact && <small>{ins.autor}</small>}
-            </div>
-            {!compact && (
-              <div className="tv-chip" style={{ left: stanga, top: ((ins.y + 74) / inaltime) * 100 + '%' }}>
-                {mare && p ? `Cetatea lui ${p.nume}` : p ? p.nume : 'Liberă'}
-              </div>
-            )}
-          </div>
-        )
-      })}
+      </div>
+      <p className="tv-harta-indiciu">Glisează harta în lateral ca s-o vezi toată.</p>
     </div>
   )
 }

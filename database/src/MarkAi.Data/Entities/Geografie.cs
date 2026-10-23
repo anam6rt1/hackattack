@@ -7,6 +7,9 @@ public class Judet
 
     public string Nume { get; set; } = null!;
 
+    /// <summary>The name for search (lower case, without diacritics; computed by the database).</summary>
+    public string Cautare { get; set; } = "";
+
     public virtual ICollection<Localitate> Localitati { get; set; } = new List<Localitate>();
 }
 

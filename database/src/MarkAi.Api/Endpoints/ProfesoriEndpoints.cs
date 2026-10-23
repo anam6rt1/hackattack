@@ -38,8 +38,10 @@ public record SlotProfesor(SlotDto Slot, IReadOnlyList<ElevRezervare> Elevi);
 public record CastiguriDto(decimal Total, decimal InAsteptare, string Moneda);
 public record PanouProfesor(ProfesorDto Profil, decimal OnorariuNegociat, string Moneda, PretDto? Pret, IReadOnlyList<SlotProfesor> Sloturi, CastiguriDto Castiguri);
 
+/// <param name="RetrasLa">When the platform admin withdrew the approval (null = not withdrawn).</param>
 public record CerereProfesor(int Id, string Nume, string Username, string Email, string? Telefon, string? Descriere, string? PozaUrl,
-    bool AreDovada, string Stare, string? MotivRespingere, decimal OnorariuNegociat, IReadOnlyList<MaterieScurta> Materii, DateTime CreatLa);
+    bool AreDovada, string Stare, string? MotivRespingere, decimal OnorariuNegociat, IReadOnlyList<MaterieScurta> Materii, DateTime CreatLa,
+    DateTime? RetrasLa = null);
 public record Aprobare(decimal OnorariuNegociat);
 public record Respingere(string Motiv);
 
@@ -51,37 +53,59 @@ public static class ProfesoriEndpoints
 
         g.MapGet("/tarif", async (MarkAiDbContext db, CancellationToken ct) => await Pret(db, ct));
 
-        // filtru: toate | organizatia-mea (teaches in one of the user's organisations) | local (teaches in the user's county; their
-        // own locality first). tip: online | fata_in_fata (hybrid sessions count for both): only those sessions are listed, and
-        // professors without one are left out.
-        g.MapGet("/profesori", async (int? materieId, bool? gratuit, int? zile, string? filtru, string? tip, HttpContext h, MarkAiDbContext db,
-            AccesContinut acces, CancellationToken ct) =>
+        // Only professors with at least one upcoming session are listed (the profile below still opens without one), a page at a
+        // time (pagina from 1, marime: Pagini.ProfesoriPentruElevi; Total = all that match). Everything is filtered in SQL:
+        // filtru: toate | organizatia-mea (teaches in one of the user's organisations) | local (teaches in the user's locality).
+        // tip: online | fata_in_fata (hybrid sessions count for both): only those sessions count and are listed. q: words found in
+        // the name or the subjects, without diacritics ("ionescu mate" finds Mihai Ionescu, Matematică).
+        g.MapGet("/profesori", async (int? materieId, bool? gratuit, int? zile, string? filtru, string? tip, string? q, int? pagina, int? marime,
+            HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             if (tip is not (null or "" or CameraTutoring.Online or CameraTutoring.FataInFata))
                 throw new CerereInvalida("Tipul ședinței trebuie să fie „online” sau „fata_in_fata”.");
+            if (filtru is not (null or "" or "toate" or "organizatia-mea" or "local"))
+                throw new CerereInvalida("Filtrul trebuie să fie „toate”, „organizatia-mea” sau „local”.");
+            var termeni = TermeniCautare.Optionali(q);
+            Pagini.Fereastra(Pagini.ProfesoriPentruElevi, pagina, marime);
             var a = await acces.PentruAsync(h.User, ct);
             var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
-            var q = db.ProfiluriMentor.AsNoTracking().Where(m => m.StareVerificare == RezervareService.MentorAprobat);
-            if (materieId is not null) q = q.Where(m => m.Materii.Any(x => x.MaterieId == materieId));
-            var profesori = await ProfesoriCuLoc(db, q, Utilizator(h), loc, ct);
-            profesori = filtru switch
-            {
-                null or "" or "toate" => profesori,
-                "organizatia-mea" => profesori.Where(p => p.Organizatii.Any(a.Organizatii.Contains)).ToList(),
-                "local" => profesori.Where(p => p.JudetId == loc.JudetObligatoriu).OrderByDescending(p => p.Dto.InLocalitateaTa).ToList(),
-                _ => throw new CerereInvalida("Filtrul trebuie să fie „toate”, „organizatia-mea” sau „local”."),
-            };
-            var lista = profesori.Select(p => p.Dto).ToList();
-            if (!string.IsNullOrEmpty(tip))
-                lista = lista.Select(p => p with { Sloturi = p.Sloturi.Where(s => s.Tip == tip || s.Tip == CameraTutoring.Hibrid).ToList() })
-                    .Where(p => p.Sloturi.Count > 0).ToList();
-            if (gratuit == true) lista = lista.Where(p => p.OferaProBono).ToList();
+            var tipul = string.IsNullOrEmpty(tip) ? null : tip;
+
+            var sedinte = SedinteViitoare(db, tipul);
+            var p = db.ProfiluriMentor.AsNoTracking().Where(m => m.StareVerificare == RezervareService.MentorAprobat
+                && sedinte.Any(s => s.MentorId == m.UtilizatorId));
+            if (materieId is not null) p = p.Where(m => m.Materii.Any(x => x.MaterieId == materieId));
+            if (gratuit == true) p = p.Where(m => sedinte.Any(s => s.MentorId == m.UtilizatorId && s.ProBono));
             if (zile is > 0)
             {
                 var pana = DateTime.UtcNow.AddDays(zile.Value);
-                lista = lista.Where(p => p.Sloturi.Any(s => s.LocuriLibere > 0 && s.InceputLa <= pana)).ToList();
+                p = p.Where(m => sedinte.Any(s => s.MentorId == m.UtilizatorId && s.InceputLa <= pana
+                    && s.Capacitate > s.Rezervari.Count(r => r.Status == RezervareService.RezervareConfirmata)));
             }
-            return Lista<ProfesorDto>.Din(lista);
+            var membri = db.Set<MembruOrganizatie>().Where(x => x.Rol == MembruOrganizatie.RolProfesor && x.Stare == MembruOrganizatie.Aprobat
+                && x.Organizatie.Stare == Organizatie.Aprobata);
+            var conduse = db.Set<Organizatie>().Where(o => o.Stare == Organizatie.Aprobata);
+            if (filtru == "organizatia-mea")
+            {
+                var ale = a.Organizatii;
+                p = p.Where(m => membri.Any(x => x.UtilizatorId == m.UtilizatorId && ale.Contains(x.OrganizatieId))
+                    || conduse.Any(o => o.AdminId == m.UtilizatorId && ale.Contains(o.Id)));
+            }
+            else if (filtru == "local")
+            {
+                // The place: the organisation they chose while they still teach there, otherwise their own (as in ProfesoriCuLoc).
+                var localitate = loc.LocalitateObligatorie;
+                p = p.Where(m => (m.LocOrganizatieId != null
+                        && (membri.Any(x => x.UtilizatorId == m.UtilizatorId && x.OrganizatieId == m.LocOrganizatieId)
+                            || conduse.Any(o => o.AdminId == m.UtilizatorId && o.Id == m.LocOrganizatieId))
+                        ? m.LocOrganizatie!.LocalitateId : m.Utilizator.LocalitateId) == localitate);
+            }
+            foreach (var t in termeni)
+                p = p.Where(m => EF.Functions.ILike(m.Utilizator.CautareNume, t, "\\") || m.Materii.Any(x => EF.Functions.ILike(x.Materie.Cautare, t, "\\")));
+
+            var total = await p.CountAsync(ct);
+            var pag = p.OrderBy(m => m.Utilizator.Nume).ThenBy(m => m.UtilizatorId).Pagina(Pagini.ProfesoriPentruElevi, pagina, marime);
+            return new Lista<ProfesorDto>((await ProfesoriCuLoc(db, pag, Utilizator(h), loc, ct, tipul)).Select(x => x.Dto).ToList(), total);
         });
 
         g.MapGet("/profesori/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
@@ -203,22 +227,41 @@ public static class ProfesoriEndpoints
         });
 
         var admin = app.MapGroup("/admin").WithTags("Administrare").RequireAuthorization(Politici.Admin);
-        admin.MapGet("/profesori", async (string? stare, MarkAiDbContext db, CancellationToken ct) =>
+        // One tab per state, each its own page size (Pagini.Profesori*Admin); oldest application first. q: words in the name, username
+        // or email, without diacritics (in SQL).
+        admin.MapGet("/profesori", async (string? stare, string? q, int? pagina, int? marime, MarkAiDbContext db, CancellationToken ct) =>
         {
-            var q = db.ProfiluriMentor.AsNoTracking();
-            if (!string.IsNullOrEmpty(stare)) q = q.Where(m => m.StareVerificare == stare);
-            var cereri = await q.OrderBy(m => m.Utilizator.CreatLa)
+            var lista = stare switch
+            {
+                RezervareService.MentorAprobat => Pagini.ProfesoriAprobatiAdmin,
+                AutentificareEndpoints.StareRespins => Pagini.ProfesoriRespinsiAdmin,
+                _ => Pagini.ProfesoriInAsteptareAdmin,
+            };
+            var prof = db.ProfiluriMentor.AsNoTracking();
+            if (!string.IsNullOrEmpty(stare)) prof = prof.Where(m => m.StareVerificare == stare);
+            foreach (var t in TermeniCautare.Optionali(q)) prof = prof.Where(m => EF.Functions.ILike(m.Utilizator.CautareCont, t, "\\"));
+            var total = await prof.CountAsync(ct);
+            var cereri = await prof.OrderBy(m => m.Utilizator.CreatLa).ThenBy(m => m.UtilizatorId).Pagina(lista, pagina, marime)
                 .Select(m => new CerereProfesor(m.UtilizatorId, m.Utilizator.Nume, m.Utilizator.Username, m.Utilizator.Email, m.Utilizator.Telefon,
                     m.Descriere, m.PozaUrl == null ? null : $"/profesori/{m.UtilizatorId}/poza", m.DovadaCalificareUrl != null, m.StareVerificare,
-                    m.MotivRespingere, m.OnorariuNegociat, m.Materii.Select(x => new MaterieScurta(x.MaterieId, x.Materie.Denumire)).ToList(), m.Utilizator.CreatLa))
+                    m.MotivRespingere, m.OnorariuNegociat, m.Materii.Select(x => new MaterieScurta(x.MaterieId, x.Materie.Denumire)).ToList(), m.Utilizator.CreatLa,
+                    m.RetrasLa))
                 .ToListAsync(ct);
-            return Lista<CerereProfesor>.Din(cereri);
+            return new Lista<CerereProfesor>(cereri, total);
         });
         admin.MapGet("/profesori/{id:int}/dovada", async (int id, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
             stocare.Serveste(await db.ProfiluriMentor.Where(m => m.UtilizatorId == id).Select(m => m.DovadaCalificareUrl).SingleOrDefaultAsync(ct),
                 $"dovada-calificare-{id}"));
-        // Professors are approved by the admins of their organisations (OrganizatiiEndpoints); the platform admin sees the
-        // list and sets the fee each professor receives for paid tutoring.
+        // Professors are approved by the admins of their organisations (OrganizatiiEndpoints) and stay approved after leaving them;
+        // the platform admin sees the list, sets the fee each professor receives for paid tutoring, and may withdraw an approval
+        // (their upcoming sessions are cancelled) or give it back.
+        admin.MapPost("/profesori/{id:int}/retragere", async (int id, DecizieMembru c, ServiciuOrganizatii org, CancellationToken ct) =>
+            Results.Ok(new { sedinteAnulate = await org.RetrageAsync(id, c.Motiv, ct) }));
+        admin.MapPost("/profesori/{id:int}/reaprobare", async (int id, HttpContext h, ServiciuOrganizatii org, CancellationToken ct) =>
+        {
+            await org.ReaprobaAsync(id, null, h.User.Id(), ct);
+            return Results.NoContent();
+        });
         admin.MapPut("/profesori/{id:int}/onorariu", async (int id, Aprobare c, MarkAiDbContext db, CancellationToken ct) =>
         {
             var m = await Profil(db, id, ct);
@@ -273,13 +316,24 @@ public static class ProfesoriEndpoints
         uid != null && (s.MentorId == uid || s.Rezervari.Any(r => r.ElevId == uid && r.Status == RezervareService.RezervareConfirmata))
             ? s.NotaLoc : null)));
 
+    /// <summary>Open sessions not started yet, of the given type (a hybrid one counts for both); null = any type.</summary>
+    private static IQueryable<CameraTutoring> SedinteViitoare(MarkAiDbContext db, string? tip)
+    {
+        var acum = DateTime.UtcNow;
+        return db.CamereTutoring.Where(s => s.Status == RezervareService.SlotDeschis && s.InceputLa > acum
+            && (tip == null || s.Tip == tip || s.Tip == CameraTutoring.Hibrid));
+    }
+
     private static async Task<List<ProfesorDto>> Profesori(MarkAiDbContext db, IQueryable<ProfilMentor> q, int? uid, CancellationToken ct) =>
         (await ProfesoriCuLoc(db, q, uid, LocUtilizator.Necunoscut, ct)).Select(p => p.Dto).ToList();
 
-    /// <summary>A professor with what the filters need: the organisations they teach in and their place's county.</summary>
-    private sealed record ProfesorIntern(ProfesorDto Dto, int[] Organizatii, int? JudetId);
+    /// <summary>A professor with what the filters need: the organisations they teach in and their place's locality.</summary>
+    private sealed record ProfesorIntern(ProfesorDto Dto, int[] Organizatii, int? LocalitateId);
 
-    private static async Task<List<ProfesorIntern>> ProfesoriCuLoc(MarkAiDbContext db, IQueryable<ProfilMentor> q, int? uid, LocUtilizator loc, CancellationToken ct)
+    /// <param name="q">Already narrowed and paged: only these professors are loaded.</param>
+    /// <param name="tip">Only sessions of this type (hybrid ones too) are listed; null = all.</param>
+    private static async Task<List<ProfesorIntern>> ProfesoriCuLoc(MarkAiDbContext db, IQueryable<ProfilMentor> q, int? uid, LocUtilizator loc, CancellationToken ct,
+        string? tip = null)
     {
         var acum = DateTime.UtcNow;
         var profesori = (await q.OrderBy(m => m.Utilizator.Nume)
@@ -305,9 +359,7 @@ public static class ProfesoriEndpoints
         var numeJudete = await db.Set<Judet>().Where(j => judete.Contains(j.Id)).ToDictionaryAsync(j => j.Id, j => j.Nume, ct);
         var numeLocalitati = await db.Set<Localitate>().Where(l => localitati.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Nume, ct);
         var ids = profesori.Select(p => p.UtilizatorId).ToList();
-        var sloturi = (await Sloturi(db.CamereTutoring.AsNoTracking()
-                .Where(s => ids.Contains(s.MentorId) && s.Status == RezervareService.SlotDeschis && s.InceputLa > acum)
-                .OrderBy(s => s.InceputLa), uid)
+        var sloturi = (await Sloturi(SedinteViitoare(db, tip).AsNoTracking().Where(s => ids.Contains(s.MentorId)).OrderBy(s => s.InceputLa), uid)
             .ToListAsync(ct)).ToLookup(x => x.MentorId, x => x.Slot);
         return profesori.Select(p =>
         {
@@ -315,7 +367,7 @@ public static class ProfesoriEndpoints
             var locDto = l.Judet is null ? null : new LocDto(l.Organizatie, l.Localitate is { } li ? numeLocalitati.GetValueOrDefault(li) : null, numeJudete.GetValueOrDefault(l.Judet.Value));
             return new ProfesorIntern(new ProfesorDto(p.UtilizatorId, p.Nume, p.Descriere, p.ArePoza ? $"/profesori/{p.UtilizatorId}/poza" : null,
                 p.Materii, sloturi[p.UtilizatorId].Any(s => s.ProBono), sloturi[p.UtilizatorId].ToList(), locDto,
-                loc.LocalitateId is not null && l.Localitate == loc.LocalitateId), p.Organizatii.ToArray(), l.Judet);
+                loc.LocalitateId is not null && l.Localitate == loc.LocalitateId), p.Organizatii.ToArray(), l.Localitate);
         }).ToList();
     }
 

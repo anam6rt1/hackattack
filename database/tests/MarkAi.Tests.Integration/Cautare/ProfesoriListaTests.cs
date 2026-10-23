@@ -53,6 +53,7 @@ public sealed class ProfesoriListaTests : TestCautare
     [Fact]
     public async Task ListaAreDoarProfesoriiAprobati()
     {
+        await CuSedinte("irina", "serban");
         var (irina, s) = (await Id("irina"), await Id("serban"));
         await h.Db(db => db.ProfiluriMentor.Where(p => p.UtilizatorId == irina).ExecuteUpdateAsync(x => x.SetProperty(p => p.StareVerificare, "in_asteptare")));
         var ids = (await Profesori(h.Anonim())).Select(p => p.Id).ToList();
@@ -67,6 +68,7 @@ public sealed class ProfesoriListaTests : TestCautare
     [InlineData(3, "serban")]
     public async Task FiltrulDeMaterie(int materieId, string prezent)
     {
+        await CuSedinte("irina", "serban");
         var id = await Id(prezent);
         (await Profesori(george, $"?materieId={materieId}")).ShouldContain(p => p.Id == id);
     }
@@ -81,6 +83,7 @@ public sealed class ProfesoriListaTests : TestCautare
     [Fact]
     public async Task ProfesorulAreMateriileLui()
     {
+        await CuSedinte("serban");
         var p = (await h.Anonim().GetJson("/profesori")).Lista().Single(x => x.Str("nume") == "Șerban Țăranu");
         p.Lista("materii").Select(m => m.Str("denumire")).Order().ShouldBe(["Biologie", "Matematică"]);
     }

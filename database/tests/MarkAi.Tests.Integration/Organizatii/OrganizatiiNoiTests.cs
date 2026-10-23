@@ -174,4 +174,38 @@ public sealed class OrganizatiiNoiTests : TestOrganizatii
             await db.SaveChangesAsync();
         }));
     }
+
+    [Fact]
+    public async Task ListaAdminuluiArePagini()
+    {
+        await h.Db(async db =>
+        {
+            // One organisation per admin account (the database allows no more).
+            for (var i = 0; i < 23; i++)
+            {
+                var u = new Utilizator { Nume = $"Admin {i:00}", Username = $"admin{i:00}", Email = $"admin{i:00}@example.invalid", ParolaHash = "x" };
+                db.Add(new Organizatie { Nume = $"Școala {i:00}", Adresa = "Str. 1", JudetId = 40, Stare = Organizatie.InAsteptare, Admin = u,
+                    CreatLa = DateTime.UtcNow.AddMinutes(-i) });
+            }
+            await db.SaveChangesAsync();
+        });
+        using var admin = await h.Login("admin");
+        var p1 = await admin.GetJson("/admin/organizatii?stare=in_asteptare");
+        (p1.Int("total"), p1.Lista().Count).ShouldBe((23, 20));
+        p1.Lista().First().Str("nume").ShouldBe("Școala 00"); // newest first
+        var p2 = await admin.GetJson("/admin/organizatii?stare=in_asteptare&pagina=2");
+        p2.Lista().Select(o => o.Str("nume")).ShouldBe(["Școala 20", "Școala 21", "Școala 22"]);
+        (await admin.GetJson("/admin/organizatii")).Int("total").ShouldBe(24);
+        await admin.Get("/admin/organizatii?pagina=0").Status(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task OrganizatiaDinListaEsteCaCeaSingura()
+    {
+        using var admin = await h.Login("admin");
+        var dinLista = (await admin.GetJson("/admin/organizatii")).Lista().Single(o => o.Int("id") == Liceu);
+        dinLista.Int("profesori").ShouldBeGreaterThan(0);
+        dinLista.Str("nume").ShouldBe("Liceul de Test");
+    }
 }
+

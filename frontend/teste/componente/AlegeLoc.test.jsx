@@ -1,8 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import AlegeLoc from "@/components/AlegeLoc";
-import AlegeOrganizatie from "@/components/AlegeOrganizatie";
+import AlegeOrganizatie, { AlegeOrganizatii } from "@/components/AlegeOrganizatie";
+import AlegeMaterii from "@/components/AlegeMaterii";
 import { apiFals } from "../ajutor";
 
 const JUDETE = { elemente: [{ id: 1, nume: "Alba" }, { id: 40, nume: "București" }, { id: 12, nume: "Cluj" }] };
@@ -101,47 +103,90 @@ const ORGANIZATII = [
   { id: 1, nume: "Liceul de Test", judet: "București", localitate: "Sectorul 1" },
   { id: 2, nume: "Centrul Alba", judet: "Alba", localitate: null },
 ];
+const MULTE = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, nume: `Școala ${i + 1}`, judet: "Alba", localitate: "Alba Iulia" }));
 
-describe("AlegeOrganizatie", () => {
-  it("elevul alege cel mult una, dintr-o listă", async () => {
-    apiFals({ "GET /organizatii": { elemente: ORGANIZATII } });
+const organizatieAleasa = (container) => container.querySelector("input[name=organizatieId]").value;
+
+describe("AlegeOrganizatie (elevul)", () => {
+  it("lista se deschide ca un dropdown, cu „Fără organizație” și locul fiecăreia", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
     render(<AlegeOrganizatie />);
-    expect(await screen.findByRole("option", { name: "Liceul de Test · Sectorul 1" })).toBeInTheDocument();
+    await u.click(await screen.findByRole("combobox", { name: "Organizația ta (opțional)" }));
+    expect(screen.getByRole("option", { name: "Liceul de Test · Sectorul 1" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Centrul Alba · Alba" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Fără organizație" })).toBeInTheDocument();
-    expect(screen.getByText("Organizația ta (opțional)")).toBeInTheDocument();
   });
 
-  it("lista are numele titlului ei (pentru cititoarele de ecran)", async () => {
-    apiFals({ "GET /organizatii": { elemente: ORGANIZATII } });
-    render(<AlegeOrganizatie obligatoriu />);
-    expect(await screen.findByRole("combobox", { name: "Organizația ta" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Organizația ta" })).toBeInTheDocument();
-  });
-
-  it("grupul de bife al profesorului are nume", async () => {
-    apiFals({ "GET /organizatii": { elemente: ORGANIZATII } });
-    render(<AlegeOrganizatie multiplu />);
-    await screen.findAllByRole("checkbox");
-    expect(screen.getByRole("group", { name: "Organizațiile în care predai" })).toBeInTheDocument();
-  });
-
-  it("profesorul bifează una sau mai multe", async () => {
-    apiFals({ "GET /organizatii": { elemente: ORGANIZATII } });
+  it("alegerea pleacă în câmpul ascuns, iar câmpul arată numele", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
     const u = userEvent.setup();
-    render(<AlegeOrganizatie multiplu obligatoriu />);
-    const bife = await screen.findAllByRole("checkbox");
-    expect(bife).toHaveLength(2);
-    await u.click(bife[0]);
-    await u.click(bife[1]);
-    expect(bife.every((b) => b.checked && b.name === "organizatieIds")).toBe(true);
-    expect(screen.getByText("Organizațiile în care predai")).toBeInTheDocument();
+    const { container } = render(<AlegeOrganizatie />);
+    await u.click(await screen.findByRole("combobox"));
+    await u.click(screen.getByRole("option", { name: "Centrul Alba · Alba" }));
+    expect(organizatieAleasa(container)).toBe("2");
+    expect(screen.getByRole("combobox")).toHaveValue("Centrul Alba");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    // Retyping drops the choice.
+    await u.type(screen.getByRole("combobox"), "x");
+    expect(organizatieAleasa(container)).toBe("");
+  });
+
+  it("căutarea după nume sau localitate pleacă la server", async () => {
+    const cereri = apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 }, "GET /organizatii?q=sectorul": { elemente: [ORGANIZATII[0]], total: 1 } });
+    const u = userEvent.setup();
+    render(<AlegeOrganizatie />);
+    await u.type(await screen.findByRole("combobox"), "sectorul");
+    await waitFor(() => expect(screen.queryByRole("option", { name: /Centrul Alba/ })).not.toBeInTheDocument());
+    expect(screen.getByRole("option", { name: "Liceul de Test · Sectorul 1" })).toBeInTheDocument();
+    expect(cereri.map((c) => c.query)).toEqual(["", "?q=sectorul"]);
+  });
+
+  it("Enter alege prima organizație găsită", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
+    const { container } = render(<AlegeOrganizatie />);
+    await u.click(await screen.findByRole("combobox"));
+    await u.keyboard("{Enter}");
+    expect(organizatieAleasa(container)).toBe("1");
+  });
+
+  it("spune când se văd doar primele rezultate", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 340 } });
+    const u = userEvent.setup();
+    render(<AlegeOrganizatie />);
+    await u.click(await screen.findByRole("combobox"));
+    expect(screen.getByText("Se văd primele 2 din 340. Scrie ca să le restrângi.")).toBeInTheDocument();
+  });
+
+  it("obligatorie, cere o organizație aleasă din listă, nu doar text", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
+    render(<AlegeOrganizatie obligatoriu />);
+    const camp = await screen.findByRole("combobox", { name: "Organizația ta" });
+    expect(camp).toBeInvalid();
+    await u.type(camp, "liceu");
+    expect(camp).toBeInvalid();
+    await u.click(await screen.findByRole("option", { name: "Liceul de Test · Sectorul 1" }));
+    expect(camp).toBeValid();
+    expect(screen.queryByRole("option", { name: "Fără organizație" })).not.toBeInTheDocument();
+  });
+
+  it("opțională, câmpul gol e valid, textul neales nu", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
+    render(<AlegeOrganizatie />);
+    const camp = await screen.findByRole("combobox");
+    expect(camp).toBeValid();
+    await u.type(camp, "zz");
+    expect(camp).toBeInvalid();
   });
 
   it("arată întâi organizațiile județului ales, apoi toate la cerere", async () => {
-    const cereri = apiFals({ "GET /organizatii": { elemente: [] }, "GET /organizatii?judetId=1": { elemente: [ORGANIZATII[1]] } });
+    const cereri = apiFals({ "GET /organizatii": { elemente: [] }, "GET /organizatii?judetId=1": { elemente: [ORGANIZATII[1]], total: 1 } });
     const u = userEvent.setup();
     render(<AlegeOrganizatie judetId={1} />);
+    await u.click(await screen.findByRole("combobox"));
     expect(await screen.findByRole("option", { name: "Centrul Alba · Alba" })).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Toate județele" }));
     expect(await screen.findByText("Nicio organizație aprobată încă.")).toBeInTheDocument();
@@ -158,26 +203,129 @@ describe("AlegeOrganizatie", () => {
   it("arată „Se încarcă...” până răspunde serverul", () => {
     apiFals({ "GET /organizatii": () => new Promise(() => {}) });
     render(<AlegeOrganizatie />);
-    expect(screen.getByText("Se încarcă...")).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveAttribute("placeholder", "Se încarcă...");
   });
 
   it("fără județ nu există butonul „Toate județele”", async () => {
     apiFals({ "GET /organizatii": { elemente: ORGANIZATII } });
     render(<AlegeOrganizatie />);
-    await screen.findAllByRole("option");
+    await screen.findByPlaceholderText("Caută după nume sau localitate");
     expect(screen.queryByRole("button", { name: "Toate județele" })).not.toBeInTheDocument();
-  });
-
-  it("obligatorie pentru elev, lista cere o alegere", async () => {
-    apiFals({ "GET /organizatii": { elemente: ORGANIZATII } });
-    render(<AlegeOrganizatie obligatoriu />);
-    expect(await screen.findByRole("combobox")).toBeRequired();
-    expect(screen.getByRole("option", { name: "Alege organizația" })).toBeInTheDocument();
   });
 
   it("o eroare a serverului arată lista goală, nu „Se încarcă” la nesfârșit", async () => {
     apiFals({});
     render(<AlegeOrganizatie />);
     expect(await screen.findByText("Nicio organizație aprobată încă.")).toBeInTheDocument();
+  });
+});
+
+function ProfesorOrganizatii({ judetId = null, initiale = [] }) {
+  const [alese, setAlese] = useState(initiale);
+  return <form><AlegeOrganizatii judetId={judetId} alese={alese} onChange={setAlese} /></form>;
+}
+
+const aleseIds = (container) => [...container.querySelectorAll("input[name=organizatieIds]")].map((i) => i.value);
+
+describe("AlegeOrganizatii (profesorul)", () => {
+  it("butonul deschide fereastra; bifele devin pastile și câmpuri ascunse", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
+    const { container } = render(<ProfesorOrganizatii />);
+    expect(screen.getByRole("group", { name: "Organizațiile în care predai (0 din 4)" })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "+ Adaugă organizație" }));
+    const fereastra = screen.getByRole("dialog", { name: "Organizațiile în care predai" });
+    await u.click(await within(fereastra).findByRole("checkbox", { name: /Liceul de Test/ }));
+    await u.click(within(fereastra).getByRole("checkbox", { name: /Centrul Alba/ }));
+    expect(within(fereastra).getByText("2 din 4 alese.")).toBeInTheDocument();
+    await u.click(within(fereastra).getByRole("button", { name: "Gata" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(aleseIds(container)).toEqual(["1", "2"]);
+    await u.click(screen.getByRole("button", { name: "Scoate Liceul de Test" }));
+    expect(aleseIds(container)).toEqual(["2"]);
+  });
+
+  it("cel mult patru: celelalte bife se dezactivează", async () => {
+    apiFals({ "GET /organizatii": { elemente: MULTE, total: 6 } });
+    const u = userEvent.setup();
+    const { container } = render(<ProfesorOrganizatii />);
+    await u.click(screen.getByRole("button", { name: "+ Adaugă organizație" }));
+    const bife = await screen.findAllByRole("checkbox");
+    for (const b of bife.slice(0, 4)) await u.click(b);
+    expect(bife[4]).toBeDisabled();
+    expect(bife[5]).toBeDisabled();
+    expect(screen.getByText(/ai ajuns la limită/)).toBeInTheDocument();
+    await u.click(bife[0]);
+    expect(bife[4]).toBeEnabled();
+    expect(aleseIds(container)).toEqual(["2", "3", "4"]);
+  });
+
+  it("plin, butonul devine „Schimbă alegerea”", () => {
+    apiFals({ "GET /organizatii": { elemente: [] } });
+    render(<ProfesorOrganizatii initiale={MULTE.slice(0, 4).map((o) => ({ id: o.id, nume: o.nume }))} />);
+    expect(screen.getByRole("button", { name: "Schimbă alegerea" })).toBeInTheDocument();
+  });
+
+  it("căutarea pleacă la server, cu județul ales", async () => {
+    const cereri = apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
+    render(<ProfesorOrganizatii judetId={1} />);
+    await u.click(screen.getByRole("button", { name: "+ Adaugă organizație" }));
+    await u.type(screen.getByRole("searchbox", { name: "Caută după nume, județ sau localitate" }), "alba iulia");
+    await waitFor(() => expect(cereri.at(-1).query).toBe("?judetId=1&q=alba+iulia"));
+    await u.click(screen.getByRole("button", { name: "Toate județele" }));
+    await waitFor(() => expect(cereri.at(-1).query).toBe("?q=alba+iulia"));
+  });
+
+  it("Escape închide fereastra și păstrează alegerea", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const u = userEvent.setup();
+    const { container } = render(<ProfesorOrganizatii />);
+    await u.click(screen.getByRole("button", { name: "+ Adaugă organizație" }));
+    await u.click(await screen.findByRole("checkbox", { name: /Centrul Alba/ }));
+    await u.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(aleseIds(container)).toEqual(["2"]);
+  });
+
+  it("Enter în căutare nu trimite formularul paginii", async () => {
+    apiFals({ "GET /organizatii": { elemente: ORGANIZATII, total: 2 } });
+    const trimis = vi.fn((e) => e.preventDefault());
+    const u = userEvent.setup();
+    render(<form onSubmit={trimis}><AlegeOrganizatii alese={[]} onChange={() => {}} /></form>);
+    await u.click(screen.getByRole("button", { name: "+ Adaugă organizație" }));
+    await u.type(screen.getByRole("searchbox"), "liceu{Enter}");
+    expect(trimis).not.toHaveBeenCalled();
+  });
+});
+
+function Materii() {
+  const [alese, setAlese] = useState([]);
+  return <AlegeMaterii alese={alese} onChange={setAlese} name="materieIds" />;
+}
+
+describe("AlegeMaterii", () => {
+  it("caută materia pe server și o adaugă", async () => {
+    const cereri = apiFals({
+      "GET /materii": { elemente: [{ id: 1, denumire: "Limba și literatura română" }, { id: 2, denumire: "Matematică" }] },
+      "GET /materii?q=mate": { elemente: [{ id: 2, denumire: "Matematică" }] },
+    });
+    const u = userEvent.setup();
+    const { container } = render(<Materii />);
+    await u.click(screen.getByRole("button", { name: "+ Adaugă materie" }));
+    await u.type(screen.getByRole("searchbox", { name: "Caută o materie" }), "mate");
+    await waitFor(() => expect(screen.queryByRole("checkbox", { name: /română/ })).not.toBeInTheDocument());
+    await u.click(screen.getByRole("checkbox", { name: "Matematică" }));
+    expect(cereri.map((c) => c.query)).toContain("?q=mate");
+    expect(container.querySelector("input[name=materieIds]").value).toBe("2");
+    expect(screen.getByRole("group", { name: "Materii predate (1 din 4)" })).toBeInTheDocument();
+  });
+
+  it("spune când nimic nu se potrivește", async () => {
+    apiFals({ "GET /materii": { elemente: [] } });
+    const u = userEvent.setup();
+    render(<Materii />);
+    await u.click(screen.getByRole("button", { name: "+ Adaugă materie" }));
+    expect(await screen.findByText("Nimic nu se potrivește căutării.")).toBeInTheDocument();
   });
 });

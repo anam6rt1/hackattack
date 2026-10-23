@@ -12,6 +12,9 @@ public class Organizatie
 
     public string Nume { get; set; } = null!;
 
+    /// <summary>The name for search (lower case, without diacritics; computed by the database).</summary>
+    public string Cautare { get; set; } = "";
+
     public string Adresa { get; set; } = null!;
 
     public int JudetId { get; set; }

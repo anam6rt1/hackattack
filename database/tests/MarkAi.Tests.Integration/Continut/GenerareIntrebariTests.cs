@@ -28,10 +28,14 @@ public sealed class GenerareIntrebariTests : TestCuHarness
         await Harness.Capitol(admin, lectie);
     }
 
+    // Every question the fake model writes is about another fact (a counter), so only deliberate repeats look alike.
+    private static int fapt;
+    private static string Fapt() => $"faptul{Interlocked.Increment(ref fapt)}";
+
     private static string Raspuns(int grile, int estimari = 0, string prefix = "Întrebarea") => JsonSerializer.Serialize(new
     {
-        grila = Enumerable.Range(1, grile).Select(i => new { text = $"{prefix} {i}", variante = new[] { "A", "B", "C", "D" }, corect = i % 4, explicatie = $"Explicația {i}" }),
-        estimari = Enumerable.Range(1, estimari).Select(i => new { text = $"Estimare {i}", raspuns = 1880 + i }),
+        grila = Enumerable.Range(1, grile).Select(i => new { text = $"{prefix} {i}: {Fapt()}", variante = new[] { "A", "B", "C", "D" }, corect = i % 4, explicatie = $"Explicația {i}" }),
+        estimari = Enumerable.Range(1, estimari).Select(i => new { text = $"Estimare {i}: {Fapt()}", raspuns = 1880 + i }),
     });
 
     private Task<HttpResponseMessage> Cere(int numar, HttpClient? c = null, int? parcurs = null) =>
@@ -88,7 +92,9 @@ public sealed class GenerareIntrebariTests : TestCuHarness
         apel.Scop.ShouldBe(ScopAi.Intrebari);
         apel.Mesaje[0].Text.ShouldContain("1883");
         apel.Mesaje[0].Text.ShouldContain("Lecție de test");
-        apel.Mesaje[0].Text.ShouldContain("Scrie 1 întrebări grilă");
+        // A few more than asked, so a near-duplicate can be dropped; only the asked number is added.
+        apel.Mesaje[0].Text.ShouldContain("Scrie 2 întrebări grilă");
+        (await Intrebari()).Count(q => q.Str("tip") == "grila").ShouldBe(1);
     }
 
     [Fact]
@@ -307,5 +313,136 @@ public sealed class GenerareIntrebariTests : TestCuHarness
         await a.Post($"/parcursuri/{ids[0]}/genereaza-intrebari", new { numar = 1 });
         await a.Post($"/parcursuri/{ids[1]}/genereaza-intrebari", new { numar = 1 });
         (await a.Post($"/parcursuri/{ids[2]}/genereaza-intrebari", new { numar = 1 })).StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+    }
+
+    // ---- plan 2, phase D: what the model proposes is checked before it is added
+
+    private static string RaspunsCu(params string[] texte) => JsonSerializer.Serialize(new
+    {
+        grila = texte.Select((t, i) => new { text = t, variante = new[] { "A", "B", "C", "D" }, corect = i % 4, explicatie = "De ce." }),
+        estimari = Array.Empty<object>(),
+    });
+
+    private async Task<List<string>> TexteGrila() =>
+        (await Intrebari()).Where(q => q.Str("tip") == "grila").Select(q => q.Str("text")).ToList();
+
+    [Fact]
+    public async Task ModelulPrimesteRegulileDeCalitate()
+    {
+        h.Ai.Raspunde = (_, _, _) => Raspuns(1);
+        await Cere(1);
+        await Ruleaza();
+        h.Ai.Apeluri.TryPeek(out var apel);
+        apel.Sistem.ShouldContain("despre materie, nu despre material");
+        apel.Sistem.ShouldContain("Fiecare întrebare verifică o altă idee");
+        apel.Sistem.ShouldContain("Nu repeta și nu reformula");
+    }
+
+    [Fact]
+    public async Task CerereaMareAreCatevaInPlus()
+    {
+        h.Ai.Raspunde = (_, _, _) => Raspuns(30);
+        await Cere(20);
+        await Ruleaza();
+        h.Ai.Apeluri.Last().Mesaje[0].Text.ShouldContain("Scrie 30 întrebări grilă");
+        (await TexteGrila()).Count.ShouldBe(20);
+        (await Stare()).EsteNull("mesaj").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task OIntrebareCaCeaExistentaEsteInlocuitaDeUnaInPlus()
+    {
+        await admin.Post($"/parcursuri/{lectie}/intrebari", new { text = "În ce an a apărut poemul „Luceafărul”?", activa = true,
+            variante = new[] { new { text = "1883", corecta = true }, new { text = "1870", corecta = false } } });
+        h.Ai.Raspunde = (_, _, _) => RaspunsCu("Poemul Luceafărul a apărut în ce an?", "Cine este Hyperion?", "Cine este Cătălina?");
+        await Cere(2);
+        await Ruleaza();
+        (await TexteGrila()).ShouldBe(new[] { "În ce an a apărut poemul „Luceafărul”?", "Cine este Hyperion?", "Cine este Cătălina?" }, ignoreOrder: true);
+        var s = await Stare();
+        (s.Str("stare"), s.Int("intrebariGenerate")).ShouldBe(("gata", 2));
+        s.EsteNull("mesaj").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task RepetareaDinAcelasiLotEsteScoasa()
+    {
+        h.Ai.Raspunde = (_, _, _) => RaspunsCu("Cine este Hyperion în „Luceafărul”?", "În „Luceafărul”, cine este Hyperion?", "Cine este Cătălina?");
+        await Cere(2);
+        await Ruleaza();
+        (await TexteGrila()).ShouldBe(["Cine este Hyperion în „Luceafărul”?", "Cine este Cătălina?"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task IntrebarileDespreMaterialSuntScoase()
+    {
+        h.Ai.Raspunde = (_, _, _) => RaspunsCu("Cum se numește capitolul despre Luceafărul?", "Conform materialului, cine este Hyperion?", "Cine este Hyperion?");
+        await Cere(1);
+        await Ruleaza();
+        (await TexteGrila()).ShouldBe(["Cine este Hyperion?"]);
+    }
+
+    [Fact]
+    public async Task CandRamanMaiPutineMesajulSpuneDeCe()
+    {
+        await admin.Post($"/parcursuri/{lectie}/intrebari", new { text = "Cine este Cătălina?", activa = true,
+            variante = new[] { new { text = "A", corecta = true }, new { text = "B", corecta = false } } });
+        h.Ai.Raspunde = (_, _, _) => RaspunsCu("Cine este Hyperion?", "CINE ESTE CATALINA", "Din material: ce este romantismul?", "Cum se numește capitolul 1?");
+        await Cere(3);
+        await Ruleaza();
+        var s = await Stare();
+        (s.Str("stare"), s.Int("intrebariGenerate")).ShouldBe(("gata", 1));
+        s.Str("mesaj").ShouldBe("Au fost adăugate 1 din 3 cerute: dintre cele propuse, una semăna prea mult cu o întrebare existentă, iar 2 erau despre "
+            + "material, nu despre materie. Poți genera din nou sau scrie restul manual.");
+    }
+
+    [Fact]
+    public async Task CandModelulDaMaiPutineFaraRepetariMesajulSpuneAsta()
+    {
+        h.Ai.Raspunde = (_, _, _) => RaspunsCu("Cine este Hyperion?");
+        await Cere(3);
+        await Ruleaza();
+        (await Stare()).Str("mesaj").ShouldBe("Au fost adăugate 1 din 3 cerute: modelul AI n-a propus mai multe valide. Poți genera din nou sau scrie restul manual.");
+    }
+
+    [Fact]
+    public async Task CandToateSuntRepetariEsteOEroareClara()
+    {
+        h.Ai.Raspunde = (_, _, _) => RaspunsCu("Cine este Hyperion?");
+        await Cere(1);
+        await Ruleaza();
+        await Cere(1);
+        await Ruleaza();
+        var s = await Stare();
+        s.Str("stare").ShouldBe("eroare");
+        s.Str("mesaj").ShouldContain("semănau prea mult cu cele existente");
+        (await TexteGrila()).ShouldBe(["Cine este Hyperion?"]);
+    }
+
+    [Fact]
+    public async Task EstimarileRepetateSuntScoase()
+    {
+        string Estimari(params string[] texte) => JsonSerializer.Serialize(new
+        {
+            grila = new[] { new { text = $"Cine a scris {Fapt()}?", variante = new[] { "A", "B", "C", "D" }, corect = 0, explicatie = "x" } },
+            estimari = texte.Select(t => new { text = t, raspuns = 1883 }),
+        });
+        h.Ai.Raspunde = (_, _, _) => Estimari("În ce an a apărut „Luceafărul”?", "Luceafărul a apărut în ce an?");
+        await Cere(1);
+        await Ruleaza();
+        (await Intrebari()).Count(q => q.Str("tip") == "estimare").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task BugetulFolosesteCeasulAplicatiei()
+    {
+        // At most 20 a request: the day's 30 as 20 + 10.
+        await Cere(20).Status(HttpStatusCode.Accepted);
+        await Ruleaza();
+        await Cere(10).Status(HttpStatusCode.Accepted);
+        (await admin.GetJson("/continut/buget-ai")).Int("ramase").ShouldBe(0);
+        h.Ceas.Advance(TimeSpan.FromHours(23));
+        (await admin.GetJson("/continut/buget-ai")).Int("ramase").ShouldBe(0);
+        h.Ceas.Advance(TimeSpan.FromHours(1) + TimeSpan.FromMinutes(1));
+        (await admin.GetJson("/continut/buget-ai")).Int("ramase").ShouldBe(30);
     }
 }

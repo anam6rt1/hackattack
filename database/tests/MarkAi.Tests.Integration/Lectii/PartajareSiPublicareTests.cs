@@ -1,3 +1,4 @@
+using MarkAi.Data.Entities;
 using System.Net;
 
 namespace MarkAi.Tests.Integration.Lectii;
@@ -44,6 +45,28 @@ public sealed class PartajareSiPublicareTests : TestLectii
         var aPetrei = await Creeaza(petra, Lectie("Lecția Petrei", Liceu));
         (await petra.Put($"/parcursuri/{aPetrei}", Lectie("Lecția Petrei", Liceu, partajari: [Centru])).Mesaj(HttpStatusCode.BadRequest))
             .ShouldContain("celelalte organizații ale autorului");
+    }
+
+    [Fact]
+    public async Task CelMultPatruPartajari()
+    {
+        // Only possible for an author who joined more organisations before the limit of four existed.
+        var irinaId = await Id("irina");
+        var alte = await h.Db(async db =>
+        {
+            var org = Enumerable.Range(1, 5).Select(i => new Organizatie
+            {
+                Nume = $"Școala {i}", Adresa = "Str. 1", JudetId = 1, Stare = Organizatie.Aprobata, CreatLa = DateTime.UtcNow,
+                Admin = new Utilizator { Nume = $"adm{i}", Username = $"adm-part{i}", Email = $"adm-part{i}@example.invalid", ParolaHash = "x" },
+                Membri = { new MembruOrganizatie { UtilizatorId = irinaId, Rol = MembruOrganizatie.RolProfesor, Stare = MembruOrganizatie.Aprobat, CerutLa = DateTime.UtcNow } },
+            }).ToList();
+            db.AddRange(org);
+            await db.SaveChangesAsync();
+            return org.Select(o => o.Id).ToArray();
+        });
+        var (l, _, _) = await LectiePrivata();
+        (await irina.Put($"/parcursuri/{l}", Lectie("Ion", Liceu, clasa: "XI", partajari: alte)).Mesaj(HttpStatusCode.BadRequest)).ShouldContain("cel mult 4");
+        await irina.Put($"/parcursuri/{l}", Lectie("Ion", Liceu, clasa: "XI", partajari: alte[..4])).Status(HttpStatusCode.OK);
     }
 
     [Fact]

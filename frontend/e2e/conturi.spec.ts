@@ -11,12 +11,19 @@ test("înregistrarea unui elev, cu codul de pe email, duce în panoul lui", asyn
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Parolă (minim 8 caractere)").fill(PAROLA);
   await page.getByLabel("Clasa (opțional)").selectOption("XI");
+  // The organisation is found by its locality (Liceul de Test is in Sectorul 1).
+  await page.getByRole("combobox", { name: "Organizația ta (opțional)" }).fill("sectorul 1");
+  await page.getByRole("option", { name: /Liceul de Test/ }).click();
+  await expect(page.getByRole("combobox", { name: "Organizația ta (opțional)" })).toHaveValue("Liceul de Test");
   await page.getByRole("button", { name: "Creează contul de elev" }).click();
   await expect(page.getByRole("heading", { name: "Confirmă adresa de email" })).toBeVisible();
   await page.getByLabel(`Codul de 6 cifre trimis pe ${email}`).fill(await ultimulCod(email));
   await page.getByRole("button", { name: "Confirmă și intră în cont" }).click();
   await expect(page.getByRole("heading", { name: "Salut, Ana!" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Meniul principal" }).getByRole("link", { name: "Materiale" })).toBeVisible();
+  await page.goto("/setari");
+  await page.getByRole("button", { name: "Organizație și loc" }).click();
+  await expect(page.locator("li").filter({ hasText: "Liceul de Test" })).toContainText("în așteptare");
 });
 
 test("un cod greșit e refuzat, iar contul neconfirmat e trimis la cod la intrare", async ({ page }) => {

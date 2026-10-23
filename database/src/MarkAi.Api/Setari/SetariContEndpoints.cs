@@ -59,6 +59,7 @@ public static class SetariContEndpoints
             {
                 var p = u.ProfilMentor ?? throw new CerereInvalida("Profilul de profesor nu există.");
                 var subjects = (c.MaterieIds ?? []).Distinct().ToArray();
+                if (subjects.Length > Alegeri.MateriiProfesor) throw new CerereInvalida($"Alege cel mult {Alegeri.MateriiProfesor} materii.");
                 if (subjects.Length == 0 || await db.Materii.CountAsync(m => subjects.Contains(m.Id), ct) != subjects.Length)
                     throw new CerereInvalida("Alege cel puțin o materie validă.");
                 p.Descriere = Validare.Obligatoriu(c.Descriere, "Despre tine", 2000);

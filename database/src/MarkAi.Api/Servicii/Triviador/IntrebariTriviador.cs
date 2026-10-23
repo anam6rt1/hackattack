@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -8,30 +9,52 @@ public sealed record IntrebareGrila(int Id, int? ParcursId, string Text, IReadOn
 public sealed record IntrebareEstimare(int Id, int? ParcursId, string Text, int Raspuns);
 
 /// <summary>
-/// The questions of one room, with their answers; they never leave the server. A room draws from every active question of
-/// its subjects (public or not: Triviador is a practice game). Without questions of a kind, the demo set below is used.
+/// The questions of one room, with their answers; they never leave the server. A room draws from the active questions of its
+/// subjects (public or not: Triviador is a practice game), sampled in SQL so a room never loads a whole subject: up to
+/// <see cref="PeInsula"/> per island's Lecție (asked there first) and a random <see cref="Rezerva"/> from the rest of its
+/// subjects and grade. Without questions of a kind, the demo set below is used.
 /// </summary>
 public sealed class PachetIntrebari(List<IntrebareGrila> grila, List<IntrebareEstimare> estimari)
 {
+    /// <summary>Multiple-choice questions (estimates: a fifth of it) per island's Lecție, and from the rest of the room's subjects.</summary>
+    public const int PeInsula = 15, Rezerva = 100;
+
     public List<IntrebareGrila> Grila { get; } = grila;
     public List<IntrebareEstimare> Estimari { get; } = estimari;
     private readonly HashSet<int> _folosite = [];
 
-    /// <param name="parcursIds">With a grade filter, only the questions of these Lecții (otherwise every question of the subjects).</param>
-    public static async Task<PachetIntrebari> IncarcaAsync(MarkAiDbContext db, IReadOnlyCollection<int> materieIds, IReadOnlyCollection<int>? parcursIds, CancellationToken ct)
+    /// <param name="clasa">The room's grade filter: only questions of Lecții of that grade (null = any).</param>
+    /// <param name="insule">The islands' Lecții.</param>
+    public static async Task<PachetIntrebari> IncarcaAsync(MarkAiDbContext db, IReadOnlyCollection<int> materieIds, string? clasa, IReadOnlyCollection<int> insule,
+        CancellationToken ct)
     {
-        var q0 = db.Set<Intrebare>().AsNoTracking().Include(q => q.Variante).Where(q => materieIds.Contains(q.MaterieId) && q.Activa);
-        if (parcursIds is not null) q0 = q0.Where(q => q.ParcursId != null && parcursIds.Contains(q.ParcursId.Value));
-        var intrebari = await q0.ToListAsync(ct);
-        var grila = intrebari.Where(q => q.Tip == Intrebare.Grila)
-            .Select(q => (q, v: q.Variante.OrderBy(o => o.Id).ToList()))
-            .Where(t => t.v.Count is >= 2 and <= 4 && t.v.Count(o => o.Corecta) == 1)
-            .Select(t => new IntrebareGrila(t.q.Id, t.q.ParcursId, t.q.Text, t.v.Select(o => o.Text).ToList(), t.v.FindIndex(o => o.Corecta)))
-            .ToList();
-        var estimari = intrebari.Where(q => q.Tip == Intrebare.Estimare && q.RaspunsNumeric is not null)
-            .Select(q => new IntrebareEstimare(q.Id, q.ParcursId, q.Text, q.RaspunsNumeric!.Value)).ToList();
+        var active = db.Set<Intrebare>().AsNoTracking().Where(q => materieIds.Contains(q.MaterieId)
+            && (clasa == null || (q.Parcurs != null && q.Parcurs.Clasa == clasa)));
+        // Per island: a random sample of that Lecție's own questions (one SQL query with a per-Lecție limit).
+        var deInsule = db.Set<Parcurs>().AsNoTracking().Where(p => insule.Contains(p.Id));
+        var grila = await CitesteGrile(deInsule.SelectMany(p => p.Intrebari.AsQueryable().Where(GrilaFolosibila).OrderBy(_ => EF.Functions.Random()).Take(PeInsula)), ct);
+        var luate = grila.Select(q => q.Id).ToList();
+        grila.AddRange(await CitesteGrile(active.Where(GrilaFolosibila).Where(q => !luate.Contains(q.Id)).OrderBy(_ => EF.Functions.Random()).Take(Rezerva), ct));
+
+        var estimari = await CitesteEstimari(deInsule.SelectMany(p => p.Intrebari.AsQueryable().Where(EstimareFolosibila)
+            .OrderBy(_ => EF.Functions.Random()).Take(PeInsula / 5 + 1)), ct);
+        luate = estimari.Select(q => q.Id).ToList();
+        estimari.AddRange(await CitesteEstimari(active.Where(EstimareFolosibila).Where(q => !luate.Contains(q.Id))
+            .OrderBy(_ => EF.Functions.Random()).Take(Rezerva / 5), ct));
         return new PachetIntrebari(grila.Count > 0 ? grila : [.. GrilaDemo], estimari.Count > 0 ? estimari : [.. EstimariDemo]);
     }
+
+    // A multiple-choice question is usable when active, with 2–4 options and exactly one right one; an estimate when it has an answer.
+    private static readonly Expression<Func<Intrebare, bool>> GrilaFolosibila = q => q.Activa && q.Tip == Intrebare.Grila
+        && q.Variante.Count >= 2 && q.Variante.Count <= 4 && q.Variante.Count(v => v.Corecta) == 1;
+    private static readonly Expression<Func<Intrebare, bool>> EstimareFolosibila = q => q.Activa && q.Tip == Intrebare.Estimare && q.RaspunsNumeric != null;
+
+    private static async Task<List<IntrebareGrila>> CitesteGrile(IQueryable<Intrebare> q, CancellationToken ct) =>
+        (await q.Select(x => new { x.Id, x.ParcursId, x.Text, Variante = x.Variante.OrderBy(v => v.Id).Select(v => new { v.Text, v.Corecta }).ToList() }).ToListAsync(ct))
+        .Select(x => new IntrebareGrila(x.Id, x.ParcursId, x.Text, x.Variante.Select(v => v.Text).ToList(), x.Variante.FindIndex(v => v.Corecta))).ToList();
+
+    private static async Task<List<IntrebareEstimare>> CitesteEstimari(IQueryable<Intrebare> q, CancellationToken ct) =>
+        await q.Select(x => new IntrebareEstimare(x.Id, x.ParcursId, x.Text, x.RaspunsNumeric!.Value)).ToListAsync(ct);
 
     /// <summary>A question not used yet in this room, preferably from the attacked island's Lecție; starts over when all were used.</summary>
     public T Alege<T>(List<T> lista, int[] parcursIds, Func<T, int> id, Func<T, int?> parcurs, Random rnd)

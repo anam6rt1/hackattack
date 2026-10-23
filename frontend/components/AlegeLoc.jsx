@@ -53,7 +53,13 @@ export default function AlegeLoc({ judetInitial = null, localitateInitiala = nul
       <label className="tv-eticheta-camp tv-cautare-loc">
         <span>Localitatea (opțional)</span>
         <input className="tv-camp-text" value={text} disabled={!judet} placeholder={judet ? 'Scrie primele litere' : 'Alege întâi județul'}
-          onChange={(e) => { setText(e.target.value); setLoc(null); setDeschis(true) }} onFocus={() => setDeschis(true)}
+          onChange={(e) => {
+            setText(e.target.value)
+            // Retyped after choosing one: no locality is chosen any more (a filter must know it too).
+            if (loc) onChange?.({ judetId: Number(judet), localitateId: null })
+            setLoc(null)
+            setDeschis(true)
+          }} onFocus={() => setDeschis(true)}
           aria-autocomplete="list" autoComplete="off" />
         {deschis && judet && !loc && rezultate.length > 0 && (
           <ul className="tv-rezultate-loc" role="listbox">

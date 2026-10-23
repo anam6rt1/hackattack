@@ -9,6 +9,8 @@ import { numeClasa } from '@/lib/clase'
 import { usePagina } from '@/lib/sesiune'
 import { decorSVG, insulaSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
+import Paginare from '@/components/Paginare'
+import { MATERII_PE_PAGINA_MATERIALE_ADMIN, MATERII_PE_PAGINA_MATERIALE_ELEV, cuPagina } from '@/lib/pagini'
 
 const DECOR = decorSVG(5)
 const SEMNE = ['castel', 'moara', 'turn', 'casa', 'far', 'conac', 'clopot']
@@ -16,13 +18,16 @@ const SEMNE = ['castel', 'moara', 'turn', 'casa', 'far', 'conac', 'clopot']
 export default function PaginaMateriale() {
   const elev = usePagina('elev', 'admin')
   const [materii, setMaterii] = useState(null)
+  const [total, setTotal] = useState(0)
+  const [pagina, setPagina] = useState(1)
   const [eroare, setEroare] = useState('')
+  const marime = elev?.rol === 'admin' ? MATERII_PE_PAGINA_MATERIALE_ADMIN : MATERII_PE_PAGINA_MATERIALE_ELEV
   const [cautare, setCautare] = useState('')
   const [raspuns, setRaspuns] = useState({ q: '', date: null, eroare: '' }) // ultimul răspuns al căutării, cu textul pentru care a venit
 
   useEffect(() => {
-    if (elev) api('/materii').then((r) => setMaterii(r.elemente)).catch((e) => setEroare(e.message))
-  }, [elev])
+    if (elev) api(cuPagina('/materii', pagina, marime)).then((r) => { setMaterii(r.elemente); setTotal(r.total) }).catch((e) => setEroare(e.message))
+  }, [elev, pagina, marime])
 
   // Caută la o pauză scurtă după ultima tastă; răspunsurile pentru un text vechi sunt ignorate.
   const q = cautare.trim()
@@ -102,7 +107,8 @@ export default function PaginaMateriale() {
           {!activ && <div className="tv-planuri">
             {materii?.map((m, i) => (
               <Link key={m.id} href={`/materiale/${m.id}`} className="tv-plan tv-materie">
-                <svg viewBox="40 20 260 160" aria-hidden="true" dangerouslySetInnerHTML={{ __html: insulaSVG({ x: 170, y: 100, seed: 7 + i * 13, semn: SEMNE[i % SEMNE.length] }) }} />
+                {/* Același desen pentru o materie pe orice pagină. */}
+                <svg viewBox="40 20 260 160" aria-hidden="true" dangerouslySetInnerHTML={{ __html: insulaSVG({ x: 170, y: 100, seed: 7 + ((pagina - 1) * marime + i) * 13, semn: SEMNE[((pagina - 1) * marime + i) % SEMNE.length] }) }} />
                 <h3>{m.denumire}</h3>
                 {m.descriere && <p className="tv-indiciu">{m.descriere}</p>}
                 <div className="tv-bara tv-bara-verde"><i style={{ width: `${m.numarLectii ? (m.lectiiCompletate / m.numarLectii) * 100 : 0}%` }} /></div>
@@ -111,6 +117,7 @@ export default function PaginaMateriale() {
             ))}
             {materii?.length === 0 && <p className="tv-gol">Încă nu există materii.</p>}
           </div>}
+          {!activ && <Paginare pagina={pagina} totalPagini={Math.ceil(total / marime)} onAlege={(p) => { setPagina(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />}
         </div>
       </div>
     </main>

@@ -9,6 +9,12 @@ public partial class Utilizator
 
     public string Nume { get; set; } = null!;
 
+    /// <summary>The name for search (lower case, without diacritics; computed by the database). Public: the professors list.</summary>
+    public string CautareNume { get; set; } = "";
+
+    /// <summary>Name, username and email for search (computed by the database). Only where those are shown: an organisation's members.</summary>
+    public string CautareCont { get; set; } = "";
+
     public string Username { get; set; } = null!;
 
     public string Email { get; set; } = null!;

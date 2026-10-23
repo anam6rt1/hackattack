@@ -1,9 +1,10 @@
 'use client'
 // Ține tema la zi: în modul „Automat” o recalculează la fiecare 5 minute (zi → noapte),
 // iar pentru utilizatorii logați sincronizează alegerea cu profilul (merge pe orice dispozitiv).
-// Tot aici stau stilul desenelor (Acvatic / Realist / Pixel) și avatarul din profil, salvate la fel.
+// Tot aici stau stilul desenelor (Acvatic / Realist / Pixel) și avatarul din profil, salvate la fel. Ce n-a ales contul
+// înseamnă valorile implicite (nu ce a rămas de la contul de dinainte), iar ieșirea din cont le pune la loc pe cele implicite.
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useSesiune } from '@/lib/sesiune'
 import { CHEIE, CHEIE_STIL, aplicaStil, aplicaTema, citestePreferinta, citesteStil, interfataDinStil, stilDinInterfata } from '@/lib/tema-sezon'
@@ -59,11 +60,22 @@ export function TemaProvider({ children }) {
     api('/utilizatori/me/preferinte')
       .then((p) => {
         aplica(p.mod === 'static' && p.tema ? p.tema : 'auto')
-        const s = stilDinInterfata(p.interfata)
-        if (s) aplicaStilul(s)
+        aplicaStilul(stilDinInterfata(p.interfata) ?? 'acvatic')
         aplicaAvatarul(p.avatar ?? null) // avatarul e al contului, nu al browserului
       })
       .catch(() => {})
+  }, [utilizator, aplica, aplicaStilul, aplicaAvatarul])
+
+  // La ieșirea din cont (nu la prima vizită a unui vizitator) aspectul revine la cel implicit, ca pe un calculator folosit de
+  // mai mulți să nu rămână alegerile altcuiva.
+  const anterior = useRef(utilizator)
+  useEffect(() => {
+    if (anterior.current && utilizator === null) {
+      aplica('auto')
+      aplicaStilul('acvatic')
+      aplicaAvatarul(null)
+    }
+    anterior.current = utilizator
   }, [utilizator, aplica, aplicaStilul, aplicaAvatarul])
 
   useEffect(() => {

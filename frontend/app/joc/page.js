@@ -26,10 +26,8 @@ export default function PaginaJoc() {
 
   useEffect(() => {
     if (!elev) return
-    api('/materii').then((r) => {
-      setMaterii(r.elemente)
-      if (r.elemente.length) setAlese([r.elemente[0].id])
-    })
+    // Nicio materie bifată din oficiu: gazda alege (altfel camera putea porni pe o materie fără întrebări, cu cele demo).
+    api('/materii').then((r) => setMaterii(r.elemente))
   }, [elev])
 
   if (!elev) return <Incarcare />
@@ -65,12 +63,14 @@ export default function PaginaJoc() {
               Cucerește insulele răspunzând la întrebări din lecții. 2–4 jucători, fiecare de pe telefonul lui; locurile libere le pot lua roboți.
             </p>
             <fieldset className="tv-eticheta-camp">
-              <span>Materiile jocului</span>
-              {materii.map((m) => (
-                <label key={m.id} className="tv-bifa">
-                  <input type="checkbox" checked={alese.includes(m.id)} onChange={() => comuta(m.id)} /> {m.denumire}
-                </label>
-              ))}
+              <span>Materiile jocului{alese.length ? ` (${alese.length} ${alese.length === 1 ? 'aleasă' : 'alese'})` : ''}</span>
+              <div className="tv-materii-joc">
+                {materii.map((m) => (
+                  <label key={m.id} className="tv-bifa">
+                    <input type="checkbox" checked={alese.includes(m.id)} onChange={() => comuta(m.id)} /> {m.denumire}
+                  </label>
+                ))}
+              </div>
             </fieldset>
             <label className="tv-eticheta-camp">
               <span>Clasa</span>
@@ -90,7 +90,8 @@ export default function PaginaJoc() {
               </select>
             </label>
             {eroare && <p className="tv-mic" role="alert">{eroare}</p>}
-            <button className="tv-btn" onClick={creeazaCamera} disabled={!alese.length || seCreeaza}>
+            {!alese.length && <p className="tv-mic" id="fara-materie">Bifează cel puțin o materie ca să creezi camera.</p>}
+            <button className="tv-btn" onClick={creeazaCamera} disabled={!alese.length || seCreeaza} aria-describedby={alese.length ? undefined : 'fara-materie'}>
               {seCreeaza ? 'Se creează camera…' : 'Creează o cameră'}
             </button>
             <div className="tv-mic" style={{ textAlign: 'center' }}>sau intră cu un cod</div>

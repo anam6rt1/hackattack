@@ -35,6 +35,31 @@ test("elevul citește un capitol, trece testul și lecția apare terminată", as
   await expect(page.getByText("100 XP").first()).toBeVisible();
 });
 
+test("lecțiile terminate se pot ascunde, iar alegerea rămâne în cont", async ({ page }) => {
+  await intraRapid(page, await elevNou("ordonat", { clasa: "XII" }));
+  await page.goto(`/test/${lectie()}`);
+  for (let i = 1; i <= 6; i++) {
+    await page.getByRole("button", { name: /Răspunsul bun/ }).click();
+    if (i === 6) break;
+    await page.getByRole("button", { name: "Următoarea →" }).click();
+  }
+  await expect(page.getByText(/Felicitări! 6 din 6 corecte/)).toBeVisible();
+
+  await page.goto("/materiale");
+  await page.getByRole("link", { name: /Limba și literatura română/ }).first().click();
+  const terminata = page.getByRole("link", { name: /Luceafărul \(E2E\)/ });
+  await expect(terminata).toContainText("Terminată ✓");
+  const comutator = page.getByRole("checkbox", { name: "Ascunde lecțiile terminate" });
+  await comutator.check();
+  await expect(terminata).toBeHidden();
+  // Saved with the account: still hidden after a reload.
+  await page.reload();
+  await expect(comutator).toBeChecked();
+  await expect(terminata).toBeHidden();
+  await comutator.uncheck();
+  await expect(terminata).toBeVisible();
+});
+
 test("un test picat arată corecturile și cere încă o încercare", async ({ page }) => {
   await intraRapid(page, await elevNou("grabit"));
   await page.goto(`/test/${lectie()}`);

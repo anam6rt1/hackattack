@@ -66,11 +66,6 @@
 .sc-security-tabs button { flex: 1; padding: 11px; border: 0; border-radius: 12px; color: #677d9b; font-weight: 800; background: none; }
 .sc-security-tabs button.sc-selected { color: var(--maro); background: white; box-shadow: 0 2px 0 #cad9ef; }
 .sc-status { display: flex; gap: 10px; align-items: center; background: #edf5ed; color: #50875a; padding: 12px; font-size: 12px; border-radius: 13px; margin-bottom: 22px; }
-.sc-subjects { border: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
-.sc-subjects legend { color: #547095; font-size: 14px; font-weight: 800; margin-bottom: 10px; }
-.sc-subjects label { display: flex; align-items: center; gap: 7px; border: 2px solid #e0e9f6; border-radius: 99px; background: white; padding: 8px 12px; font-size: 13px; cursor: pointer; }
-.sc-subjects label:has(input:checked) { border-color: #ffc61a; background: #fff7d8; }
-.sc-subjects input { accent-color: #149c62; }
 .sc-files-form { border-top: 1px solid #e8e2d7; margin-top: 28px; padding-top: 26px; display: grid; gap: 16px; }
 .sc-files-form h3 { font-size: 21px; }
 .sc-files-form p { margin: 0; }

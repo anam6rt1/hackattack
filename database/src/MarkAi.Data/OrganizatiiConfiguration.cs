@@ -14,6 +14,7 @@ internal static class OrganizatiiConfiguration
             e.HasKey(x => x.Id).HasName("judet_pkey");
             e.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
             e.Property(x => x.Nume).HasColumnName("nume");
+            e.Property(x => x.Cautare).HasColumnName("cautare").HasComputedColumnSql(CautareText.Sql("nume"), stored: true);
         });
 
         model.Entity<Localitate>(e =>
@@ -48,6 +49,8 @@ internal static class OrganizatiiConfiguration
             e.HasKey(x => x.Id).HasName("organizatie_pkey");
             e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();
             e.Property(x => x.Nume).HasColumnName("nume");
+            e.Property(x => x.Cautare).HasColumnName("cautare").HasComputedColumnSql(CautareText.Sql("nume"), stored: true);
+            e.HasIndex(x => x.Cautare, "idx_organizatie_cautare_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
             e.Property(x => x.Adresa).HasColumnName("adresa");
             e.Property(x => x.JudetId).HasColumnName("judet_id");
             e.Property(x => x.LocalitateId).HasColumnName("localitate_id");

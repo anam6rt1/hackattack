@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import Meniu from "@/components/Meniu";
 import { TemaProvider, useTema } from "@/components/Tema";
-import { SesiuneProvider } from "@/lib/sesiune";
+import { SesiuneProvider, useSesiune } from "@/lib/sesiune";
 import { CHEIE, CHEIE_STIL } from "@/lib/tema-sezon";
 import { apiFals, raspuns, router } from "../ajutor";
 
@@ -150,12 +150,19 @@ describe("meniul", () => {
 
 function ArataTema() {
   const { preferinta, stil, avatar } = useTema();
-  return <p>{`${preferinta} ${stil} ${avatar ?? "fără"}`}</p>;
+  const { iese } = useSesiune();
+  return (
+    <>
+      <p>{`${preferinta} ${stil} ${avatar ?? "fără"}`}</p>
+      <button onClick={() => iese()}>Ieși</button>
+    </>
+  );
 }
 
 describe("TemaProvider", () => {
   const randeaza = (utilizator, preferinte) => {
-    const cereri = apiFals({ "GET /utilizatori/me": utilizator ?? raspuns(401), "GET /utilizatori/me/preferinte": preferinte });
+    const cereri = apiFals({ "GET /utilizatori/me": utilizator ?? raspuns(401), "GET /utilizatori/me/preferinte": preferinte,
+      "POST /autentificare/iesire": raspuns(204) });
     render(<SesiuneProvider><TemaProvider><ArataTema /></TemaProvider></SesiuneProvider>);
     return cereri;
   };
@@ -186,5 +193,45 @@ describe("TemaProvider", () => {
     randeaza({ id: 2, nume: "Irina", rol: "profesor" }, { mod: "auto", interfata: "insule", avatar: null });
     await screen.findByText("auto acvatic fără");
     expect(localStorage.getItem("bac_avatar")).toBeNull();
+  });
+
+  it("un cont care n-a ales un stil primește stilul implicit, nu pe al contului de dinainte", async () => {
+    localStorage.setItem(CHEIE_STIL, "pixel");
+    randeaza({ id: 3, nume: "Dan", rol: "elev" }, { mod: "auto", tema: null, interfata: null, avatar: null });
+    expect(await screen.findByText("auto acvatic fără")).toBeInTheDocument();
+    expect(localStorage.getItem(CHEIE_STIL)).toBe("acvatic");
+    expect(document.documentElement.dataset.theme).toBe("acvatic");
+  });
+
+  it("ieșirea din cont pune la loc aspectul implicit", async () => {
+    const u = userEvent.setup();
+    randeaza({ id: 1, nume: "Ana", rol: "elev" }, { mod: "static", tema: "toamna-noapte", interfata: "pixel", avatar: "vulpe" });
+    expect(await screen.findByText("toamna-noapte pixel vulpe")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Ieși" }));
+    expect(await screen.findByText("auto acvatic fără")).toBeInTheDocument();
+    expect(localStorage.getItem(CHEIE)).toBe("auto");
+    expect(localStorage.getItem(CHEIE_STIL)).toBe("acvatic");
+    expect(localStorage.getItem("bac_avatar")).toBeNull();
+    expect(document.documentElement.dataset.theme).toBe("acvatic");
+  });
+
+  it("trecerea direct la alt cont îi aplică aspectul acestuia", async () => {
+    let cont = { id: 1, nume: "Ana", rol: "elev" };
+    apiFals({
+      "GET /utilizatori/me": () => cont,
+      "GET /utilizatori/me/preferinte": () => (cont.id === 1
+        ? { mod: "static", tema: "vara-zi", interfata: "realist", avatar: "vulpe" }
+        : { mod: "auto", tema: null, interfata: null, avatar: null }),
+      "POST /autentificare": () => (cont = { id: 2, nume: "Dan", rol: "elev" }),
+    });
+    function Intra() {
+      const { intra } = useSesiune();
+      return <button onClick={() => intra("dan", "x")}>Intră Dan</button>;
+    }
+    const u = userEvent.setup();
+    render(<SesiuneProvider><TemaProvider><ArataTema /><Intra /></TemaProvider></SesiuneProvider>);
+    expect(await screen.findByText("vara-zi realist vulpe")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Intră Dan" }));
+    expect(await screen.findByText("auto acvatic fără")).toBeInTheDocument();
   });
 });

@@ -47,18 +47,18 @@ public static class LimitaGenerariAi
 {
     public const int MaxIntrebariPeCerere = 20;
 
-    public static async Task<BugetAi> BugetAsync(MarkAiDbContext db, IConfiguration cfg, int uid, CancellationToken ct)
+    public static async Task<BugetAi> BugetAsync(MarkAiDbContext db, IConfiguration cfg, TimeProvider ceas, int uid, CancellationToken ct)
     {
         var peZi = cfg.GetValue("Limite:IntrebariAiPeZi", 30);
         var total = cfg.GetValue("Limite:IntrebariAiPeZiTotal", 300);
-        var deLa = DateTime.UtcNow.AddHours(-24);
+        var deLa = ceas.GetUtcNow().UtcDateTime.AddHours(-24);
         var recente = db.Set<GenerareAi>().Where(g => g.CreatLa >= deLa);
         var ale = await recente.Where(g => g.UtilizatorId == uid).SumAsync(g => g.Numar, ct);
         var toate = await recente.SumAsync(g => g.Numar, ct);
         return new BugetAi(Math.Max(0, Math.Min(peZi - ale, total - toate)), peZi);
     }
 
-    public static async Task PuneAsync(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, int uid, int parcursId, int numar,
+    public static async Task PuneAsync(MarkAiDbContext db, CoadaIntrebari coada, IConfiguration cfg, TimeProvider ceas, int uid, int parcursId, int numar,
         CancellationToken ct)
     {
         if (numar is < 1 or > MaxIntrebariPeCerere) throw new CerereInvalida($"Poți genera între 1 și {MaxIntrebariPeCerere} întrebări odată.");
@@ -66,12 +66,12 @@ public static class LimitaGenerariAi
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         // One budget check at a time, so two requests at once cannot both spend the last questions.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(hashtext('mark_ai.generare_ai'))", ct);
-        var buget = await BugetAsync(db, cfg, uid, ct);
+        var buget = await BugetAsync(db, cfg, ceas, uid, ct);
         if (buget.Ramase == 0)
             throw new Conflict("Ai folosit întrebările AI disponibile în ultimele 24 de ore. Poți scrie sau edita întrebările manual sau reîncerca mâine.");
         if (numar > buget.Ramase)
             throw new Conflict($"Îți mai rămân {buget.Ramase} întrebări AI în ultimele 24 de ore. Cere cel mult {buget.Ramase}.");
-        db.Add(new GenerareAi { UtilizatorId = uid, ParcursId = parcursId, Numar = numar, CreatLa = DateTime.UtcNow });
+        db.Add(new GenerareAi { UtilizatorId = uid, ParcursId = parcursId, Numar = numar, CreatLa = ceas.GetUtcNow().UtcDateTime });
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         coada.Adauga(parcursId, numar);
@@ -81,18 +81,25 @@ public static class LimitaGenerariAi
 /// <summary>
 /// Generates quiz questions for a Lecție with the AI model, from the notes of all its chapters and the text of its files.
 /// New questions are ADDED to the Lecție's quiz (the professor edits or deletes any of them afterwards); the model is shown the
-/// existing ones so it does not repeat them. Estimation questions (Triviador's tie-breaks) are topped up to
-/// <c>Claude:IntrebariEstimare</c> per Lecție.
+/// existing ones so it does not repeat them, and asked for a few more than requested so that the ones about the document itself
+/// or too close to another (<see cref="CalitateIntrebari"/>) can be dropped. Estimation questions (Triviador's tie-breaks) are
+/// topped up to <c>Claude:IntrebariEstimare</c> per Lecție.
 /// </summary>
 public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactory scopes, IConfiguration cfg, ModelAi ai, ILogger<GeneratorIntrebari> log)
     : BackgroundService
 {
     private const string Sistem = """
         Ești profesor de liceu în România și pregătești elevi pentru examenul de bacalaureat.
-        Scrii întrebări de verificare în limba română, cu diacritice, strict pe baza materialului primit.
+        Scrii întrebări de verificare în limba română, cu diacritice, despre materia din materialul primit: faptele, ideile, operele,
+        personajele, formulele și conceptele lui. Nu adăuga informații care nu sunt în material.
+        Întrebările sunt despre materie, nu despre material: nu întreba despre capitole, titluri, fișiere sau notițe și nu scrie
+        „conform materialului”, „din material” sau „în textul de mai sus”. Elevul trebuie să poată răspunde și fără să fi văzut
+        documentul. Titlurile de capitole și de fișiere din material sunt doar pentru organizare.
+        Fiecare întrebare verifică o altă idee: nu pune două întrebări despre același fapt, nici cu alte cuvinte, și acoperă părți
+        cât mai diferite ale materialului.
         Întrebările grilă au exact 4 variante plauzibile, o singură variantă corectă, iar poziția variantei corecte variază.
         Explicația are 1–2 propoziții și spune de ce răspunsul este corect.
-        Nu repeta întrebările care există deja.
+        Nu repeta și nu reformula întrebările care există deja.
         Întrebările de estimare cer un număr întreg (de exemplu un an) care apare explicit în material;
         dacă materialul nu conține astfel de numere, lista de estimări rămâne goală.
         """;
@@ -113,8 +120,8 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
         coada.Actualizeaza(parcursId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
         try
         {
-            var n = await GenereazaAsync(parcursId, numar, ct);
-            coada.Actualizeaza(parcursId, new StareGenerare("gata", null, n, DateTime.UtcNow));
+            var (n, mesaj) = await GenereazaAsync(parcursId, numar, ct);
+            coada.Actualizeaza(parcursId, new StareGenerare("gata", mesaj, n, DateTime.UtcNow));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -127,7 +134,8 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
     /// <summary>A failure the professor can act on; its message is shown in the editor.</summary>
     private sealed class EroareGenerare(string mesaj) : Exception(mesaj);
 
-    private async Task<int> GenereazaAsync(int parcursId, int numar, CancellationToken ct)
+    /// <returns>The number of multiple-choice questions added, and a note for the editor when fewer than asked were added.</returns>
+    private async Task<(int, string?)> GenereazaAsync(int parcursId, int numar, CancellationToken ct)
     {
         var model = ai.Activ ?? throw new EroareGenerare("Generarea AI nu este configurată (setează ANTHROPIC_API_KEY sau GEMINI_API_KEY pe server).");
 
@@ -135,7 +143,7 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
         var lectie = await db.Set<Parcurs>().AsNoTracking().Where(p => p.Id == parcursId)
             .Select(p => new { p.Id, p.MaterieId, p.Titlu, Materie = p.Materie.Denumire }).SingleOrDefaultAsync(ct);
-        if (lectie is null) return 0;
+        if (lectie is null) return (0, null);
 
         var material = await MaterialAsync(db, parcursId, ct);
         if (string.IsNullOrWhiteSpace(material))
@@ -144,6 +152,8 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
         var existente = await db.Set<Intrebare>().AsNoTracking().Where(q => q.ParcursId == parcursId && q.Activa)
             .OrderByDescending(q => q.Id).Select(q => new { q.Tip, q.Text }).Take(200).ToListAsync(ct);
         var estimari = Math.Max(0, cfg.GetValue("Claude:IntrebariEstimare", 2) - existente.Count(q => q.Tip == Intrebare.Estimare));
+        // A few more than asked, so dropping a near-duplicate does not mean fewer questions (only the asked number is kept).
+        var cerute = Math.Min(numar + Math.Max(2, numar / 2), numar * 2);
         var deEvitat = existente.Count == 0 ? "" : $"""
 
             Întrebări care există deja (nu le repeta):
@@ -158,15 +168,20 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
             </material>
             {deEvitat}
 
-            Scrie {numar} întrebări grilă și cel mult {estimari} întrebări de estimare despre acest material.
+            Scrie {cerute} întrebări grilă și cel mult {estimari} întrebări de estimare despre materia din acest material.
             """;
 
         var text = await model.JsonAsync(ScopAi.Intrebari, Sistem, [new MesajAi(true, prompt)], Schema, 16000, ct);
         var rezultat = JsonSerializer.Deserialize<RezultatAi>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         // A reply without the lists (e.g. "{}") counts as no questions, not as a crash.
-        var valide = (rezultat?.Grila ?? []).OfType<GrilaAi>().Where(q => q.Variante?.Count == 4 && q.Corect is >= 0 and <= 3
-            && !string.IsNullOrWhiteSpace(q.Text) && q.Variante.All(v => !string.IsNullOrWhiteSpace(v))).Take(numar).ToList();
-        if (valide.Count == 0) throw new EroareGenerare("Modelul AI nu a propus nicio întrebare validă. Încearcă din nou.");
+        var corecte = (rezultat?.Grila ?? []).OfType<GrilaAi>().Where(q => q.Variante?.Count == 4 && q.Corect is >= 0 and <= 3
+            && !string.IsNullOrWhiteSpace(q.Text) && q.Variante.All(v => !string.IsNullOrWhiteSpace(v))).ToList();
+        if (corecte.Count == 0) throw new EroareGenerare("Modelul AI nu a propus nicio întrebare validă. Încearcă din nou.");
+        var (valide, asemanatoare, despreDocument) = CalitateIntrebari.Filtreaza(corecte, q => q.Text, existente.Select(q => q.Text), numar);
+        if (valide.Count == 0)
+            throw new EroareGenerare("Întrebările propuse de modelul AI semănau prea mult cu cele existente sau erau despre material, nu despre materie. Încearcă din nou.");
+        var estimariNoi = CalitateIntrebari.Filtreaza((rezultat?.Estimari ?? []).OfType<EstimareAi>().Where(e => !string.IsNullOrWhiteSpace(e.Text)),
+            e => e.Text, existente.Select(q => q.Text), estimari).Pastrate;
 
         foreach (var q in valide)
             db.Add(new Intrebare
@@ -174,10 +189,16 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
                 MaterieId = lectie.MaterieId, ParcursId = parcursId, Text = q.Text.Trim(), Explicatie = q.Explicatie?.Trim(), Sursa = Intrebare.SursaAi,
                 Variante = q.Variante!.Select((v, i) => new VariantaIntrebare { Text = v.Trim(), Corecta = i == q.Corect }).ToList(),
             });
-        foreach (var e in (rezultat?.Estimari ?? []).OfType<EstimareAi>().Where(e => !string.IsNullOrWhiteSpace(e.Text)).Take(estimari))
+        foreach (var e in estimariNoi)
             db.Add(new Intrebare { MaterieId = lectie.MaterieId, ParcursId = parcursId, Text = e.Text.Trim(), Tip = Intrebare.Estimare, RaspunsNumeric = e.Raspuns, Sursa = Intrebare.SursaAi });
         await db.SaveChangesAsync(ct);
-        return valide.Count;
+        if (valide.Count == numar) return (valide.Count, null);
+        var motive = new List<string>();
+        if (asemanatoare > 0) motive.Add(asemanatoare == 1 ? "una semăna prea mult cu o întrebare existentă" : $"{asemanatoare} semănau prea mult cu întrebări existente");
+        if (despreDocument > 0) motive.Add(despreDocument == 1 ? "una era despre material, nu despre materie" : $"{despreDocument} erau despre material, nu despre materie");
+        return (valide.Count, $"Au fost adăugate {valide.Count} din {numar} cerute"
+            + (motive.Count > 0 ? $": dintre cele propuse, {string.Join(", iar ", motive)}." : ": modelul AI n-a propus mai multe valide.")
+            + " Poți genera din nou sau scrie restul manual.");
     }
 
     // The notes of every chapter (in the recommended order), then the extracted text of the Lecție's files, within

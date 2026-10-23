@@ -21,6 +21,14 @@ function porneste(rute = {}) {
 
 const camp = (eticheta) => screen.getByLabelText(eticheta);
 
+/** Opens a picker's window, ticks the given options and closes it. */
+async function alege(u, buton, ...optiuni) {
+  await u.click(screen.getByRole("button", { name: buton }));
+  const fereastra = screen.getByRole("dialog");
+  for (const o of optiuni) await u.click(await within(fereastra).findByRole("checkbox", { name: o }));
+  await u.click(within(fereastra).getByRole("button", { name: "Gata" }));
+}
+
 async function intra(u, identificator = "ana", parola = "Parola-buna-1") {
   await u.type(camp("Email sau utilizator"), identificator);
   await u.type(camp("Parolă"), parola);
@@ -68,7 +76,8 @@ describe("intrarea în cont", () => {
     await u.click(screen.getByRole("tab", { name: "Cont de elev" }));
     expect(screen.getByRole("button", { name: "Creează contul de elev" })).toBeInTheDocument();
     await u.click(screen.getByRole("tab", { name: "Sunt profesor" }));
-    expect(await screen.findByLabelText("Matematică")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Adaugă materie" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Adaugă organizație" })).toBeInTheDocument();
     await u.click(screen.getByRole("tab", { name: "Organizație" }));
     expect(camp("Numele organizației (școală, centru)")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Organizație" })).toHaveAttribute("aria-selected", "true");
@@ -109,8 +118,8 @@ describe("înregistrarea elevului și codul de pe email", () => {
     await u.type(camp("Email"), "b@example.ro");
     await u.type(camp("Parolă (minim 8 caractere)"), "Parola-buna-1");
     await u.selectOptions(camp("Clasa (opțional)"), "XI");
-    await screen.findByRole("option", { name: "Liceul de Test · Sectorul 1" });
-    await u.selectOptions(screen.getByRole("combobox", { name: "Organizația ta (opțional)" }), "1");
+    await u.type(screen.getByRole("combobox", { name: "Organizația ta (opțional)" }), "liceul");
+    await u.click(await screen.findByRole("option", { name: "Liceul de Test · Sectorul 1" }));
     await u.click(screen.getByRole("button", { name: "Creează contul de elev" }));
     await waitFor(() => expect(cereri.find((c) => c.cale === "/autentificare/inregistrare")?.corp).toMatchObject({ clasa: "XI", organizatieId: 1 }));
   });
@@ -253,7 +262,6 @@ describe("înregistrarea profesorului și a organizației", () => {
   it("fără materie, profesorul e oprit cu un mesaj", async () => {
     const { u, cereri } = porneste();
     await u.click(screen.getByRole("tab", { name: "Sunt profesor" }));
-    await screen.findByLabelText("Matematică");
     const form = screen.getByRole("button", { name: "Trimite cererea" }).closest("form");
     form.noValidate = true;
     await u.click(screen.getByRole("button", { name: "Trimite cererea" }));
@@ -264,10 +272,23 @@ describe("înregistrarea profesorului și a organizației", () => {
   it("fără organizație, profesorul e oprit cu un mesaj", async () => {
     const { u } = porneste();
     await u.click(screen.getByRole("tab", { name: "Sunt profesor" }));
-    await u.click(await screen.findByLabelText("Matematică"));
+    await alege(u, "+ Adaugă materie", "Matematică");
     screen.getByRole("button", { name: "Trimite cererea" }).closest("form").noValidate = true;
     await u.click(screen.getByRole("button", { name: "Trimite cererea" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Alege cel puțin o organizație în care predai.");
+  });
+
+  it("materiile și organizațiile alese în ferestre pleacă în formular", async () => {
+    const { u, cereri } = porneste({ "POST /autentificare/inregistrare-profesor": raspuns(202, { email: "p@example.ro", mesaj: "ok" }) });
+    await u.click(screen.getByRole("tab", { name: "Sunt profesor" }));
+    await alege(u, "+ Adaugă materie", "Matematică", "Limba și literatura română");
+    await alege(u, "+ Adaugă organizație", /Liceul de Test/);
+    expect(screen.getByRole("button", { name: "Scoate Matematică" })).toBeInTheDocument();
+    screen.getByRole("button", { name: "Trimite cererea" }).closest("form").noValidate = true;
+    await u.click(screen.getByRole("button", { name: "Trimite cererea" }));
+    await waitFor(() => expect(cereri.some((c) => c.cale === "/autentificare/inregistrare-profesor")).toBe(true));
+    const corp = cereri.find((c) => c.cale === "/autentificare/inregistrare-profesor").corp;
+    expect([corp.getAll("materieIds"), corp.getAll("organizatieIds")]).toEqual([["2", "1"], ["1"]]);
   });
 
   it("organizația trimite numerele locului ca numere", async () => {

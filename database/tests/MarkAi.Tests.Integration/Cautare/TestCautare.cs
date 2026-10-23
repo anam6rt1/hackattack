@@ -106,4 +106,18 @@ public abstract class TestCautare : TestCuHarness
     protected Task<int> Id(string username) => h.Db(db => db.Utilizatori.Where(u => u.Username == username).Select(u => u.Id).SingleAsync());
 
     protected static DateTime Maine => DateTime.UtcNow.AddDays(2);
+
+    /// <summary>One upcoming online session for each professor, so they are listed on /profesori (professors without one are not).</summary>
+    protected Task CuSedinte(params string[] profesori) => h.Db(async db =>
+    {
+        foreach (var username in profesori)
+        {
+            var id = await db.Utilizatori.Where(u => u.Username == username).Select(u => u.Id).SingleAsync();
+            var materie = await db.Set<MentorMaterie>().Where(m => m.MentorId == id).Select(m => m.MaterieId).FirstAsync();
+            var cand = DateTime.UtcNow.AddDays(3);
+            db.Add(new CameraTutoring { MentorId = id, MaterieId = materie, Titlu = "Ședință de test", Capacitate = 5, ProBono = true,
+                Status = RezervareService.SlotDeschis, InceputLa = cand, FinalizatLa = cand.AddHours(1), Tip = CameraTutoring.Online });
+        }
+        await db.SaveChangesAsync();
+    });
 }

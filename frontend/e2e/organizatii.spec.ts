@@ -1,8 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { elevNou, intra, intraRapid, PAROLA, telefonUnic, ultimulCod, unic } from "./ajutor";
+import { elevNou, intra, intraRapid, PAROLA, PDF, PNG, telefonUnic, ultimulCod, unic } from "./ajutor";
 
-const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
-const PDF = Buffer.from("%PDF-1.4\n%test\n");
 
 async function confirmaEmail(page: Page, email: string) {
   await expect(page.getByRole("heading", { name: "Confirmă adresa de email" })).toBeVisible();
@@ -62,12 +60,22 @@ test("un profesor aplică la organizație, iar administratorul ei îl aprobă", 
   await page.getByLabel("Telefon").fill(telefonUnic());
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Parolă (minim 8 caractere)").fill(PAROLA);
-  await page.getByLabel("Limba și literatura română").check();
+  await page.getByRole("button", { name: "+ Adaugă materie" }).click();
+  const materii = page.getByRole("dialog", { name: "Materiile pe care le predai" });
+  await materii.getByRole("searchbox", { name: "Caută o materie" }).fill("romana");
+  await materii.getByRole("checkbox", { name: "Limba și literatura română" }).check();
+  await materii.getByRole("button", { name: "Gata" }).click();
+  await expect(page.getByRole("button", { name: "Scoate Limba și literatura română" })).toBeVisible();
   await page.getByLabel("Despre tine (apare pe profilul public)").fill("Predau română de 10 ani.");
   await page.getByLabel("Fotografie").setInputFiles({ name: "poza.png", mimeType: "image/png", buffer: PNG });
   await page.getByLabel("Dovada calificării").setInputFiles({ name: "diploma.pdf", mimeType: "application/pdf", buffer: PDF });
   await page.getByRole("combobox", { name: "Județul" }).selectOption({ label: "București" });
-  await page.getByRole("group", { name: "Organizațiile în care predai" }).getByLabel(new RegExp(org.nume)).check();
+  await page.getByRole("button", { name: "+ Adaugă organizație" }).click();
+  const organizatii = page.getByRole("dialog", { name: "Organizațiile în care predai" });
+  await organizatii.getByRole("button", { name: "Toate județele" }).click();
+  await organizatii.getByRole("searchbox").fill(org.nume);
+  await organizatii.getByRole("checkbox", { name: new RegExp(org.nume) }).check();
+  await organizatii.getByRole("button", { name: "Gata" }).click();
   await page.getByRole("button", { name: "Trimite cererea" }).click();
   await confirmaEmail(page, email);
   await expect(page).toHaveURL(/\/in-asteptare$/);

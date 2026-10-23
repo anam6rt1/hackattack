@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MarkAi.Api\MarkAi.Api.csproj" />
+    <!-- SedinteTest: the same scheduled sessions as date-test, for the preview API and the tests. -->
+    <ProjectReference Include="..\..\tools\MarkAi.Database\MarkAi.Database.csproj" />
   </ItemGroup>
 
   <ItemGroup>

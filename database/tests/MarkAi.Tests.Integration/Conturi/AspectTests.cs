@@ -190,4 +190,31 @@ public sealed class AspectTests : TestCuHarness
         (await h.Db(db => db.PreferinteUtilizatori.CountAsync(p => p.Utilizator.Username == "george"))).ShouldBe(1);
         (await george.GetJson("/utilizatori/me/preferinte")).Str("tema").ShouldBe("vara-zi");
     }
+
+    [Fact]
+    public async Task AscundereaLectiilorTerminateEsteOpritaImplicit()
+    {
+        using var george = await h.Login("george");
+        (await george.GetJson("/utilizatori/me/preferinte")).Bool("ascundeLectiiTerminate").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task AscundereaLectiilorTerminateSePastreazaPeCont()
+    {
+        using var george = await h.Login("george");
+        (await george.Put("/utilizatori/me/preferinte", new { ascundeLectiiTerminate = true }).Json()).Bool("ascundeLectiiTerminate").ShouldBeTrue();
+        // Another change leaves it as it was; a second session of the same account sees it; another account doesn't.
+        (await george.Put("/utilizatori/me/preferinte", new { mod = "auto" }).Json()).Bool("ascundeLectiiTerminate").ShouldBeTrue();
+        using var dinNou = await h.Login("george");
+        (await dinNou.GetJson("/utilizatori/me/preferinte")).Bool("ascundeLectiiTerminate").ShouldBeTrue();
+        using var irina = await h.Login("irina");
+        (await irina.GetJson("/utilizatori/me/preferinte")).Bool("ascundeLectiiTerminate").ShouldBeFalse();
+        (await george.Put("/utilizatori/me/preferinte", new { ascundeLectiiTerminate = false }).Json()).Bool("ascundeLectiiTerminate").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task AscundereaLectiilorTerminateCereCont()
+    {
+        await h.Anonim().Put("/utilizatori/me/preferinte", new { ascundeLectiiTerminate = true }).Status(HttpStatusCode.Unauthorized);
+    }
 }

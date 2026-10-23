@@ -13,7 +13,11 @@ import { api, marime, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Incarcare from '@/components/Incarcare'
+import Paginare from '@/components/Paginare'
+import { LECTII_PE_PAGINA_EDITOR_ADMIN, LECTII_PE_PAGINA_EDITOR_PROFESOR, cuPagina } from '@/lib/pagini'
 import { useConfirmare } from '@/components/Confirmare'
+import AlegeMultiplu from '@/components/AlegeMultiplu'
+import { PARTAJARI_LECTIE, potriveste } from '@/lib/alegeri'
 
 const CURS_GOL = { titlu: '', descriere: '', capitol: '', ordine: '', videoUrl: '', continut: '', publicat: true, materiale: [{ titlu: '', text: '' }] }
 const LECTIE_GOALA = { titlu: '', descriere: '', clasa: 'Bac', vizibilitate: 'public', organizatieId: null, partajari: [], publicat: true }
@@ -96,7 +100,6 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
     }
   }
 
-  const comutaPartajare = (id) => setDate({ ...date, partajari: date.partajari.includes(id) ? date.partajari.filter((x) => x !== id) : [...date.partajari, id] })
   const dePartajat = posibile.filter((o) => o.id !== date.organizatieId)
 
   return (
@@ -144,16 +147,14 @@ function EditorLectie({ lectie, materii, materieImplicita, organizatiiNoi, esteA
         </div>
         {!publicPermis && <small className="tv-indiciu">Organizația nu permite autorului să publice lecții pentru toți, așa că lecția rămâne doar pentru organizație.</small>}
       </fieldset>
+      {/* Doar celelalte organizații ale autorului (câteva), venite deja cu lecția: căutarea lor rămâne aici. */}
       {dePartajat.length > 0 && (
-        <fieldset className="tv-eticheta-camp">
-          <span>Arată lecția și în (doar vizualizare)</span>
-          {dePartajat.map((o) => (
-            <label key={o.id} className="tv-bifa">
-              <input type="checkbox" checked={date.partajari.includes(o.id)} onChange={() => comutaPartajare(o.id)} /> {o.nume}
-            </label>
-          ))}
-          <small className="tv-indiciu">Elevii acestor organizații o văd; administratorii lor nu o pot edita.</small>
-        </fieldset>
+        <AlegeMultiplu eticheta="Arată lecția și în (doar vizualizare)" buton="Adaugă organizație" titlu="Arată lecția și în"
+          etichetaCautare="Caută o organizație" maxim={PARTAJARI_LECTIE} cheieCautare={dePartajat.length}
+          alese={date.partajari.map((id) => dePartajat.find((o) => o.id === id) ?? { id, nume: `Organizația ${id}` }).map(({ id, nume }) => ({ id, nume }))}
+          onChange={(alese) => setDate({ ...date, partajari: alese.map((a) => a.id) })}
+          cauta={async (q) => ({ elemente: dePartajat.filter((o) => potriveste(o.nume, q)).map(({ id, nume }) => ({ id, nume })) })}
+          indiciu="Elevii acestor organizații o văd; administratorii lor nu o pot edita." />
       )}
       <label className="tv-optiune" style={{ justifySelf: 'start' }}>
         <input type="checkbox" checked={date.publicat} onChange={(e) => setDate({ ...date, publicat: e.target.checked })} /> Publicată
@@ -600,7 +601,11 @@ function Intrebari({ parcursId }) {
           : ' Ai folosit întrebările AI disponibile în ultimele 24 de ore; poți scrie întrebări de mână.')}
       </small>
       {lucreaza && <p className="tv-status"><b>Se generează întrebările...</b><span>Durează de obicei mai puțin de un minut.</span></p>}
-      {generare?.stare === 'gata' && <p className="tv-succes">Au fost adăugate {generare.intrebariGenerate} întrebări noi. Verifică-le mai jos.</p>}
+      {generare?.stare === 'gata' && (
+        <p className="tv-succes">
+          {generare.mesaj ?? `Au fost adăugate ${generare.intrebariGenerate} întrebări noi.`} Verifică-le mai jos.
+        </p>
+      )}
       {generare?.stare === 'eroare' && <p className="tv-eroare">{generare.mesaj}</p>}
       {eroare && <p className="tv-eroare">{eroare}</p>}
       <IntrebareNoua parcursId={parcursId} onAdaugata={incarca} />
@@ -629,14 +634,43 @@ export default function AdminContinut() {
     return (await api('/profesori/me')).profil.materii.map((m) => toate.find((x) => x.id === m.id)).filter(Boolean)
   }, [esteAdmin])
 
-  const incarcaLectii = useCallback(() => api('/continut/parcursuri').then((r) => setLectii(r.elemente)), [])
+  // Lecțiile pe care le poate edita, câte o pagină; căutarea și filtrele le aplică serverul.
+  const marimeLectii = esteAdmin ? LECTII_PE_PAGINA_EDITOR_ADMIN : LECTII_PE_PAGINA_EDITOR_PROFESOR
+  const [paginaLectii, setPaginaLectii] = useState(1)
+  const [totalLectii, setTotalLectii] = useState(0)
+  const [toateMateriile, setToateMateriile] = useState([])
+  const [filtre, setFiltre] = useState({ clasa: '', vizibilitate: '', ciorne: false })
+  const [textLectii, setTextLectii] = useState('')
+  const [cautatLectii, setCautatLectii] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (textLectii.trim() === cautatLectii) return
+      setCautatLectii(textLectii.trim())
+      setPaginaLectii(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [textLectii, cautatLectii])
+  const schimbaFiltru = (modificare) => { setFiltre((f) => ({ ...f, ...modificare })); setPaginaLectii(1) }
+  const incarcaLectii = useCallback(() => {
+    const q = new URLSearchParams()
+    if (filtruMaterie) q.set('materieId', filtruMaterie)
+    if (filtre.clasa) q.set('clasa', filtre.clasa)
+    if (filtre.vizibilitate) q.set('vizibilitate', filtre.vizibilitate)
+    if (filtre.ciorne) q.set('publicat', 'false')
+    if (cautatLectii) q.set('q', cautatLectii)
+    return api(cuPagina(`/continut/parcursuri?${q}`, paginaLectii, marimeLectii)).then((r) => { setLectii(r.elemente); setTotalLectii(r.total) })
+  }, [filtruMaterie, filtre, cautatLectii, paginaLectii, marimeLectii])
+  const lectiiFiltrate = !!(filtruMaterie || filtre.clasa || filtre.vizibilitate || filtre.ciorne || cautatLectii)
 
   useEffect(() => {
     if (!utilizator) return
     materiiPermise().then(setMaterii)
+    api('/materii').then((r) => setToateMateriile(r.elemente)).catch(() => {})
     api('/continut/organizatii').then((r) => setOrganizatii(r.elemente)).catch(() => setOrganizatii([]))
-    incarcaLectii()
-  }, [utilizator, materiiPermise, incarcaLectii])
+  }, [utilizator, materiiPermise])
+  useEffect(() => {
+    if (utilizator) incarcaLectii()
+  }, [utilizator, incarcaLectii])
 
   function deschideLectie(l) {
     setLectie(l)
@@ -650,8 +684,9 @@ export default function AdminContinut() {
   }
 
   if (!utilizator || !materii) return <Incarcare />
-  const vizibile = lectii.filter((l) => !filtruMaterie || l.materieId === Number(filtruMaterie))
-  const materiiFiltru = [...new Map([...materii, ...lectii.map((l) => ({ id: l.materieId, denumire: l.materie }))].map((m) => [m.id, m])).values()]
+  // Materiile din filtru: cele pe care le poate folosi plus toate celelalte (o lecție a lui poate fi la o materie pe care n-o mai predă).
+  const materiiFiltru = [...new Map([...materii, ...toateMateriile].map((m) => [m.id, m])).values()]
+  const vizibile = lectii
 
   return (
     <main className="tv-pagina">
@@ -666,12 +701,35 @@ export default function AdminContinut() {
             <aside className="tv-cutie">
               <label className="tv-eticheta-camp">
                 <span>Materia</span>
-                <select className="tv-camp-text" value={filtruMaterie} onChange={(e) => setFiltruMaterie(e.target.value)}>
+                <select className="tv-camp-text" value={filtruMaterie} onChange={(e) => { setFiltruMaterie(e.target.value); setPaginaLectii(1) }}>
                   <option value="">Toate materiile</option>
                   {materiiFiltru.map((m) => <option key={m.id} value={m.id}>{m.denumire}</option>)}
                 </select>
               </label>
-              {esteAdmin && <MaterieNoua onCreata={async (m) => { setMaterii(await materiiPermise()); setFiltruMaterie(String(m.id)) }} />}
+              <label className="tv-eticheta-camp">
+                <span>Caută</span>
+                <input type="search" className="tv-camp-text" aria-label="Caută o lecție" placeholder="Titlu sau descriere" maxLength={100}
+                  value={textLectii} onChange={(e) => setTextLectii(e.target.value)} />
+              </label>
+              <div className="tv-grid-2">
+                <label className="tv-eticheta-camp">
+                  <span>Clasa</span>
+                  <select className="tv-camp-text" value={filtre.clasa} onChange={(e) => schimbaFiltru({ clasa: e.target.value })}>
+                    <option value="">Toate</option>
+                    {CLASE.map((c) => <option key={c} value={c}>{numeClasa(c)}</option>)}
+                  </select>
+                </label>
+                <label className="tv-eticheta-camp">
+                  <span>Cine o vede</span>
+                  <select className="tv-camp-text" value={filtre.vizibilitate} onChange={(e) => schimbaFiltru({ vizibilitate: e.target.value })}>
+                    <option value="">Oricine</option>
+                    <option value="public">Pentru toți</option>
+                    <option value="organizatie">Doar organizația</option>
+                  </select>
+                </label>
+              </div>
+              <label className="tv-optiune"><input type="checkbox" checked={filtre.ciorne} onChange={(e) => schimbaFiltru({ ciorne: e.target.checked })} /> Doar ciornele</label>
+              {esteAdmin && <MaterieNoua onCreata={async (m) => { setMaterii(await materiiPermise()); setFiltruMaterie(String(m.id)); setPaginaLectii(1) }} />}
               <button className="tv-btn" onClick={() => deschideLectie('noua')} disabled={materii.length === 0}>+ Lecție nouă</button>
               {materii.length === 0 && <p className="tv-indiciu">Adaugă în profilul de profesor materiile pe care le predai, ca să poți crea lecții.</p>}
               <ul className="tv-lista">
@@ -679,21 +737,23 @@ export default function AdminContinut() {
                   <li key={l.id}>
                     <button className={`tv-rand tv-rand-buton ${lectie?.id === l.id ? 'tv-rand-activ' : ''}`} onClick={() => deschideLectie(l)}>
                       <div>
-                        <b>{l.titlu}</b>
+                        {/* Etichetele stau pe rândul titlului, ca rândul să rămână lat și scund. */}
+                        <span className="tv-rand-titlu">
+                          <b>{l.titlu}</b>
+                          {l.vizibilitate === 'organizatie' && <span className="tv-pastila tv-pastila-mica">Organizație</span>}
+                          {!l.publicat && <span className="tv-pastila tv-pastila-mica">Ciornă</span>}
+                        </span>
                         <small>
                           {l.materie} · {numeClasa(l.clasa)} · {l.organizatie ?? 'platformă'}
                           {l.autorId !== utilizator.id && l.autor ? ` · de ${l.autor}` : ''}
                         </small>
                       </div>
-                      <span className="tv-butoane" style={{ gap: 4 }}>
-                        {l.vizibilitate === 'organizatie' && <span className="tv-pastila">Organizație</span>}
-                        {!l.publicat && <span className="tv-pastila">Ciornă</span>}
-                      </span>
                     </button>
                   </li>
                 ))}
-                {vizibile.length === 0 && <p className="tv-indiciu">Nu ai încă lecții aici.</p>}
+                {vizibile.length === 0 && <p className="tv-indiciu">{lectiiFiltrate ? 'Nicio lecție nu se potrivește căutării și filtrelor.' : 'Nu ai încă lecții aici.'}</p>}
               </ul>
+              <Paginare compact pagina={paginaLectii} totalPagini={Math.ceil(totalLectii / marimeLectii)} onAlege={setPaginaLectii} />
             </aside>
 
             <section className="tv-cutie">

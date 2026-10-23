@@ -84,3 +84,37 @@ export async function intraRapid(page: Page, identificator: string, parola = PAR
   const r = await page.request.post("/api/autentificare", { data: { identificator, parola }, headers: { "X-MarkAi": "1" } });
   expect(r.ok(), `login ${identificator}: ${r.status()}`).toBeTruthy();
 }
+
+/** Small files for upload forms (a professor's photo and qualification proof). */
+export const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+export const PDF = Buffer.from("%PDF-1.4\n%test\n");
+
+/**
+ * A professor approved in Liceul de Test (by director), teaching Romanian, with one upcoming online session so the Profesori list
+ * shows them. The name gets the unique username after it (the browsers share one test database). Returns username, name and id.
+ */
+export async function profesorNou(prefix = "prof", prenume = "Profesor Nou"): Promise<{ username: string; nume: string; id: number }> {
+  const username = unic(prefix);
+  const nume = `${prenume} ${username}`;
+  const email = `${username}@example.invalid`;
+  const c = await clientApi();
+  const liceu = (await (await c.get("/organizatii?q=" + encodeURIComponent("Liceul de Test"))).json()).elemente[0].id;
+  const formular = {
+    Nume: nume, Username: username, Email: email, Parola: PAROLA, Telefon: telefonUnic(), Descriere: "Predau română.", MaterieIds: "1",
+    JudetId: "40", OrganizatieIds: String(liceu), Poza: { name: "p.png", mimeType: "image/png", buffer: PNG },
+    Dovada: { name: "d.pdf", mimeType: "application/pdf", buffer: PDF },
+  };
+  expect((await c.post("/autentificare/inregistrare-profesor", { multipart: formular })).status()).toBe(202);
+  expect((await c.post("/autentificare/confirma-email", { data: { email, cod: await ultimulCod(email) } })).ok()).toBeTruthy();
+  await c.dispose();
+  const director = await clientApi("director");
+  const p = await clientApi(username);
+  const id = (await (await p.get("/utilizatori/me")).json()).id;
+  expect((await director.post(`/organizatia-mea/membri/${id}/aprobare`)).ok()).toBeTruthy();
+  const sedinta = await p.post("/profesori/me/sloturi", { data: { materieId: 1, titlu: `Ședința lui ${nume}`, capacitate: 3, proBono: true,
+    inceputLa: new Date(Date.now() + 3 * 86400000).toISOString(), linkIntalnire: "https://meet.example.invalid/x" } });
+  expect(sedinta.status(), await sedinta.text()).toBe(201);
+  await Promise.all([director.dispose(), p.dispose()]);
+  return { username, nume, id };
+}
+

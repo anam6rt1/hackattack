@@ -15,7 +15,15 @@ var setari = e2e ? new Dictionary<string, string?>
     ["Limite:PauzaQuizSecunde"] = "0",
 } : null;
 var previzualizare = await Harness.Porneste(ceasReal: true, port: port, setari: setari);
-Console.WriteLine($"Preview fixtures only: George/Irina/Admin/Director; usernames george, irina, admin, director; password {Harness.ParolaTest}; API {previzualizare.Adresa}.");
+// What `seed` sets up for the price and the appearance (styles, themes), so sessions can be paid and a style can be saved;
+// then scheduled sessions (the same as date-test), so Profesori, bookings and Acasă have something to show. director teaches
+// no subject, so she stays a professor without sessions.
+await previzualizare.Db(async db =>
+{
+    await Seed.ReferintaAsync(db);
+    await SedinteTest.AdaugaAsync(db, ["irina", "director"], ["george"], DateTime.UtcNow);
+});
+Console.WriteLine($"Preview fixtures only: George/Irina/Admin/Director (+ scheduled sessions); usernames george, irina, admin, director; password {Harness.ParolaTest}; API {previzualizare.Adresa}.");
 // The host stops on Ctrl+C or SIGTERM; then the database copy and the container go too.
 await previzualizare.App.WaitForShutdownAsync();
 await previzualizare.DisposeAsync();
