@@ -11,5 +11,6 @@
   <Folder Name="/tools/">
     <Project Path="tools/MarkAi.Database/MarkAi.Database.csproj" />
     <Project Path="tools/MarkAi.Previzualizare/MarkAi.Previzualizare.csproj" />
+    <Project Path="tools/MarkAi.Stres/MarkAi.Stres.csproj" />
   </Folder>
 </Solution>

@@ -67,7 +67,7 @@ public abstract class TestCautare : TestCuHarness
     protected sealed record Gasite(List<int> Lectii, List<int> Capitole);
     protected sealed record LectieGasita(int Id, string? Loc, bool InLocalitateaTa);
     protected sealed record SlotGasit(int Id, string Tip, string? Loc, string? NotaLoc);
-    protected sealed record ProfesorGasit(int Id, string? Loc, bool InLocalitateaTa, List<SlotGasit> Sloturi);
+    protected sealed record ProfesorGasit(int Id, string? Loc, bool InLocalitateaTa, List<SlotGasit> Sloturi, int AlteSesiuni);
 
     protected static string? Loc(JsonElement e) => e.ValueKind == JsonValueKind.Null ? null
         : string.Join(" · ", new[] { e.GetProperty("organizatie").GetString(),
@@ -84,7 +84,7 @@ public abstract class TestCautare : TestCuHarness
 
     protected static async Task<List<ProfesorGasit>> Profesori(HttpClient c, string query = "") =>
         (await c.GetJson("/profesori" + query)).Lista().Select(p => new ProfesorGasit(p.Int("id"), Loc(p.GetProperty("loc")), p.Bool("inLocalitateaTa"),
-            p.Lista("sloturi").Select(s => new SlotGasit(s.Int("id"), s.Str("tip"), Loc(s.GetProperty("loc")), s.GetProperty("notaLoc").GetString())).ToList())).ToList();
+            p.Lista("sloturi").Select(s => new SlotGasit(s.Int("id"), s.Str("tip"), Loc(s.GetProperty("loc")), s.GetProperty("notaLoc").GetString())).ToList(), p.Int("alteSesiuni"))).ToList();
 
     protected static object Lectie(string titlu, int? organizatieId, string clasa = "Bac", string vizibilitate = "public", bool publicat = true, string? descriere = null) =>
         new { materieId = 1, titlu, descriere, clasa, vizibilitate, organizatieId, publicat };

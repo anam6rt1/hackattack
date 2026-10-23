@@ -20,8 +20,9 @@ const IRINA = {
 
 const ELEV = { id: 1, nume: "Ana", rol: "elev", judetId: 40, localitateId: 179141, organizatii: [{ id: 1, nume: "Liceul de Test", rol: "elev", stare: "aprobat" }] };
 
-function porneste(utilizator = ELEV, profesori = [IRINA]) {
+function porneste(utilizator = ELEV, profesori = [IRINA], rute = {}) {
   const cereri = apiFals({
+    ...rute,
     "GET /utilizatori/me": utilizator,
     "GET /profesori": (c) => (typeof profesori === "function" ? profesori(c) : { elemente: profesori }),
     "GET /materii": { elemente: [{ id: 1, denumire: "Română" }] },
@@ -38,6 +39,37 @@ describe("pagina Profesori (elev)", () => {
     expect(await screen.findByRole("heading", { name: "Irina Marin" })).toBeInTheDocument();
     expect(screen.getByText("Ședința 10")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rezervă" })).toBeEnabled();
+  });
+
+  it("arată doar următoarea ședință; „și alte 2 sesiuni” le aduce pe toate, iar „Ascunde” le strânge la loc", async () => {
+    const { u } = porneste(ELEV, [{ ...IRINA, sloturi: [sedinta(10)], alteSesiuni: 2 }], {
+      "GET /profesori/2": { ...IRINA, sloturi: [sedinta(10), sedinta(12), sedinta(13)], alteSesiuni: 0 },
+    });
+    expect(await screen.findByText("Ședința 10")).toBeInTheDocument();
+    expect(screen.queryByText("Ședința 12")).not.toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "și alte 2 sesiuni" }));
+    expect(await screen.findByText("Ședința 13")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Rezervă" })).toHaveLength(3);
+    await u.click(screen.getByRole("button", { name: "Ascunde celelalte sesiuni" }));
+    expect(screen.queryByText("Ședința 13")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "și alte 2 sesiuni" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("celelalte sesiuni respectă filtrul online / față în față", async () => {
+    const { u, cereri } = porneste(ELEV, [{ ...IRINA, sloturi: [sedinta(10)], alteSesiuni: 1 }], {
+      "GET /profesori/2": { ...IRINA, sloturi: [sedinta(10), sedinta(12, { tip: "hibrid" })] },
+    });
+    await screen.findByText("Ședința 10");
+    await u.click(screen.getByRole("button", { name: "Față în față" }));
+    await u.click(await screen.findByRole("button", { name: "și încă o sesiune" }));
+    await screen.findByText("Ședința 12");
+    expect(cereri.filter((c) => c.cale === "/profesori/2").at(-1).query).toBe("?tip=fata_in_fata");
+  });
+
+  it("fără alte sesiuni nu apare butonul", async () => {
+    porneste(ELEV, [{ ...IRINA, sloturi: [sedinta(10)], alteSesiuni: 0 }]);
+    await screen.findByText("Ședința 10");
+    expect(screen.queryByRole("button", { name: /și (alte|încă)/ })).not.toBeInTheDocument();
   });
 
   it("la o ședință rezervată nu mai e „Intră în ședință” (e pe pagina de start)", async () => {
