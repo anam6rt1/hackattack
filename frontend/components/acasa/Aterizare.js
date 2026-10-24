@@ -3,7 +3,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { api } from '@/lib/api'
+import { api, marime } from '@/lib/api'
+import { optimizeazaFotografie } from '@/lib/optimizare-fisiere'
+import OptimizareFotografie from '@/components/OptimizareFotografie'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import AlegeLoc from '@/components/AlegeLoc'
@@ -241,6 +243,8 @@ function FormularProfesor({ onConfirmare }) {
   const [eroare, setEroare] = useState('')
   const [trimite, setTrimite] = useState(false)
   const [judetId, setJudetId] = useState(null)
+  const [original, setOriginal] = useState(false)
+  const [optimizare, setOptimizare] = useState('')
 
   async function trimiteFormular(e) {
     e.preventDefault()
@@ -251,6 +255,10 @@ function FormularProfesor({ onConfirmare }) {
     setTrimite(true)
     setEroare('')
     try {
+      setOptimizare('Se pregătește fotografia pe dispozitiv…')
+      const rezultat = await optimizeazaFotografie(f.get('poza'), { original })
+      if (rezultat.fisier) f.set('poza', rezultat.fisier)
+      setOptimizare(rezultat.economisiti ? `Fotografie optimizată: economisești ${marime(rezultat.economisiti)}. Se trimite…` : 'Se trimite fotografia originală…')
       // După confirmarea emailului, cererea așteaptă aprobarea (pagina /in-asteptare).
       const r = await inregistreazaProfesor(f)
       onConfirmare(r.email, r.mesaj)
@@ -284,6 +292,7 @@ function FormularProfesor({ onConfirmare }) {
           <input className="tv-fisier" type="file" name="dovada" accept="application/pdf,image/jpeg,image/png" required />
         </label>
       </div>
+      <OptimizareFotografie original={original} onChange={setOriginal} disabled={trimite} mesaj={optimizare} />
       <AlegeLoc obligatoriu onChange={(v) => setJudetId(v.judetId)} />
       <AlegeOrganizatii judetId={judetId} alese={organizatii} onChange={setOrganizatii} />
       <p className="tv-indiciu">Administratorii organizațiilor alese îți verifică cererea. Dacă nu ești aprobat în 7 zile, contul se șterge automat.</p>
