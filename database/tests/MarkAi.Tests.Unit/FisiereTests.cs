@@ -63,6 +63,27 @@ public sealed class FisiereTests : IDisposable
         (await Salveaza(Pptx(), "a.pptx")).Tip.ShouldBe("pptx");
     }
 
+    [Fact]
+    public async Task ExcelEsteValidatSiTextulEsteExtras()
+    {
+        var f = await Salveaza(Xlsx(), "tabel.xlsx");
+        f.Tip.ShouldBe("xlsx");
+        var text = ExtragereText.Extrage(stocare.CaleFisier(f.Cheie)!, "xlsx", 10_000);
+        text.ShouldContain("Ștefan în Excel");
+        text.ShouldContain("42");
+        text.ShouldContain("Valoare locală");
+        text.ShouldContain("2");
+        text.ShouldNotContain("1+1");
+    }
+
+    [Fact]
+    public async Task ExcelCuMacroSauAltTipEsteRefuzat()
+    {
+        (await Should.ThrowAsync<CerereInvalida>(() => Salveaza(Xlsx(macro: true), "a.xlsx"))).Message.ShouldContain("macrocomenzi");
+        await Should.ThrowAsync<CerereInvalida>(() => Salveaza(Docx(), "a.xlsx"));
+        await Should.ThrowAsync<CerereInvalida>(() => Salveaza(ZipBomba(), "a.xlsx"));
+    }
+
     [Theory]
     [InlineData("a.pdf")]
     [InlineData("a.docx")]

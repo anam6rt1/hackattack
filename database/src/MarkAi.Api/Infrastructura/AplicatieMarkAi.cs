@@ -33,6 +33,7 @@ public static class AplicatieMarkAi
         builder.Services.AddHttpClient("twilio", c => c.Timeout = TimeSpan.FromSeconds(15));
         builder.Services.AddSingleton<TwilioApeluri>();
         builder.Services.AddSingleton<Stocare>();
+        builder.Services.AddSingleton<PrevizualizareOffice>();
         builder.Services.AddSingleton<CoadaIntrebari>();
         // Background jobs are singletons as well as hosted services, so the checks can run them on demand (RuleazaOdataAsync).
         builder.Services.AddSingleton<GeneratorIntrebari>();

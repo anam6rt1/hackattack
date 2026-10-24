@@ -75,7 +75,7 @@ internal static class ParcursuriConfiguration
         {
             e.ToTable("fisier_lectie", "mark_ai", t =>
             {
-                t.HasCheckConstraint("fisier_lectie_tip_check", "tip IN ('pdf', 'docx', 'pptx')");
+                t.HasCheckConstraint("fisier_lectie_tip_check", "tip IN ('pdf', 'docx', 'pptx', 'xlsx')");
                 t.HasCheckConstraint("fisier_lectie_stare_text_check", "stare_text IN ('in_asteptare', 'gata', 'fara_text', 'eroare')");
                 t.HasCheckConstraint("fisier_lectie_marime_check", "marime_octeti > 0");
             });

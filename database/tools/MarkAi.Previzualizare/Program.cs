@@ -14,7 +14,10 @@ var setari = e2e ? new Dictionary<string, string?>
     ["Limite:SmsPeOra"] = "10000", ["Limite:CereriPeMinut"] = "100000", ["Limite:CereriAiPeMinut"] = "10000", ["Sms:MaxPeZi"] = "10000",
     ["Limite:PauzaQuizSecunde"] = "0",
 } : null;
-var previzualizare = await Harness.Porneste(ceasReal: true, port: port, setari: setari);
+var conexiuneExistenta = Environment.GetEnvironmentVariable("MARKAI_PREVIEW_CONNECTION");
+var directorExistent = Environment.GetEnvironmentVariable("MARKAI_PREVIEW_STORAGE");
+var previzualizare = await Harness.Porneste(ceasReal: true, port: port, setari: setari,
+    existenta: conexiuneExistenta is not null && directorExistent is not null ? (conexiuneExistenta, directorExistent) : null);
 // What `seed` sets up for the price and the appearance (styles, themes), so sessions can be paid and a style can be saved;
 // then scheduled sessions (the same as date-test), so Profesori, bookings and Acasă have something to show. director teaches
 // no subject, so she stays a professor without sessions.

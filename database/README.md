@@ -23,3 +23,11 @@ dotnet build
 
 Pentru conexiune si migrari vezi [documentatia completa](docs/database.md).
 Pachetele NuGet si rezultatele compilarii nu se incarca in Git; fisierele `packages.lock.json` se pastreaza.
+
+## Previzualizarea Word, Excel și PowerPoint
+
+API-ul folosește LibreOffice headless pentru o copie PDF temporară, afișată în același vizualizator ca PDF-urile. Originalul rămâne neschimbat. Necesită LibreOffice pe server (Linux: `/usr/bin/libreoffice`; Windows: instalarea standard). Pentru altă locație setează `Previzualizare__LibreOffice` la calea absolută a executabilului. Previzualizarea locală recunoaște și `%USERPROFILE%\.cache\markai-libreoffice\program\soffice.exe`.
+
+Conversiile sunt serializate, au maximum 90 de secunde (inclusiv așteptarea) și produc cel mult 20 MB. Închiderea previzualizării anulează cererea și procesul; copiile temporare sunt șterse. Fiecare conversie folosește un profil separat, cu macrocomenzi dezactivate. Pentru documente neîncrezătoare, rulați API-ul/converterul într-un mediu izolat fără acces la rețeaua internă. Instalați aceleași fonturi pe server pentru paginare cât mai apropiată de Office; foile Excel folosesc setările de tipărire ale documentului.
+
+`GET /fisiere/{id}/previzualizare` respectă accesul la lecție; `POST /fisiere/previzualizare` primește un document selectat de editor și aplică aceleași verificări ca încărcarea. Niciuna dintre rute nu trimite documentele către un serviciu extern.

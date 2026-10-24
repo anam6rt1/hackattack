@@ -1,14 +1,14 @@
 namespace MarkAi.Data.Entities;
 
 /// <summary>
-/// A document attached to a Lecție: at most one of each type (PDF, DOCX, PPTX); a new upload of the same type replaces it.
+/// A document attached to a Lecție: at most one of each type (PDF, DOCX, PPTX, XLSX); a new upload of the same type replaces it.
 /// The file itself lives in the API's storage under <see cref="Cheie"/>; its text, once extracted in the background, is part
 /// of the material the professor generates quiz questions from.
 /// </summary>
 public class FisierLectie
 {
-    public const string Pdf = "pdf", Docx = "docx", Pptx = "pptx";
-    public static readonly string[] Tipuri = [Pdf, Docx, Pptx];
+    public const string Pdf = "pdf", Docx = "docx", Pptx = "pptx", Xlsx = "xlsx";
+    public static readonly string[] Tipuri = [Pdf, Docx, Pptx, Xlsx];
 
     /// <summary>Text extraction: queued, done, no text found (e.g. a scanned PDF), or failed.</summary>
     public const string InAsteptare = "in_asteptare", Gata = "gata", FaraText = "fara_text", Eroare = "eroare";

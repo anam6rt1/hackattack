@@ -43,6 +43,7 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
     {
         [".pdf"] = Documente[".pdf"],
         [".docx"] = new("application/vnd.openxmlformats-officedocument.wordprocessingml.document", EsteZip),
+        [".xlsx"] = new("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", EsteZip),
         [".pptx"] = new("application/vnd.openxmlformats-officedocument.presentationml.presentation", EsteZip),
     };
 
@@ -124,7 +125,7 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
             using (var r = new StreamReader(tipuri.Open())) continut = CitesteCelMult(r, 1024 * 1024);
             if (continut.Contains("macroEnabled", StringComparison.OrdinalIgnoreCase))
                 throw new CerereInvalida($"Fișierul {tip} conține macrocomenzi. Salvează-l fără macrocomenzi și încearcă din nou.");
-            var principal = ext == ".docx" ? "word/document.xml" : "ppt/presentation.xml";
+            var principal = ext switch { ".docx" => "word/document.xml", ".xlsx" => "xl/workbook.xml", _ => "ppt/presentation.xml" };
             if (zip.GetEntry(principal) is null) throw new CerereInvalida($"Fișierul nu este un {tip} valid.");
         }
         catch (InvalidDataException) { throw new CerereInvalida($"Fișierul nu este un {tip} valid."); }

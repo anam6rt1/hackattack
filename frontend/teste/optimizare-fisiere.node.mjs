@@ -1,6 +1,6 @@
 import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { optimizeazaFotografie } from '../lib/optimizare-fisiere.js'
+import { optimizeazaFotografie } from '../lib/optimizare-fisiere.mjs'
 
 const initialWorker = globalThis.Worker
 afterEach(() => { globalThis.Worker = initialWorker })

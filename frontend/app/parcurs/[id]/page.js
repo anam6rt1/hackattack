@@ -5,7 +5,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { api, marime, urlApi } from '@/lib/api'
+import PrevizualizareSalvat from '@/components/PrevizualizareSalvat'
+import { marimeFisier } from '@/lib/marime-fisier'
+import { api, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import HartaInsule from '@/components/HartaInsule'
 import Incarcare from '@/components/Incarcare'
@@ -82,8 +84,9 @@ export default function PaginaParcurs() {
                       {...(f.tip === 'pdf' ? { target: '_blank', rel: 'noreferrer' } : { download: f.nume })}
                     >
                       <span className="tv-pastila tv-pastila-aur">{f.tip.toUpperCase()}</span>
-                      <div><b>{f.nume}</b><small>{marime(f.marimeOcteti)} · {f.tip === 'pdf' ? 'se deschide' : 'se descarcă'}</small></div>
+                      <div><b>{f.nume}</b><small>{marimeFisier(f.marimeOcteti)} · {f.tip === 'pdf' ? 'se deschide' : 'se descarcă'}</small></div>
                     </a>
+                    <PrevizualizareSalvat fisier={f} />
                   </li>
                 ))}
               </ul>

@@ -625,7 +625,7 @@ namespace MarkAi.Data.Migrations
 
                             t.HasCheckConstraint("fisier_lectie_stare_text_check", "stare_text IN ('in_asteptare', 'gata', 'fara_text', 'eroare')");
 
-                            t.HasCheckConstraint("fisier_lectie_tip_check", "tip IN ('pdf', 'docx', 'pptx')");
+                            t.HasCheckConstraint("fisier_lectie_tip_check", "tip IN ('pdf', 'docx', 'pptx', 'xlsx')");
                         });
                 });
 

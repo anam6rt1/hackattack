@@ -14,6 +14,7 @@ const dockerHost = process.env.DOCKER_HOST ?? (existsSync(podman) ? `unix://${po
 
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: "upload-preview.spec.ts",
   globalSetup: "./e2e/pregatire.ts",
   timeout: 60_000,
   expect: { timeout: 10_000 },

@@ -96,7 +96,7 @@ public sealed class Harness : IAsyncDisposable
     /// <param name="port">A fixed port (the manual preview); 0 = a free one.</param>
     /// <param name="faraAi">No AI model, as on a server without an AI key.</param>
     public static async Task<Harness> Porneste(bool ceasReal = false, bool cuTwilio = false, IReadOnlyDictionary<string, string?>? setari = null, int port = 0,
-        bool faraAi = false)
+        bool faraAi = false, (string Conexiune, string Director)? existenta = null)
     {
         _ = MediuCurat.Value;
         if (cuTwilio && Interlocked.Increment(ref cuTwilioActive) == 1)
@@ -105,8 +105,9 @@ public sealed class Harness : IAsyncDisposable
             Environment.SetEnvironmentVariable("TWILIO_AUTH_TOKEN", FakeTwilio.Token);
         }
 
-        var (conexiune, adminConexiune, numeBaza) = await BazaTest.CopieNoua();
-        var dirStocare = Directory.CreateTempSubdirectory("markai-teste-").FullName;
+        var (conexiune, adminConexiune, numeBaza) = existenta is { } veche
+            ? (veche.Conexiune, "", "") : await BazaTest.CopieNoua();
+        var dirStocare = existenta?.Director ?? Directory.CreateTempSubdirectory("markai-teste-").FullName;
         try
         {
             // Port 0: Kestrel picks a free port as it binds (a port chosen beforehand could be taken by a parallel test meanwhile).
@@ -170,8 +171,7 @@ public sealed class Harness : IAsyncDisposable
         catch
         {
             if (cuTwilio) Interlocked.Decrement(ref cuTwilioActive);
-            await BazaTest.Sterge(adminConexiune, numeBaza);
-            Directory.Delete(dirStocare, true);
+            if (numeBaza.Length > 0) { await BazaTest.Sterge(adminConexiune, numeBaza); Directory.Delete(dirStocare, true); }
             throw;
         }
     }
@@ -265,8 +265,11 @@ public sealed class Harness : IAsyncDisposable
         }
         // Only this database's pooled connections; other harnesses keep theirs.
         using (var c = new NpgsqlConnection(Conexiune)) NpgsqlConnection.ClearPool(c);
-        await BazaTest.Sterge(adminConexiune, numeBaza);
-        try { Directory.Delete(DirStocare, true); } catch (DirectoryNotFoundException) { }
+        if (numeBaza.Length > 0)
+        {
+            await BazaTest.Sterge(adminConexiune, numeBaza);
+            try { Directory.Delete(DirStocare, true); } catch (DirectoryNotFoundException) { }
+        }
     }
 
     private List<object> middleware = [];

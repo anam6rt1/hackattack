@@ -13,12 +13,18 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=chromium --project=firefox",
-    "test:e2e:webkit": "e2e/webkit-container.sh"
+    "test:e2e:webkit": "e2e/webkit-container.sh",
+    "test:optimizare": "node --test teste/optimizare-fisiere.node.mjs",
+    "verifica": "node tools/verifica.mjs",
+    "test:uploads": "node tools/verifica-upload.mjs"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.11",
     "canvas-confetti": "^1.9.4",
+    "fflate": "^0.8.3",
     "next": "16.4.2",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
     "qrcode.react": "^4.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
