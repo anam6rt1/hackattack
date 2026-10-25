@@ -58,6 +58,9 @@ dotnet run --project tools/MarkAi.Database -- date-volum            # ~51 000 de
 dotnet run --project tools/MarkAi.Database -- date-volum --sterge   # scoate exact ce a generat
 ```
 
+Pe baza din `~/.config/markai/markai.env`, din radacina repo-ului: `./dbmg.sh volum status|add|remove` (face backup inainte de add/remove,
+iar remove arata ce conturi reale sunt legate de datele de volum si cere confirmare).
+
 Doar pe baze de test sau demo. Toate conturile sunt `vol-…@volum.hackattack.com`, cu parola din `date-test`. Mărimile paginilor:
 `src/MarkAi.Api/Infrastructura/Pagini.cs` (limitele API-ului) și `frontend/lib/pagini.js` (ce arată site-ul).
 

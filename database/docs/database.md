@@ -80,6 +80,11 @@ dotnet ef migrations script --idempotent --project src/MarkAi.Data --output migr
 dotnet run --project tools/MarkAi.Database -- migrate
 ```
 
+Aceiasi pasi, din radacina repo-ului, cu `./dbmg.sh` (`help` le listeaza): `check` (e nevoie de o migrare?), `create Nume`,
+`status`, `apply [--dry-run]` si `remove` (doar o migrare neaplicata). `apply` lucreaza pe baza din `~/.config/markai/markai.env`:
+refuza SQL-ul care pierde date (DROP TABLE/COLUMN/SCHEMA, DROP ... CASCADE, TRUNCATE, DELETE FROM), face backup schemei `mark_ai`, apoi aplica.
+Backupurile (`~/.local/state/markai/backups`) se gestioneaza cu `./dbmg.sh backup list|create [eticheta]|show <nr>|delete <nr>...`.
+
 Nu folosi EnsureCreated/EnsureDeleted pe baza existenta. Nu modifica migrari deja aplicate.
 
 ## Lectii, teste si fisiere
