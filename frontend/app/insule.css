@@ -409,6 +409,9 @@ a.tv-pastila { text-decoration: none; }
 .tv-link-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
 .tv-link-editor .tv-camp-text { flex: 1 1 220px; padding: 6px 10px; }
 .tv-link-sedinta { display: inline-block; margin-top: 4px; font-weight: 800; color: var(--ocean-adanc); }
+/* Profesori: „și alte X sesiuni” sub următoarea ședință a unui profesor. */
+.tv-alte-sesiuni { justify-self: start; margin-top: 6px; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 800; color: var(--ocean-adanc); }
+.tv-alte-sesiuni:hover { text-decoration: underline; }
 /* =====================================================================
    STILURILE  —  se aplică singure după data-theme de pe <html> (alese în /profil sau în meniul contului)
    (Acvatic = stilul de mai sus; aici doar ce se schimbă pentru Realist și Pixel.)
@@ -663,7 +666,8 @@ a.tv-pastila { text-decoration: none; }
 [data-theme="realist"] .tv-linie { border-top-color: #2c3b4d; }
 [data-theme="realist"] .tv-poza { border-color: #1b2836; box-shadow: 0 0 0 2px #2c3b4d; }
 [data-theme="realist"] .tv-variante-lista .tv-corecta { color: #9fd8b8; }
-[data-theme="realist"] .tv-link-sedinta { color: #8fc1e8; }
+[data-theme="realist"] .tv-link-sedinta,
+[data-theme="realist"] .tv-alte-sesiuni { color: #8fc1e8; }
 [data-theme="realist"] .tv-jurnal-apel .tv-bula-ai { background: #22313f; }
 /* Setările contului au carduri albe proprii: acolo păstrăm culorile textului din stilul de bază. */
 [data-theme="realist"] .tv-pagina.sc-page { --maro: #6b3410; --navy: #15305a; --gri-text: #5a6684; --hartie: #fdf8ee; }

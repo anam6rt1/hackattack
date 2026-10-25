@@ -35,7 +35,7 @@ public static class AplicatieMarkAi
         builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
         builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
 
-        builder.Services.AddDbContext<MarkAiDbContext>(o => o.UseNpgsql(conexiune,
+        builder.Services.AddDbContext<MarkAiDbContext>(o => o.UseNpgsql(FaraJit(conexiune),
             x => x.MigrationsHistoryTable("__EFMigrationsHistory", "mark_ai")));
         builder.Services.AddScoped<ProgresService>();
         builder.Services.AddScoped<RezervareService>();
@@ -82,6 +82,18 @@ public static class AplicatieMarkAi
         var origini = cfg.GetSection("Frontend:Origini").Get<string[]>() ?? ["http://localhost:3000"];
         builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origini).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
         builder.Services.AddOpenApi();
+        builder.Services.AddOutputCache();
+    }
+
+    /// <summary>
+    /// Postgres' JIT compiles a query before running it: worth it for long reports, but on the short queries of a web request it
+    /// only adds time (the subjects list: 278 ms with it, 5 ms without, on the official postgres image, where it is on).
+    /// </summary>
+    private static string FaraJit(string conexiune)
+    {
+        var c = new Npgsql.NpgsqlConnectionStringBuilder(conexiune);
+        if (c.Options?.Contains("jit", StringComparison.OrdinalIgnoreCase) != true) c.Options = $"{c.Options} -c jit=off".Trim();
+        return c.ConnectionString;
     }
 
     /// <summary>
@@ -109,7 +121,6 @@ public static class AplicatieMarkAi
         builder.Services.AddDataProtection();
         builder.Services.AddSingleton<SumareParinti>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<SumareParinti>());
-        builder.Services.AddSingleton<CacheReferinte>();
         builder.Services.AddScoped<Posta>();
         builder.Services.AddSingleton<ProcesorMesaje>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcesorMesaje>());
@@ -147,7 +158,7 @@ public static class AplicatieMarkAi
         app.UseRateLimiter();
         app.UseAuthorization();
         app.UseMiddleware<ContActiv>();
-        app.Use((h, next) => h.RequestServices.GetRequiredService<CacheReferinte>().Ruleaza(h, next));
+        CacheListe.Foloseste(app);
 
         if (app.Environment.IsDevelopment())
         {

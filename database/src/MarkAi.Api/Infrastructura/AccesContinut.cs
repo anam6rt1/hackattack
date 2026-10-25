@@ -40,12 +40,14 @@ public sealed class AccesContinut(MarkAiDbContext db)
     /// <summary>For a user id without a request (the phone tutor runs inside Twilio's webhook).</summary>
     public async Task<ContextAcces> PentruAsync(int uid, bool admin, CancellationToken ct)
     {
-        var membru = await db.Set<MembruOrganizatie>()
+        // One round trip (UNION ALL): this runs on almost every signed-in request, and each query holds a pooled connection.
+        var randuri = await db.Set<MembruOrganizatie>()
             .Where(m => m.UtilizatorId == uid && m.Stare == MembruOrganizatie.Aprobat && m.Organizatie.Stare == Organizatie.Aprobata)
-            .Select(m => m.OrganizatieId).ToListAsync(ct);
-        var administrate = await db.Set<Organizatie>().Where(o => o.AdminId == uid && o.Stare == Organizatie.Aprobata)
-            .Select(o => o.Id).ToArrayAsync(ct);
-        return new ContextAcces(uid, admin, membru.Union(administrate).ToArray(), administrate);
+            .Select(m => new { Id = m.OrganizatieId, Admin = false })
+            .Concat(db.Set<Organizatie>().Where(o => o.AdminId == uid && o.Stare == Organizatie.Aprobata).Select(o => new { o.Id, Admin = true }))
+            .ToListAsync(ct);
+        var administrate = randuri.Where(r => r.Admin).Select(r => r.Id).Distinct().ToArray();
+        return new ContextAcces(uid, admin, randuri.Select(r => r.Id).Distinct().ToArray(), administrate);
     }
 
     public static Expression<Func<Parcurs, bool>> PoateEdita(ContextAcces a)

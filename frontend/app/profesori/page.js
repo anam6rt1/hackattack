@@ -3,13 +3,14 @@
 //  • elev: profesorii verificați care au ședințe viitoare, cu tariful fix sau „Pro bono” și locurile libere; căutare după nume
 //    și materie (fără diacritice); filtre: din organizația mea / aproape de mine (doar localitatea din Setări), online / față
 //    în față (hibridele apar la ambele); rezervarea se face direct (plata e simulată deocamdată); la o ședință hibridă elevul
-//    alege cum participă. Linkul ședințelor rezervate e pe pagina de start.
+//    alege cum participă. Linkul ședințelor rezervate e pe pagina de start. Fiecare profesor arată doar următoarea ședință;
+//    „și alte X sesiuni” le aduce pe toate (cu același filtru online / față în față).
 //  • profesor: ședințele proprii (programare, înscrieri, anulare).
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api, dataOra, urlApi } from '@/lib/api'
-import { PARTICIPARE, TIPURI_SEDINTA, textLoc } from '@/lib/sedinte'
+import { PARTICIPARE, TIPURI_SEDINTA, textAlteSesiuni, textLoc } from '@/lib/sedinte'
 import { esteProfesor, usePagina } from '@/lib/sesiune'
 import Paginare from '@/components/Paginare'
 import { PROFESORI_PE_PAGINA_ELEV } from '@/lib/pagini'
@@ -111,6 +112,10 @@ function Director({ utilizator }) {
   const [ales, setAles] = useState(null) // { slot, profesor }
   const [rezervarileMele, setRezervarileMele] = useState({}) // slotId → id-ul rezervării mele confirmate
   const [eroare, setEroare] = useState('')
+  // id profesor → toate ședințele lui viitoare (după „și alte X sesiuni”), pentru filtrul (și pagina) de atunci: la alt filtru,
+  // cardurile pornesc din nou restrânse.
+  const [extinse, setExtinse] = useState({ pentru: null, sloturi: {} })
+  const deschise = extinse.pentru === filtru ? extinse.sloturi : {}
 
   const incarca = useCallback(() => {
     const q = new URLSearchParams()
@@ -127,6 +132,22 @@ function Director({ utilizator }) {
       .then((r) => setRezervarileMele(Object.fromEntries(r.elemente.filter((x) => x.status === 'confirmata').map((x) => [x.slot.id, x.id]))))
       .catch(() => {})
   }, [filtru])
+
+  function extinde(id) {
+    api(`/profesori/${id}` + (filtru.tip ? `?tip=${filtru.tip}` : ''))
+      .then((p) => setExtinse((e) => ({ pentru: filtru, sloturi: { ...(e.pentru === filtru ? e.sloturi : {}), [id]: p.sloturi } })))
+      .catch((e) => setEroare(e.message))
+  }
+  function ascunde(id) {
+    const rest = { ...deschise }
+    delete rest[id]
+    setExtinse({ pentru: filtru, sloturi: rest })
+  }
+  // După o rezervare sau o anulare: lista și ședințele deschise, ca locurile libere să fie la zi.
+  function reincarca() {
+    incarca()
+    Object.keys(deschise).forEach(extinde)
+  }
 
   function alegePagina(p) {
     setFiltru((f) => ({ ...f, pagina: p }))
@@ -216,7 +237,7 @@ function Director({ utilizator }) {
               {p.descriere && <p>{p.descriere}</p>}
               <div className="tv-mic">Ședințe viitoare</div>
               <ul className="tv-lista">
-                {p.sloturi.slice(0, 5).map((s) => (
+                {(deschise[p.id] ?? p.sloturi).map((s) => (
                   <li key={s.id} className="tv-rand">
                     <div>
                       <b>{s.titlu}</b>
@@ -227,7 +248,7 @@ function Director({ utilizator }) {
                     {s.rezervatDeMine ? (
                       <span className="tv-butoane">
                         <span className="tv-pastila tv-pastila-verde">Rezervat</span>
-                        {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={incarca} />}
+                        {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={reincarca} />}
                       </span>
                     ) : (
                       <button className="tv-pastila tv-pastila-aur" disabled={s.locuriLibere === 0} onClick={() => setAles({ slot: s, profesor: p })}>
@@ -237,6 +258,12 @@ function Director({ utilizator }) {
                   </li>
                 ))}
               </ul>
+              {p.alteSesiuni > 0 && (
+                <button type="button" className="tv-alte-sesiuni" aria-expanded={Boolean(deschise[p.id])}
+                  onClick={() => (deschise[p.id] ? ascunde(p.id) : extinde(p.id))}>
+                  {deschise[p.id] ? 'Ascunde celelalte sesiuni' : textAlteSesiuni(p.alteSesiuni)}
+                </button>
+              )}
             </article>
           ))}
         </div>
@@ -249,7 +276,7 @@ function Director({ utilizator }) {
       )}
 
       {ales && pret !== undefined && (
-        <Rezervare slot={ales.slot} profesor={ales.profesor} pret={pret ?? { suma: 0, moneda: 'RON', durataMinute: 60 }} onInchide={() => setAles(null)} onRezervat={incarca} />
+        <Rezervare slot={ales.slot} profesor={ales.profesor} pret={pret ?? { suma: 0, moneda: 'RON', durataMinute: 60 }} onInchide={() => setAles(null)} onRezervat={reincarca} />
       )}
     </>
   )

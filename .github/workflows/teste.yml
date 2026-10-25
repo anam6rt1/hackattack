@@ -1,5 +1,6 @@
 # Every pull request and every push to main: the backend tests (xUnit, PostgreSQL in Testcontainers), the frontend checks
-# (lint, Vitest, build) and the browser tests (Playwright, one job per browser: Chromium, Firefox, WebKit, against a throwaway test API). No secrets are
+# (lint, Vitest, build), the browser tests (Playwright, one job per browser: Chromium, Firefox, WebKit, against a throwaway test API) and
+# a stress test of the API (tools/MarkAi.Stres; its statistics go on the run's summary page, it never fails the build). No secrets are
 # needed: every test uses fake email, SMS, AI and Twilio providers.
 name: Teste
 
@@ -101,3 +102,49 @@ jobs:
           name: playwright-report-${{ matrix.browser }}
           path: frontend/playwright-report/
           retention-days: 7
+
+  stres:
+    name: Stres (API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Shared runners vary in speed from run to run: the numbers go on the run's summary page, but a slow run doesn't fail the build.
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: stres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      MARKAI_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=postgres;Username=postgres;Password=stres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: database/global.json
+      - name: Baza de test (cu datele de volum, ca API-ul să răspundă din liste reale)
+        working-directory: database
+        run: for pas in migrate seed-localitati seed date-volum; do dotnet run --project tools/MarkAi.Database -- $pas > /dev/null; done
+      - name: API-ul de test (limite ridicate, ca să se măsoare API-ul, nu limitatorul)
+        working-directory: database
+        run: |
+          export MARKAI_JWT_KEY=$(openssl rand -base64 48) Email__Furnizor=jurnal Sms__Furnizor=jurnal ASPNETCORE_URLS=http://127.0.0.1:5082 \
+            Limite__CereriPeMinut=1000000 Limite__AutentificariPeMinut=1000000
+          dotnet build src/MarkAi.Api -c Release
+          nohup dotnet run --project src/MarkAi.Api -c Release --no-build --no-launch-profile > api.log 2>&1 &
+          for _ in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:5082/judete && exit 0; sleep 1; done
+          cat api.log; exit 1
+      - name: Testul de stres (statisticile apar la final și pe pagina rulării)
+        working-directory: database
+        # Logins check a password hash on purpose (slow by design: ~100/s on a laptop), so they only get a burst of 100; at 500+
+        # they would fail on any machine and the job would be red on every run. Both parts always run; the step fails if either does.
+        run: |
+          STRES="dotnet run --project tools/MarkAi.Stres -c Release -- --url http://127.0.0.1:5082 --clienti 100 --rezumat $GITHUB_STEP_SUMMARY"
+          rc=0
+          $STRES --scenarii materii,judete,organizatii,profesori,lectii,lectie,cautare,progres,eu,mix --cereri 100,500,1000 --rata 200 --durata 15 || rc=1
+          $STRES --scenarii autentificare --cereri 100 || rc=1
+          exit $rc
+      - if: failure()
+        name: Jurnalul API-ului
+        run: tail -n 200 database/api.log

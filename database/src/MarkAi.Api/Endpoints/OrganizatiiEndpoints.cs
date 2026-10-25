@@ -30,7 +30,8 @@ public static class OrganizatiiEndpoints
         // Lists for the sign-up forms (anonymous).
         var publice = app.MapGroup("").WithTags("Organizații");
         publice.MapGet("/judete", async (MarkAiDbContext db, CancellationToken ct) =>
-            Lista<JudetDto>.Din(await db.Set<Judet>().AsNoTracking().OrderBy(j => j.Nume).Select(j => new JudetDto(j.Id, j.Nume)).ToListAsync(ct)));
+            Lista<JudetDto>.Din(await db.Set<Judet>().AsNoTracking().OrderBy(j => j.Nume).Select(j => new JudetDto(j.Id, j.Nume)).ToListAsync(ct)))
+            .CacheOutput(CacheListe.PentruToti(TimeSpan.FromHours(1))); // SIRUTA data: changes only with an import
 
         // Search as you type: names starting with the text first, then towns before villages. At most 30 results.
         publice.MapGet("/judete/{id:int}/localitati", async (int id, string? q, MarkAiDbContext db, CancellationToken ct) =>
@@ -40,7 +41,7 @@ public static class OrganizatiiEndpoints
             if (text.Length > 0) lista = lista.Where(l => l.Cautare.Contains(text));
             return Lista<LocalitateDto>.Din(await lista.OrderBy(l => text.Length > 0 && l.Cautare.StartsWith(text) ? 0 : 1).ThenByDescending(l => l.Urban).ThenBy(l => l.Nume)
                 .Take(30).Select(l => new LocalitateDto(l.Id, l.Nume, l.UatNume, l.JudetId)).ToListAsync(ct));
-        });
+        }).CacheOutput(CacheListe.PentruToti(TimeSpan.FromHours(1)));
 
         publice.MapGet("/localitati/{id:int}", async (int id, MarkAiDbContext db, CancellationToken ct) =>
             await db.Set<Localitate>().AsNoTracking().Where(l => l.Id == id).Select(l => new LocalitateDto(l.Id, l.Nume, l.UatNume, l.JudetId)).SingleOrDefaultAsync(ct)
@@ -54,7 +55,7 @@ public static class OrganizatiiEndpoints
             var total = await lista.CountAsync(ct);
             return new Lista<OrganizatiePublica>(await lista.OrderBy(o => o.Nume).ThenBy(o => o.Id).Take(100)
                 .Select(o => new OrganizatiePublica(o.Id, o.Nume, o.Judet.Nume, o.Localitate == null ? null : o.Localitate.Nume)).ToListAsync(ct), total);
-        });
+        }).CacheOutput(CacheListe.PentruToti(TimeSpan.FromSeconds(60)));
 
         // The signed-in person's own memberships and requests.
         var eu = app.MapGroup("/utilizatori/me/organizatii").WithTags("Organizații").RequireAuthorization();

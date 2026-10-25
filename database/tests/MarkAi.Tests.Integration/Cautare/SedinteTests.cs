@@ -110,7 +110,11 @@ public sealed class SedinteTests : TestCautare
         await CreeazaSlot(ovidiu, Slot("Doar online", Maine));
         var (irinaId, ovidiuId) = (await Id("irina"), await Id("ovidiu"));
         var p = await Profesori(george, "?tip=fata_in_fata");
-        p.Single(x => x.Id == irinaId).Sloturi.Select(s => s.Id).Order().ShouldBe(new[] { sala, hibrid }.Order());
+        // The list shows the next one (the room, created first) and counts the hybrid; the profile, with the same filter, has both.
+        var irinaGasita = p.Single(x => x.Id == irinaId);
+        irinaGasita.Sloturi.Select(s => s.Id).ShouldBe([sala]);
+        irinaGasita.AlteSesiuni.ShouldBe(1);
+        (await george.GetJson($"/profesori/{irinaId}?tip=fata_in_fata")).Lista("sloturi").Select(s => s.Int("id")).Order().ShouldBe(new[] { sala, hibrid }.Order());
         p.ShouldNotContain(x => x.Id == ovidiuId);
     }
 
@@ -121,7 +125,30 @@ public sealed class SedinteTests : TestCautare
         await SalaLaLiceu();
         var hibrid = await Hibrid();
         var irinaId = await Id("irina");
-        (await Profesori(george, "?tip=online")).Single(x => x.Id == irinaId).Sloturi.Select(s => s.Id).Order().ShouldBe(new[] { online, hibrid }.Order());
+        var irinaGasita = (await Profesori(george, "?tip=online")).Single(x => x.Id == irinaId);
+        irinaGasita.Sloturi.Select(s => s.Id).ShouldBe([online]);
+        irinaGasita.AlteSesiuni.ShouldBe(1);
+        (await george.GetJson($"/profesori/{irinaId}?tip=online")).Lista("sloturi").Select(s => s.Int("id")).Order().ShouldBe(new[] { online, hibrid }.Order());
+    }
+
+    [Fact]
+    public async Task ListaArataDoarUrmatoareaSedintaSiNumaraCelelalte()
+    {
+        var poimaine = await CreeazaSlot(irina, Slot("Poimâine", Maine.AddDays(1)));
+        var maine = await CreeazaSlot(irina, Slot("Mâine", Maine));
+        var peste3 = await CreeazaSlot(irina, Slot("Peste trei zile", Maine.AddDays(3)));
+        var irinaId = await Id("irina");
+        var irinaGasita = (await Profesori(george)).Single(x => x.Id == irinaId);
+        irinaGasita.Sloturi.Select(s => s.Id).ShouldBe([maine]);
+        irinaGasita.AlteSesiuni.ShouldBe(2);
+        (await george.GetJson($"/profesori/{irinaId}")).Lista("sloturi").Select(s => s.Int("id")).ShouldBe([maine, poimaine, peste3]);
+        (await george.GetJson($"/profesori/{irinaId}")).Int("alteSesiuni").ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ProfilulRefuzaUnTipNecunoscut()
+    {
+        await george.Get($"/profesori/{await Id("irina")}?tip=zbor").Status(HttpStatusCode.BadRequest);
     }
 
     [Fact]

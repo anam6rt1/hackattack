@@ -5,9 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 /// <summary>
 /// Volume test data, to look at the lists and their pages with realistic numbers (TEST or demo databases only): every high-school
-/// subject, about 200 organisations in localities across the country (approved, pending and refused), 600 professors (approved,
-/// pending, refused; most with upcoming sessions), 2 000 Lecții with chapters and questions, and 5 000 students (most in an
-/// organisation, some with passed Lecții). Every generated account has a username starting with <see cref="Prefix"/> and an email
+/// subject, 180 organisations in localities across the country (approved, pending and refused), 1 000 professors (approved,
+/// pending, refused; most with upcoming sessions), 5–10 Lecții with chapters and questions by every approved professor (about 7 500),
+/// and 50 000 students (most in an
+/// organisation, some with passed Lecții), enough to load-test the API (tools/MarkAi.Stres signs in as vol-elev00001, vol-elev00002, …).
+/// Every generated account has a username starting with <see cref="Prefix"/> (numbered per kind: vol-org…, vol-prof…, vol-elev…) and an email
 /// at <see cref="Domeniu"/>; everything else hangs off those accounts, so <c>date-volum --sterge</c> removes exactly this data
 /// (and the subjects it added, when nothing else uses them). Accounts share the date-test password (MARKAI_PAROLA_TEST or the
 /// default). Generated from a fixed seed, so two runs on empty databases give the same data. Run after migrate, seed-localitati,
@@ -16,7 +18,9 @@ using Microsoft.EntityFrameworkCore;
 static class DateVolum
 {
     public const string Prefix = "vol-", Domeniu = "volum.hackattack.com";
-    private const int Organizatii = 200, Profesori = 600, Elevi = 5000, Lectii = 2000;
+    private const int Organizatii = 180, Profesori = 1000, Elevi = 50000, MinLectii = 5, MaxLectii = 10;
+    // Students are saved this many at a time, with the change tracker emptied in between (50 000 tracked accounts slow every save).
+    private const int Lot = 2000;
     private const string Marcaj = "Generat pentru testarea listelor (date de volum).";
 
     // The high-school subjects (Romanian national curriculum), with a few topics each for the generated Lecții.
@@ -91,7 +95,7 @@ static class DateVolum
         T Una<T>(IReadOnlyList<T> lista) => lista[rnd.Next(lista.Count)];
         var acum = DateTime.UtcNow;
         var parola = Environment.GetEnvironmentVariable("MARKAI_PAROLA_TEST") is { Length: >= 8 } dinMediu ? dinMediu : "HackAttack";
-        // One hash for every generated account (the hasher salts it; any account can verify it): hashing 5 800 passwords takes minutes.
+        // One hash for every generated account (the hasher salts it; any account can verify it): hashing 51 000 passwords would take hours.
         var hash = Parole.Hash(new Utilizator(), parola);
 
         // Subjects.
@@ -108,10 +112,10 @@ static class DateVolum
         }
         var coduri = materii.Keys.ToList();
 
-        int nr = 0;
+        var numere = new Dictionary<string, int>();
         Utilizator Cont(string tip, string? clasa, (int Id, int JudetId)? loc, params string[] rol)
         {
-            nr++;
+            var nr = numere[tip] = numere.GetValueOrDefault(tip) + 1;
             var prenume = Una(Prenume);
             var nume = Una(NumeFamilie);
             var username = $"{Prefix}{tip}{nr:00000}";
@@ -130,13 +134,14 @@ static class DateVolum
         };
 
         // Organisations, each with its admin (who teaches there too, as the app does on approval).
-        var org = new List<(Organizatie O, Utilizator Admin, (int Id, int JudetId) Loc)>();
+        var org = new List<(Organizatie O, Utilizator Admin, (int Id, int JudetId) Loc, string Materie)>();
         for (var i = 0; i < Organizatii; i++)
         {
             var loc = Una(localitati);
             var stare = i % 10 < 8 ? Organizatie.Aprobata : i % 10 == 8 ? Organizatie.InAsteptare : Organizatie.Respinsa;
             var admin = Cont("org", null, (loc.Id, loc.JudetId), "organizatie", "profesor");
-            admin.ProfilMentor = Profil(stare == Organizatie.Aprobata ? RezervareService.MentorAprobat : "in_asteptare", [Una(coduri)]);
+            var materie = Una(coduri);
+            admin.ProfilMentor = Profil(stare == Organizatie.Aprobata ? RezervareService.MentorAprobat : "in_asteptare", [materie]);
             var o = new Organizatie
             {
                 Nume = $"{Una(Tipuri)} „{Una(Personalitati)}” {i + 1}", Adresa = $"Strada Școlii {rnd.Next(1, 120)}", JudetId = loc.JudetId, LocalitateId = loc.Id,
@@ -146,7 +151,7 @@ static class DateVolum
             if (stare == Organizatie.Aprobata)
                 o.Membri.Add(new MembruOrganizatie { Utilizator = admin, Rol = MembruOrganizatie.RolProfesor, Stare = MembruOrganizatie.Aprobat, CerutLa = o.CreatLa, DecisLa = o.DecisLa });
             db.Add(o);
-            org.Add((o, admin, (loc.Id, loc.JudetId)));
+            org.Add((o, admin, (loc.Id, loc.JudetId), materie));
         }
         await SalveazaAsync(db);
         var aprobate = org.Where(x => x.O.Stare == Organizatie.Aprobata).ToList();
@@ -176,7 +181,9 @@ static class DateVolum
         }
         await SalveazaAsync(db);
 
-        // Students: 85 % members of an organisation (in its locality), 5 % waiting for approval, 10 % in none.
+        // Students: 85 % members of an organisation (in its locality), 5 % waiting for approval, 10 % in none. From here on the
+        // organisations are referred to by id, so the tracker can be emptied after every batch.
+        db.ChangeTracker.Clear();
         var elevi = new List<Utilizator>();
         for (var i = 0; i < Elevi; i++)
         {
@@ -185,23 +192,32 @@ static class DateVolum
             var altundeva = Una(localitati);
             var e = Cont("elev", Una(Clase[..4]), fel < 18 ? o.Loc : (altundeva.Id, altundeva.JudetId), "elev");
             if (fel < 18)
-                o.O.Membri.Add(new MembruOrganizatie
+                db.Add(new MembruOrganizatie
                 {
-                    Utilizator = e, Rol = MembruOrganizatie.RolElev, CerutLa = e.CreatLa, Stare = fel < 17 ? MembruOrganizatie.Aprobat : MembruOrganizatie.InAsteptare,
+                    OrganizatieId = o.O.Id, Utilizator = e, Rol = MembruOrganizatie.RolElev, CerutLa = e.CreatLa, Stare = fel < 17 ? MembruOrganizatie.Aprobat : MembruOrganizatie.InAsteptare,
                     DecisLa = fel < 17 ? e.CreatLa.AddDays(1) : null, ExpiraLa = fel < 17 ? null : acum.AddDays(5),
                 });
             db.Add(e);
             elevi.Add(e);
-            if (i % 1000 == 999) await SalveazaAsync(db);
+            if (i % Lot == Lot - 1)
+            {
+                await SalveazaAsync(db);
+                db.ChangeTracker.Clear();
+                Console.WriteLine($"  {i + 1} / {Elevi} students");
+            }
         }
         await SalveazaAsync(db);
+        db.ChangeTracker.Clear();
 
-        // Lecții by approved professors, in one of their organisations; chapters and questions; some organisation-only, some drafts.
+        // Lecții: 5–10 by every approved professor (organisation admins too), in one of their organisations; chapters and questions;
+        // some organisation-only, some drafts. Saved in batches, with the tracker emptied in between.
         var autori = profesori.Where(x => x.U.ProfilMentor!.StareVerificare == RezervareService.MentorAprobat).ToList();
         var lectii = new List<Parcurs>();
-        for (var i = 0; i < Lectii; i++)
+        var dePublicat = autori.Concat(aprobate.Select(x => (U: x.Admin, Org: new List<Organizatie> { x.O }, Materii: new[] { x.Materie })))
+            .SelectMany(a => Enumerable.Repeat(a, rnd.Next(MinLectii, MaxLectii + 1))).ToList();
+        for (var i = 0; i < dePublicat.Count; i++)
         {
-            var (u, ale, mat) = Una(autori);
+            var (u, ale, mat) = dePublicat[i];
             var cod = Una(mat);
             var tema = Una(materii[cod].Teme);
             var p = new Parcurs
@@ -220,9 +236,14 @@ static class DateVolum
             }
             db.Add(p);
             lectii.Add(p);
-            if (i % 500 == 499) await SalveazaAsync(db);
+            if (i % 500 == 499)
+            {
+                await SalveazaAsync(db);
+                db.ChangeTracker.Clear();
+            }
         }
         await SalveazaAsync(db);
+        db.ChangeTracker.Clear();
 
         // Upcoming sessions for most approved professors; some booked by students (through the booking service, as in the app).
         var pret = await db.TarifeFixe.Where(t => t.Activ).OrderBy(t => t.Id).FirstOrDefaultAsync();
@@ -260,14 +281,19 @@ static class DateVolum
                 catch (Conflict) { } // the same student twice, or a full session
             }
 
-        // Passed Lecții for some students (progress only; no XP is awarded for generated data).
+        // Passed Lecții for some students (progress only; no XP is awarded for generated data), saved in batches as well.
+        db.ChangeTracker.Clear();
         var publice = lectii.Where(l => l.Publicat && l.Vizibilitate == Parcurs.Public).ToList();
         var progrese = 0;
         foreach (var e in elevi.Where(_ => rnd.Next(5) == 0))
             foreach (var l in Enumerable.Range(0, rnd.Next(1, 5)).Select(_ => Una(publice)).DistinctBy(x => x.Id))
             {
                 db.Add(new ProgresLectie { UtilizatorId = e.Id, ParcursId = l.Id, PromovatLa = acum.AddDays(-rnd.Next(1, 30)), UltimaAccesare = acum.AddDays(-rnd.Next(0, 30)) });
-                progrese++;
+                if (++progrese % Lot == 0)
+                {
+                    await SalveazaAsync(db);
+                    db.ChangeTracker.Clear();
+                }
             }
         await SalveazaAsync(db);
 
@@ -284,6 +310,8 @@ static class DateVolum
     /// <summary>Removes the generated data: everything hanging off the generated accounts, in the order the foreign keys allow.</summary>
     private static async Task StergeAsync(MarkAiDbContext db)
     {
+        // Removing 51 000 accounts with everything attached takes longer than the default 30 s per command.
+        db.Database.SetCommandTimeout(TimeSpan.FromMinutes(15));
         await using var tx = await db.Database.BeginTransactionAsync();
         var u = db.Utilizatori.Where(x => x.Username.StartsWith(Prefix) && x.Email.EndsWith("@" + Domeniu)).Select(x => x.Id);
         var o = db.Set<Organizatie>().Where(x => u.Contains(x.AdminId)).Select(x => x.Id);
