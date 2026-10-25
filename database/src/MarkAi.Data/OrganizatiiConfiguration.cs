@@ -40,7 +40,7 @@ internal static class OrganizatiiConfiguration
             e.Property(x => x.Clasa).HasColumnName("clasa");
             e.HasOne<Judet>().WithMany().HasForeignKey(x => x.JudetId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("utilizator_judet_id_fkey");
             e.HasOne<Localitate>().WithMany().HasForeignKey(x => x.LocalitateId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("utilizator_localitate_id_fkey");
-            e.ToTable(t => t.HasCheckConstraint("utilizator_clasa_check", "clasa IS NULL OR clasa IN ('IX', 'X', 'XI', 'XII')"));
+            e.ToTable(t => t.HasCheckConstraint("utilizator_clasa_check", "clasa IS NULL OR clasa IN ('VIII', 'IX', 'X', 'XI', 'XII')"));
         });
 
         model.Entity<Organizatie>(e =>

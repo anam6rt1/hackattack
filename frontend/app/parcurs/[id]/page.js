@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import SalvareOffline from '@/components/SalvareOffline'
 import PrevizualizareSalvat from '@/components/PrevizualizareSalvat'
 import { marimeFisier } from '@/lib/marime-fisier'
 import { api, urlApi } from '@/lib/api'
@@ -53,6 +54,7 @@ export default function PaginaParcurs() {
           <p className="tv-gol" style={{ background: '#fff' }}>Lecția nu are încă capitole.</p>
         )}
 
+        {elev.rol === 'elev' && <SalvareOffline lectie={lectie} uid={elev.id} />}
         <div className="tv-grid-2">
           <section className="tv-card">
             <h3>Testul lecției</h3>

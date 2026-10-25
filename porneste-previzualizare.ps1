@@ -64,7 +64,7 @@ if ($LASTEXITCODE -ne 0) {
     & "$pgBin\pg_ctl.exe" -D $dataDir -l (Join-Path $previewDir 'postgres.log') -o '-h 127.0.0.1 -p 55432' -w start
     if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL de previzualizare nu a pornit.' }
 }
-$variabile = @('DOTNET_ROOT', 'MARKAI_TEST_CONNECTION', 'NEXT_PUBLIC_API_URL', 'API_INTERN_URL')
+$variabile = @('DOTNET_ROOT', 'MARKAI_TEST_CONNECTION', 'NEXT_PUBLIC_API_URL', 'API_INTERN_URL', 'WebPush__CheiFisier')
 $inainte = @{}
 foreach ($v in $variabile) { $inainte[$v] = [Environment]::GetEnvironmentVariable($v, 'Process') }
 $procese = @()
@@ -73,6 +73,8 @@ try {
     $env:MARKAI_TEST_CONNECTION = 'Host=127.0.0.1;Port=55432;Database=postgres;Username=markai_preview'
     $env:NEXT_PUBLIC_API_URL = '/api'
     $env:API_INTERN_URL = 'http://127.0.0.1:5081'
+    $cheiPush = Join-Path $previewDir 'webpush.json'
+    if (!$env:WebPush__CheiFisier -and (Test-Path -LiteralPath $cheiPush)) { $env:WebPush__CheiFisier = $cheiPush }
     $api = Start-Process -FilePath $dotnetExe -ArgumentList @('run', '--project', 'tools/MarkAi.Previzualizare', '--', '--port', '5081') -WorkingDirectory (Join-Path $PSScriptRoot 'database') -WindowStyle Hidden -RedirectStandardOutput (Join-Path $previewDir 'api.log') -RedirectStandardError (Join-Path $previewDir 'api.err.log') -PassThru
     $procese += @{ Id = $api.Id; StartTicks = $api.StartTime.ToUniversalTime().Ticks.ToString() }
     @{ Procese = $procese } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $stateFile

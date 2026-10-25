@@ -38,7 +38,7 @@ describe("meniul", () => {
     ["elev", {}, ["Acasă", "Antrenament", "Materiale", "Triviador", "Profesori", "Linia AI"]],
     ["profesor", { stareProfesor: "aprobat" }, ["Acasă", "Ședințele mele", "Conținut", "Elevi", "Linia AI"]],
     ["organizatie", { stareProfesor: "aprobat" }, ["Acasă", "Organizația", "Ședințele mele", "Conținut", "Linia AI"]],
-    ["admin", {}, ["Acasă", "Organizații", "Profesori", "Conținut", "Mesaje"]],
+    ["admin", {}, ["Acasă", "Organizații", "Profesori", "Conținut", "Mesaje", "Feedback"]],
   ])("rolul %s are paginile lui", async (rol, extra, pagini) => {
     porneste({ id: 1, nume: "Ana Pop", rol, ...extra });
     await screen.findByRole("navigation", { name: "Meniul principal" });

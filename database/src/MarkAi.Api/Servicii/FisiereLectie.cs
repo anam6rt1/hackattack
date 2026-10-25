@@ -205,6 +205,15 @@ public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
+        // Gradually share legacy uploads too; keep old copies until their references have committed.
+        var vechiFisiere = await db.Set<FisierLectie>().Where(f => f.Sha256 != null && f.Cheie.Length < 60)
+            .Select(f => new { f.Id, f.Cheie, f.Sha256, f.Tip }).Take(100).ToListAsync(ct);
+        foreach (var f in vechiFisiere)
+        {
+            var noua = stocare.Consolideaza(f.Cheie, f.Sha256!, f.Tip);
+            if (noua != f.Cheie) await db.Set<FisierLectie>().Where(x => x.Id == f.Id && x.Cheie == f.Cheie)
+                .ExecuteUpdateAsync(set => set.SetProperty(x => x.Cheie, noua), ct);
+        }
         var cunoscute = (await db.Set<FisierLectie>().Select(f => f.Cheie).ToListAsync(ct)).ToHashSet();
         // An hour of margin: an upload in progress has its file on disk before its row is saved.
         var vechi = Acum - TimeSpan.FromHours(1);
@@ -212,7 +221,7 @@ public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare
         foreach (var (cheie, modificatLa) in stocare.Chei(Stocare.DirectorLectii).ToList())
         {
             if (cunoscute.Contains(cheie) || modificatLa > vechi) continue;
-            stocare.Sterge(cheie);
+            stocare.Sterge(cheie, orfan: true, inainteDe: vechi);
             sterse++;
         }
         if (sterse > 0) log.LogInformation("Removed {Count} orphan Lecție files", sterse);

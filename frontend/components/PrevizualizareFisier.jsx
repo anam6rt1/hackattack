@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { API, marime } from '@/lib/api'
 import PrevizualizarePdf from './PrevizualizarePdf'
+import PrevizualizareExcel from './PrevizualizareExcel'
 
 function Office({ fisier }) {
   const [pdf, setPdf] = useState(null)
@@ -42,6 +43,7 @@ function Continut({ fisier }) {
   // eslint-disable-next-line @next/next/no-img-element
   if (imagine) return <img ref={media} alt={`Previzualizare: ${fisier.name}`} style={{ maxWidth: '100%', maxHeight: 320, objectFit: 'contain' }} />
   if (ext === 'pdf' || fisier.type === 'application/pdf') return <PrevizualizarePdf fisier={fisier} />
+  if (ext === 'xlsx') return <PrevizualizareExcel fisier={fisier} />
   if (['docx', 'pptx', 'xlsx'].includes(ext)) return <Office fisier={fisier} />
   return <p>Previzualizarea acestui format nu este disponibilă. Pentru fișiere .doc, .ppt sau .xls, salvează o copie .docx, .pptx sau .xlsx.</p>
 }

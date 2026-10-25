@@ -56,6 +56,13 @@ public static class Raspunsuri
         return c;
     }
 
-    public static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    public static readonly byte[] Png = CreeazaPng();
+    private static byte[] CreeazaPng()
+    {
+        using var imagine = new SkiaSharp.SKBitmap(2, 2);
+        imagine.Erase(SkiaSharp.SKColors.CornflowerBlue);
+        using var date = imagine.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        return date.ToArray();
+    }
     public static readonly byte[] Pdf = "%PDF-1.4\n"u8.ToArray();
 }

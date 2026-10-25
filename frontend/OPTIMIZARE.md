@@ -39,7 +39,7 @@ Verificarea unui PDF de 70 pagini: 1.301.840 → 878.801 octeți (32,50% economi
 cu toate textele pe pagini egale și toate cele 70 de randări la 72 DPI identice
 pixel cu pixel. Acest rezultat descrie documentul testat, nu toate PDF-urile.
 Aplicația actuală nu are upload de audio, video, text sau arhive; nu sunt
-introduse encodere pentru aceste formate și nici conversie pe server.
+introduse encodere pentru aceste formate. Conversia Office pe server este folosită doar pentru previzualizare.
 Gzip nu este aplicat documentelor deoarece API-ul și cititorul de text
 așteaptă fișierele originale, nu un înveliș comprimat.
 
@@ -47,21 +47,24 @@ Fotografia se pregătește imediat după selecție, înainte de trimitere: se po
 previzualiza fotografia care va fi încărcată. Schimbarea
 selecției sau ieșirea din pagină oprește workerul vechi.
 
-Formularele profesorului și fișierele lecției folosesc transfer multipart cu
-progres real, anulare și mesaje pentru timeout/rețea. Anularea nu poate retrage
-un fișier deja salvat pe server; lista trebuie verificată înainte de reîncercare.
+Formularele profesorului folosesc transfer multipart cu progres real și anulare.
+Fișierele lecției se încarcă în porțiuni de 1 MiB, cu sesiuni autentificate păstrate 24 de ore.
+Reîncercarea verifică porțiunile deja primite; după reîncărcarea paginii, reselectează același fișier.
+Identificatorul sesiunii este păstrat local, iar hash-ul SHA-256 verifică întregul document la final.
+Anularea oprește transferul; porțiunile rămân temporar disponibile pentru reluare.
 La lecții, fișierele selectate se trimit numai după apăsarea butonului de upload;
 cele nereușite rămân în selecție, iar cele deja salvate sunt eliminate din ea.
 
 Imaginile se deschid prin URL-uri locale revocate la închidere. PDF-urile sunt
 redate local cu PDF.js, cu navigare între pagini și text accesibil separat;
 workerul este oprit la închidere, iar originalul rămâne disponibil într-o filă nouă.
-Office este citit pe dispozitiv, fără servicii externe: text Word, textul
-diapozitivelor în ordinea prezentării și celulele Excel, inclusiv valori memorate
-ale formulelor. Nu se reproduc aspectul original, imagini sau grafice Office.
-Sunt afișate maximum 200 paragrafe, 20 diapozitive sau 5 foi cu 50 rânduri și
-20 coloane fiecare. Dezarhivarea rulează într-un worker, cu limite de memorie
-și timp; documentele prea complexe primesc un mesaj și rămân descărcabile.
+Word, PowerPoint și Excel se convertesc în copii PDF pe serverul aplicației, fără servicii externe.
+PDF.js oferă zoom 50–300%, potrivire la lățime și ecran complet (Escape închide).
+Pentru Excel alegi foaia; copia de previzualizare ascunde celelalte foi și potrivește tabelul pe lățime,
+păstrând datele/formulele și paginarea verticală. Originalul nu este modificat.
+Copiile PDF se păstrează pe disc după repornire, separate pe hash și foaie, cu buget de 512 MiB.
+Fișierele identice din lecții au aceeași copie fizică, însă numele și accesul rămân pe lecție.
+Ștergerea elimină referința; copia fizică dispare prin curățarea orfanelor, după perioada de grație.
 Fișierele salvate se citesc prin API-ul autentificat, cu o limită de 20 MB pentru
 previzualizare. Formatele vechi DOC/PPT/XLS necesită salvare în DOCX/PPTX/XLSX.
 

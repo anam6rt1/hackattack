@@ -26,7 +26,9 @@ function pdf() {
 async function apiTest(page: Page, profesor = true) {
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname.replace('/api', '')
-    if (path === '/fisiere/previzualizare') return route.fulfill({ body: pdf(), contentType: 'application/pdf' })
+    if (/^\/parcursuri\/\d+\/incarcari$/.test(path)) return route.fulfill({ status: 404, json: { mesaj: 'API vechi de test' } })
+    if (path === '/fisiere/previzualizare') return new URL(route.request().url()).searchParams.get('foi') === 'true'
+      ? route.fulfill({ json: ['Buget', 'Detalii'] }) : route.fulfill({ body: pdf(), contentType: 'application/pdf' })
     const data: Record<string, unknown> = {
       '/utilizatori/me': profesor ? { id: 2, nume: 'Irina', rol: 'profesor', stareProfesor: 'aprobat', organizatii: [] } : null,
       '/materii': { elemente: [{ id: 1, denumire: 'Română' }] },
@@ -64,12 +66,14 @@ test('Word, Excel și PowerPoint folosesc același vizualizator de pagini ca PDF
   page.on('request', r => { if (r.method() === 'POST') uploads++ })
   await page.locator('input[type=file]').setInputFiles(files)
   for (const f of files) await page.getByRole('button', { name: `Previzualizează: ${f.name}`, exact: true }).click()
-  for (const name of ['curs.docx.pdf', 'curs.pptx.pdf', 'tabel.xlsx.pdf', 'curs.pdf']) {
+  for (const name of ['curs.docx.pdf', 'curs.pptx.pdf', 'tabel.xlsx — Buget.pdf', 'curs.pdf']) {
     await expect(page.getByRole('img', { name: `Pagina 1 din ${name}`, exact: true })).toBeVisible({ timeout: 20000 })
   }
   await expect(page.getByText('Text Word verificat', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('table')).toHaveCount(0)
-  expect(uploads).toBe(3)
+  await page.getByRole('combobox', { name: 'Foaia de calcul' }).selectOption('1')
+  await expect(page.getByRole('img', { name: 'Pagina 1 din tabel.xlsx — Detalii.pdf', exact: true })).toBeVisible({ timeout: 20000 })
+  expect(uploads).toBe(5)
   await page.getByRole('heading', { name: 'Fișierele lecției' }).scrollIntoViewIfNeeded()
   await page.screenshot({ path: 'test-results/previzualizare-documente.png', fullPage: true })
 })
@@ -123,6 +127,39 @@ test('arată progresul, anularea păstrează selecția și permite reîncercarea
   expect(cereri).toBe(2)
 })
 
+test('reia după reconectare și reselectare fără să retrimită porțiunile primite', async ({ page }) => {
+  await editor(page)
+  const token = 'a'.repeat(32), file = { name: 'reluabil.pdf', mimeType: 'application/pdf', buffer: pdf() }
+  let offset = 0, porniri = 0, pierdut = false, finalizari = 0
+  const primite: number[] = []
+  await page.route('**/api/parcursuri/1/incarcari', route => {
+    porniri++
+    return route.fulfill({ json: { token, offset: 0, bucata: 256 } })
+  })
+  await page.route(`**/api/incarcari/${token}**`, async route => {
+    const r = route.request(), u = new URL(r.url())
+    if (r.method() === 'GET') return route.fulfill({ json: { token, offset, bucata: 256 } })
+    if (r.method() === 'DELETE') return route.fulfill({ status: 204 })
+    if (u.pathname.endsWith('/finalizeaza')) { finalizari++; return route.fulfill({ status: 201, json: { id: 10 } }) }
+    const start = Number(u.searchParams.get('offset')), body = r.postDataBuffer()!
+    expect(start).toBe(offset)
+    expect(body.equals(file.buffer.subarray(start, start + body.length))).toBe(true)
+    primite.push(start); offset += body.length
+    if (!pierdut && start > 0) { pierdut = true; return route.abort('failed') }
+    return route.fulfill({ json: { offset } })
+  })
+  await page.locator('input[type=file]').setInputFiles(file)
+  await page.getByRole('button', { name: 'Încarcă fișierele selectate' }).click()
+  await expect(page.getByText(/Conexiunea s-a întrerupt/)).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: /Lecție de verificare/ }).click()
+  await page.locator('input[type=file]').setInputFiles(file)
+  await page.getByRole('button', { name: 'Încarcă fișierele selectate' }).click()
+  await expect(page.getByRole('button', { name: 'Încarcă fișierele selectate' })).toHaveCount(0)
+  expect(porniri).toBe(1); expect(finalizari).toBe(1); expect(offset).toBe(file.buffer.length)
+  expect(primite).toEqual([...new Set(primite)])
+})
+
 test('documentele deja salvate se previzualizează prin API-ul autentificat', async ({ page }) => {
   await apiTest(page)
   const doc = office('salvat.docx', { 'word/document.xml': '<document><p><t>Document salvat verificat</t></p></document>' })
@@ -132,6 +169,15 @@ test('documentele deja salvate se previzualizează prin API-ul autentificat', as
   await page.getByRole('button', { name: /Lecție de verificare/ }).click()
   await page.getByRole('button', { name: 'Previzualizează documentul' }).click()
   await expect(page.getByRole('img', { name: 'Pagina 1 din salvat.docx' })).toBeVisible()
+  await page.getByRole('button', { name: 'Mărește', exact: true }).click()
+  await expect(page.getByText('125%', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Ecran complet', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Previzualizare: salvat.docx', exact: true })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('img', { name: 'Pagina 1 din salvat.docx' })).toBeVisible()
+  await expect(dialog.getByRole('link', { name: /Deschide previzualizarea/ })).toHaveAttribute('href', /^blob:/)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
   await page.getByRole('button', { name: 'Închide documentul' }).click()
   await expect(page.getByRole('img', { name: 'Pagina 1 din salvat.docx' })).toHaveCount(0)
 })

@@ -59,6 +59,7 @@ const PAGINI = {
     { href: '/admin/profesori', nume: 'Profesori', icon: 'profesori' },
     { href: '/admin/continut', nume: 'Conținut', icon: 'continut' },
     { href: '/admin/mesaje', nume: 'Mesaje', icon: 'mesaje' },
+    { href: '/admin/feedback', nume: 'Feedback', icon: 'mesaje' },
   ],
 }
 

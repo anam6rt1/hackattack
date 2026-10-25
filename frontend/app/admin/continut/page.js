@@ -8,6 +8,7 @@
 // iar întrebările testului se generează cu AI doar la cerere (câte vrea profesorul), din notițele tuturor capitolelor și
 // textul fișierelor; se adaugă la cele existente și pot fi editate, șterse sau scrise de mână.
 
+import StatisticiIntrebari from '@/components/StatisticiIntrebari'
 import { useCallback, useEffect, useState } from 'react'
 import { useIncarcare } from '@/lib/useIncarcare'
 import { useDocumente } from '@/lib/useDocumente'
@@ -308,6 +309,12 @@ function Intrebare({ q, onSalvat, onStearsa }) {
   const [eroare, setEroare] = useState('')
   const [confirma, fereastra] = useConfirmare()
 
+  useEffect(() => {
+    const deschide = e => { if (e.detail === q.id) setEditare(true) }
+    window.addEventListener('editeaza-intrebare', deschide)
+    return () => window.removeEventListener('editeaza-intrebare', deschide)
+  }, [q.id])
+
   async function salveaza(modificari) {
     const urmator = { ...date, ...modificari }
     try {
@@ -334,7 +341,7 @@ function Intrebare({ q, onSalvat, onStearsa }) {
   }
 
   return (
-    <li className={`tv-cutie tv-intrebare-editor ${date.activa ? '' : 'tv-inactiva'}`}>
+    <li id={`intrebare-${q.id}`} className={`tv-cutie tv-intrebare-editor ${date.activa ? '' : 'tv-inactiva'}`}>
       <div className="tv-butoane" style={{ justifyContent: 'space-between' }}>
         <span className="tv-butoane">
           <span className={`tv-pastila ${date.sursa === 'ai' ? 'tv-pastila-aur' : ''}`}>{date.sursa === 'ai' ? 'Generată AI' : 'Scrisă de om'}</span>
@@ -651,6 +658,7 @@ function Intrebari({ parcursId }) {
       {eroare && <p className="tv-eroare">{eroare}</p>}
       <IntrebareNoua parcursId={parcursId} onAdaugata={incarca} />
       {intrebari?.length === 0 && !lucreaza && <p className="tv-gol">Lecția nu are încă întrebări.</p>}
+      <StatisticiIntrebari key={parcursId} parcursId={parcursId} />
       <ul className="tv-lista">{intrebari?.map((q) => <Intrebare key={q.id} q={q} onSalvat={incarca} onStearsa={incarca} />)}</ul>
     </div>
   )

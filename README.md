@@ -19,3 +19,5 @@ rămâne oprită, fiindcă Twilio are nevoie de o adresă publică). `./porneste
 Toate secretele și setările locale stau într-un singur fișier, `~/.config/markai/markai.env` (chmod 600), niciodată în repo.
 Pornește de la [markai.env.example](markai.env.example): obligatorii sunt `MARKAI_CONNECTION_STRING` și `MARKAI_JWT_KEY`;
 scripturile se opresc și spun ce lipsește.
+
+Rapoarte, invitații, sumar pentru părinți, optimizări și pilot: [C1–E](database/docs/C1-E.md).

@@ -100,7 +100,7 @@ describe("tema și stilul", () => {
 });
 
 describe("clasele și ședințele", () => {
-  it("clasele sunt de la IX la Bac", () => expect(CLASE).toEqual(["IX", "X", "XI", "XII", "Bac"]));
+  it("clasele includ a VIII-a și liceul", () => expect(CLASE).toEqual(["VIII", "IX", "X", "XI", "XII", "Bac"]));
   it.each([["IX", "clasa a IX-a"], ["XII", "clasa a XII-a"], ["Bac", "Bac"]])("%s se afișează „%s”", (c, t) => expect(numeClasa(c)).toBe(t));
 
   it.each([

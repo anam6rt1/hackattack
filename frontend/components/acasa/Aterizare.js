@@ -227,7 +227,7 @@ function FormularElev({ onConfirmare }) {
         <span>Clasa (opțional)</span>
         <select className="tv-camp-text" name="clasa" defaultValue="">
           <option value="">Nu spun</option>
-          {['IX', 'X', 'XI', 'XII'].map((c) => <option key={c} value={c}>a {c}-a</option>)}
+          {['VIII', 'IX', 'X', 'XI', 'XII'].map((c) => <option key={c} value={c}>a {c}-a</option>)}
         </select>
       </label>
       <AlegeLoc onChange={(v) => setJudetId(v.judetId)} />

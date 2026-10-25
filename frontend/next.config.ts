@@ -18,8 +18,7 @@ const nextConfig: NextConfig = {
     // silently. The API reads (and refuses with a clear 413) uploads up to 4 times its limit plus 1 MB, so the proxy passes as much.
     proxyClientMaxBodySize: `${4 * (MAX_FISIER_MB + 1)}mb`,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
+  cacheComponents: false,
   turbopack: {
     rules: {
       "*.css": {

@@ -8,7 +8,10 @@ internal static class SecuritateConfiguration
 {
     internal static void Configure(ModelBuilder model)
     {
-        model.Entity<Utilizator>(e => e.Property(x => x.VersiuneSesiune).HasColumnName("versiune_sesiune").HasDefaultValue(0));
+        model.Entity<Utilizator>(e => {
+            e.Property(x => x.VersiuneSesiune).HasColumnName("versiune_sesiune").HasDefaultValue(0);
+            e.Property(x => x.UltimaCerereApel).HasColumnName("ultima_cerere_apel");
+        });
 
         model.Entity<Sesiune>(e =>
         {
@@ -39,6 +42,11 @@ internal static class SecuritateConfiguration
 
         model.Entity<GenerareAi>(e =>
         {
+            e.Property(x => x.Stare).HasColumnName("stare").HasDefaultValue("gata");
+            e.Property(x => x.Mesaj).HasColumnName("mesaj");
+            e.Property(x => x.IntrebariGenerate).HasColumnName("intrebari_generate");
+            e.Property(x => x.Actualizat).HasColumnName("actualizat");
+            e.HasIndex(x => x.Stare).HasFilter("stare IN ('in_asteptare', 'in_lucru')");
             e.ToTable("generare_ai", "mark_ai");
             e.HasKey(x => x.Id).HasName("generare_ai_pkey");
             e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();

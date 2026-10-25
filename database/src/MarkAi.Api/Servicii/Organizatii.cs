@@ -14,7 +14,7 @@ namespace MarkAi.Api.Servicii;
 /// leave or are removed (plan 2); only a platform admin withdraws it (<see cref="RetrageAsync"/>), after which only an
 /// organisation's approval given later counts.
 /// </summary>
-public sealed class ServiciuOrganizatii(MarkAiDbContext db, Posta posta, TimeProvider ceas)
+public sealed class ServiciuOrganizatii(MarkAiDbContext db, Posta posta, TimeProvider ceas, Notificari notificari)
 {
     /// <summary>A request nobody decides on expires after this.</summary>
     public static readonly TimeSpan DurataCerere = TimeSpan.FromDays(7);
@@ -132,11 +132,9 @@ public sealed class ServiciuOrganizatii(MarkAiDbContext db, Posta posta, TimePro
             decidentId, Acum(), aprobat ? null : Validare.Optional(motiv, 500) ?? "Cererea nu a fost aprobată.");
         var membru = await db.Utilizatori.Where(u => u.Id == m.UtilizatorId).Select(u => new { u.Email, u.Nume }).SingleAsync(ct);
         var org = await db.Set<Organizatie>().Where(o => o.Id == m.OrganizatieId).Select(o => o.Nume).SingleAsync(ct);
-        posta.Pune(aprobat
-            ? Sabloane.Notificare(membru.Email, "Cererea ta a fost aprobată", $"Bun venit în {org}!",
-                m.Rol == MembruOrganizatie.RolProfesor ? $"Cererea ta de profesor în „{org}” a fost aprobată." : $"Faci acum parte din „{org}” și vezi lecțiile organizației.")
-            : Sabloane.Notificare(membru.Email, "Cererea ta nu a fost aprobată", $"Cererea ta în „{org}” nu a fost aprobată",
-                $"Motiv: {m.MotivRespingere}", "Poți cere să intri în altă organizație din aplicație."), aprobat ? "membru_aprobat" : "membru_respins");
+        await notificari.PuneAsync(m.UtilizatorId, $"{(aprobat ? "aprobat" : "respins")}:{m.OrganizatieId}:{m.DecisLa!.Value.Ticks}", "decizie", m.OrganizatieId,
+            aprobat ? "Cererea ta a fost aprobată" : "Cererea ta nu a fost aprobată",
+            aprobat ? $"Bun venit în {org}! Faci acum parte din organizație." : $"Cererea ta în „{org}” nu a fost aprobată. Motiv: {m.MotivRespingere}", "/setari", ct);
         await db.SaveChangesAsync(ct);
         if (m.Rol == MembruOrganizatie.RolProfesor) await SincronizeazaProfesorAsync(m.UtilizatorId, ct);
     }

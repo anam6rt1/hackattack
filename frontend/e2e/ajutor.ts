@@ -86,7 +86,7 @@ export async function intraRapid(page: Page, identificator: string, parola = PAR
 }
 
 /** Small files for upload forms (a professor's photo and qualification proof). */
-export const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+export const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGOQm/D/PwgzwBgAWh4KsQsD2DoAAAAASUVORK5CYII=", "base64");
 export const PDF = Buffer.from("%PDF-1.4\n%test\n");
 
 /**

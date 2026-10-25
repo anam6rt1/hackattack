@@ -185,7 +185,7 @@ describe("panoul profesorului și ședințele", () => {
     expect(await screen.findByRole("heading", { name: "Bine ai revenit, Irina!" })).toBeInTheDocument();
     expect(screen.getByText("40 RON urmează să fie decontați.")).toBeInTheDocument();
     expect(screen.getByText("Limba și literatura română, Matematică")).toBeInTheDocument();
-    expect(document.querySelector("img.tv-poza")).toHaveAttribute("src", "/api/profesori/2/poza");
+    expect(document.querySelector("img.tv-poza")).toHaveAttribute("src", "/api/profesori/2/poza?marime=mica");
   });
 
   it("numără doar înscrierile confirmate", async () => {

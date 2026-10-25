@@ -96,7 +96,7 @@ public sealed class Harness : IAsyncDisposable
     /// <param name="port">A fixed port (the manual preview); 0 = a free one.</param>
     /// <param name="faraAi">No AI model, as on a server without an AI key.</param>
     public static async Task<Harness> Porneste(bool ceasReal = false, bool cuTwilio = false, IReadOnlyDictionary<string, string?>? setari = null, int port = 0,
-        bool faraAi = false, (string Conexiune, string Director)? existenta = null)
+        bool faraAi = false, (string Conexiune, string Director)? existenta = null, Action<IServiceCollection>? configureazaServicii = null)
     {
         _ = MediuCurat.Value;
         if (cuTwilio && Interlocked.Increment(ref cuTwilioActive) == 1)
@@ -153,6 +153,7 @@ public sealed class Harness : IAsyncDisposable
             if (!ceasReal) builder.Services.RemoveAll<IHostedService>();
             // The fake Twilio API is served by this same app, behind its CSRF check, which the real Twilio API does not have.
             builder.Services.AddHttpClient("twilio").AddHttpMessageHandler(() => new AntetCsrf());
+            configureazaServicii?.Invoke(builder.Services);
             var app = builder.Build();
             AplicatieMarkAi.Configureaza(app);
             var middleware = CaptureazaMiddleware(app);

@@ -68,4 +68,22 @@ public sealed class TutorVizibilitateTests : TestLectii
         await LectiePlatforma();
         (await Indicii("george")).ShouldContain("Platformă Bac");
     }
+
+    [Fact]
+    public async Task IstoriculLungEsteLimitatLaSaseRepliciSiUnContextScurt()
+    {
+        var lectie = await LectiePlatforma(); var uid = await Id("george");
+        await using var scope = h.App.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
+        var curs = await db.Set<Curs>().FirstAsync(c => c.ParcursId == lectie); curs.Continut = new string('a', 8000);
+        var s = new Sesiune { UtilizatorId = uid, CursId = curs.Id, Canal = LiniaAiEndpoints.CanalTelefon, Status = LiniaAiEndpoints.StareInCurs, InceputLa = DateTime.UtcNow }; db.Add(s); await db.SaveChangesAsync(Ct);
+        for (int i = 0; i < 60; i++) db.Add(new Mesaj { SesiuneId = s.Id, Expeditor = i % 2 == 0 ? TutorTelefon.ExpeditorElev : TutorTelefon.ExpeditorTutor, Tip = TutorTelefon.TipVoce, Continut = new string('x', 1000), CreatLa = DateTime.UtcNow.AddSeconds(i) });
+        await db.SaveChangesAsync(Ct);
+        h.Ai.Raspunde = (_, _, _) => """{"raspuns":"Bine.","final":false,"voce":{"voce":"ioana","viteza":100,"ton":0}}""";
+        await scope.ServiceProvider.GetRequiredService<TutorTelefon>().RaspundeAsync(s, VociTutor.Implicit, false, Ct);
+        var call = h.Ai.Apeluri.Last(); call.Mesaje.Count.ShouldBeLessThanOrEqualTo(6);
+        var caractere = call.Sistem.Length + call.Mesaje.Sum(m => m.Text.Length);
+        caractere.ShouldBeLessThan(30000); // Previous request sent at least 60,000 history characters alone.
+        TestContext.Current.TestOutputHelper?.WriteLine($"Context: {caractere} caractere; anterior minimum 60000 doar istoricul. Estimare, nu tokenizare de furnizor.");
+    }
 }

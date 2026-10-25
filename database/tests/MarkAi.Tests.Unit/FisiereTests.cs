@@ -7,12 +7,82 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using static MarkAi.Tests.Suport.DocumenteTest;
+using SkiaSharp;
 
 namespace MarkAi.Tests.Unit;
 
 /// <summary>Stored files: names, content checks (signatures, macros, zip bombs), text extraction, paths that stay inside storage.</summary>
 public sealed class FisiereTests : IDisposable
 {
+    [Theory]
+    [InlineData(SKEncodedOrigin.TopLeft, 255, 0, 0)]
+    [InlineData(SKEncodedOrigin.TopRight, 0, 128, 0)]
+    [InlineData(SKEncodedOrigin.BottomRight, 255, 255, 0)]
+    [InlineData(SKEncodedOrigin.BottomLeft, 0, 0, 255)]
+    [InlineData(SKEncodedOrigin.LeftTop, 255, 0, 0)]
+    [InlineData(SKEncodedOrigin.RightTop, 0, 0, 255)]
+    [InlineData(SKEncodedOrigin.RightBottom, 255, 255, 0)]
+    [InlineData(SKEncodedOrigin.LeftBottom, 0, 128, 0)]
+    public void OrientareaExifEsteAplicata(SKEncodedOrigin origine, int r, int g, int b)
+    {
+        using var sursa = new SKBitmap(80, 40);
+        for (var y = 0; y < 40; y++)
+            for (var x = 0; x < 80; x++)
+                sursa.SetPixel(x, y, y < 20 ? (x < 40 ? SKColors.Red : SKColors.Green) : (x < 40 ? SKColors.Blue : SKColors.Yellow));
+        using var rezultat = SKBitmap.Decode(PozeProfil.Redimensioneaza(sursa, origine, 400));
+        rezultat.Width.ShouldBe((int)origine >= 5 ? 40 : 80);
+        rezultat.Height.ShouldBe((int)origine >= 5 ? 80 : 40);
+        var colt = rezultat.GetPixel(5, 5);
+        Math.Abs(colt.Red - r).ShouldBeLessThan(20);
+        Math.Abs(colt.Green - g).ShouldBeLessThan(20);
+        Math.Abs(colt.Blue - b).ShouldBeLessThan(20);
+    }
+
+    [Fact]
+    public async Task FotografiaMareDevineDouaWebpSiOriginalulNuRamane()
+    {
+        using var imagine = new SKBitmap(1500, 1000);
+        var random = new Random(42);
+        var pixeli = new SKColor[1500 * 1000];
+        for (var i = 0; i < pixeli.Length; i++) pixeli[i] = new SKColor((byte)random.Next(256), (byte)random.Next(256), (byte)random.Next(256));
+        imagine.Pixels = pixeli;
+        using var date = imagine.Encode(SKEncodedImageFormat.Png, 100);
+        var original = date.ToArray();
+        original.Length.ShouldBeGreaterThan(4_000_000);
+        var cheie = await stocare.SalveazaPozaAsync(Formular(original, "fotografie.png"), TestContext.Current.CancellationToken);
+        using var profil = SKBitmap.Decode(stocare.CaleFisier(cheie));
+        using var mica = SKBitmap.Decode(stocare.CaleFisier(cheie + ".mic.webp"));
+        profil.Width.ShouldBe(400);
+        mica.Width.ShouldBe(96);
+        new FileInfo(stocare.CaleFisier(cheie + ".mic.webp")!).Length.ShouldBeLessThan(10_000);
+        Directory.GetFiles(Path.Combine(dir, "poze")).Length.ShouldBe(2);
+        stocare.StergeDatePersonale(cheie);
+        Directory.GetFiles(Path.Combine(dir, "poze")).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task FotografiaCoruptaEsteRefuzataFaraFisiereRamase()
+    {
+        await Should.ThrowAsync<CerereInvalida>(() => stocare.SalveazaPozaAsync(
+            Formular([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3], "poza.png"), TestContext.Current.CancellationToken));
+        Directory.GetFiles(Path.Combine(dir, "poze")).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task FotografiaVechePrimesteVarianteIarInlocuireaLeSterge()
+    {
+        using var imagine = new SKBitmap(800, 600);
+        imagine.Erase(SKColors.CornflowerBlue);
+        using var date = imagine.Encode(SKEncodedImageFormat.Png, 100);
+        File.WriteAllBytes(Path.Combine(dir, "veche.png"), date.ToArray());
+        await stocare.ServestePozaAsync("veche.png", true, TestContext.Current.CancellationToken);
+        using var mica = SKBitmap.Decode(Path.Combine(dir, "veche.png.mic.webp"));
+        mica.Width.ShouldBe(96);
+        File.Exists(Path.Combine(dir, "veche.png.profil.webp")).ShouldBeTrue();
+        stocare.Sterge("veche.png");
+        Directory.GetFiles(dir).ShouldBeEmpty();
+    }
+
     private readonly string dir = Directory.CreateTempSubdirectory("markai-unit-").FullName;
     private readonly Stocare stocare;
 
@@ -52,7 +122,7 @@ public sealed class FisiereTests : IDisposable
         f.Tip.ShouldBe("pdf");
         f.Marime.ShouldBe(pdf.Length);
         f.Sha256.ShouldBe(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(pdf)));
-        f.Cheie.ShouldMatch(@"^lectii/[0-9a-f]{32}\.pdf$");
+        f.Cheie.ShouldMatch(@"^lectii/[0-9a-f]{64}\.pdf$");
         File.ReadAllBytes(stocare.CaleFisier(f.Cheie)!).ShouldBe(pdf);
     }
 

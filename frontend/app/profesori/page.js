@@ -202,7 +202,7 @@ function Director({ utilizator }) {
               <div className="tv-nivel">
                 {p.pozaUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={urlApi(p.pozaUrl)} alt="" className="tv-poza" width={64} height={64} />
+                  <img src={urlApi(`${p.pozaUrl}?marime=mica`)} alt="" className="tv-poza" width={64} height={64} loading="lazy" decoding="async" />
                 ) : (
                   <span className="tv-nivel-insigna" style={{ width: 64, height: 64, fontSize: 26 }}>{p.nume.charAt(0)}</span>
                 )}

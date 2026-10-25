@@ -6,6 +6,9 @@ using MarkAi.Api.Setari;
 using MarkAi.Data;
 using MarkAi.Data.Servicii;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.ResponseCompression;
+using System.IO.Compression;
 
 namespace MarkAi.Api.Infrastructura;
 
@@ -22,6 +25,15 @@ public static class AplicatieMarkAi
         var cfg = builder.Configuration;
         ConfigurareObligatorie.Verifica(cfg, builder.Environment, conexiune);
         Securitate.AdaugaServicii(builder);
+        builder.Services.AddResponseCompression(o =>
+        {
+            o.EnableForHttps = true;
+            o.MimeTypes = ["application/json", "application/problem+json"];
+            o.Providers.Add<BrotliCompressionProvider>();
+            o.Providers.Add<GzipCompressionProvider>();
+        });
+        builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+        builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
 
         builder.Services.AddDbContext<MarkAiDbContext>(o => o.UseNpgsql(conexiune,
             x => x.MigrationsHistoryTable("__EFMigrationsHistory", "mark_ai")));
@@ -34,6 +46,18 @@ public static class AplicatieMarkAi
         builder.Services.AddSingleton<TwilioApeluri>();
         builder.Services.AddSingleton<Stocare>();
         builder.Services.AddSingleton<PrevizualizareOffice>();
+        builder.Services.AddSingleton<IncarcariReluabile>();
+        builder.Services.AddScoped<DatePersonale>();
+        builder.Services.AddHttpClient("webpush", c => c.Timeout = TimeSpan.FromSeconds(10))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        builder.Services.AddSingleton<ExpeditorPush>();
+        builder.Services.AddSingleton<IExpeditorPush>(sp => sp.GetRequiredService<ExpeditorPush>());
+        builder.Services.AddScoped<Notificari>();
+        builder.Services.AddSingleton<ProcesorNotificari>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcesorNotificari>());
+        builder.Services.AddSingleton<MutatiiCont>();
+        builder.Services.AddSingleton<CuratareDatePersonale>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<CuratareDatePersonale>());
         builder.Services.AddSingleton<CoadaIntrebari>();
         // Background jobs are singletons as well as hosted services, so the checks can run them on demand (RuleazaOdataAsync).
         builder.Services.AddSingleton<GeneratorIntrebari>();
@@ -50,7 +74,7 @@ public static class AplicatieMarkAi
         builder.Services.AddScoped<StergereContinut>();
         builder.Services.AddSingleton<CuratareConturi>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<CuratareConturi>());
-        builder.Services.AddSignalR(o => { o.KeepAliveInterval = TimeSpan.FromSeconds(5); o.ClientTimeoutInterval = TimeSpan.FromSeconds(15); });
+        builder.Services.AddSignalR(o => { o.KeepAliveInterval = TimeSpan.FromSeconds(5); o.ClientTimeoutInterval = TimeSpan.FromSeconds(15); o.AddFilter<ContActivJoc>(); });
         builder.Services.AdaugaSetariCont();
 
         ConfigurareAutentificare.Adauga(builder.Services, ConfigurareAutentificare.Optiuni(cfg, builder.Environment));
@@ -82,6 +106,10 @@ public static class AplicatieMarkAi
             case "jurnal": builder.Services.AddSingleton<IExpeditorSms>(sp => sp.GetRequiredService<ExpeditorJurnal>()); break;
             default: throw new InvalidOperationException($"Unknown Sms:Furnizor '{sms}' (use twilio or jurnal).");
         }
+        builder.Services.AddDataProtection();
+        builder.Services.AddSingleton<SumareParinti>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<SumareParinti>());
+        builder.Services.AddSingleton<CacheReferinte>();
         builder.Services.AddScoped<Posta>();
         builder.Services.AddSingleton<ProcesorMesaje>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcesorMesaje>());
@@ -98,6 +126,10 @@ public static class AplicatieMarkAi
             app.Logger.LogWarning("No AI key (GEMINI_API_KEY or ANTHROPIC_API_KEY): question generation and the phone tutor are off.");
 
         Securitate.FoloseteInainteDeAutentificare(app);
+        // Compress read-only catalogue/content JSON. Authentication, exports, messages and the hub stay outside this branch.
+        app.UseWhen(h => HttpMethods.IsGet(h.Request.Method) && new[]
+            { "/materii", "/judete", "/localitati", "/organizatii", "/profesori", "/continut", "/parcursuri", "/cursuri", "/fisiere/optimizare" }
+            .Any(p => h.Request.Path.StartsWithSegments(p)), b => b.UseResponseCompression());
         app.UseMiddleware<TratareErori>();
         // Twilio webhooks fail silently on the caller's side ("could not reach your TwiML server"), so log every one with its outcome.
         app.Use(async (ctx, next) =>
@@ -114,6 +146,8 @@ public static class AplicatieMarkAi
         app.UseAuthentication();
         app.UseRateLimiter();
         app.UseAuthorization();
+        app.UseMiddleware<ContActiv>();
+        app.Use((h, next) => h.RequestServices.GetRequiredService<CacheReferinte>().Ruleaza(h, next));
 
         if (app.Environment.IsDevelopment())
         {
@@ -125,7 +159,17 @@ public static class AplicatieMarkAi
         app.MapeazaSetariCont();
         ContinutEndpoints.Mapeaza(app);
         FisiereEndpoints.Mapeaza(app);
+        OptimizareEndpoints.Mapeaza(app);
+        DatePersonaleEndpoints.Mapeaza(app);
         QuizEndpoints.Mapeaza(app);
+        TemeEndpoints.Mapeaza(app);
+        GreseliEndpoints.Mapeaza(app);
+        SimulariEndpoints.Mapeaza(app);
+        NotificariEndpoints.Mapeaza(app);
+        RapoarteEndpoints.Mapeaza(app);
+        InvitatiiEndpoints.Mapeaza(app);
+        SumareParintiEndpoints.Mapeaza(app);
+        FeedbackEndpoints.Mapeaza(app);
         AdminEndpoints.Mapeaza(app);
         OrganizatiiEndpoints.Mapeaza(app);
         ElevEndpoints.Mapeaza(app);

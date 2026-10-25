@@ -5,6 +5,7 @@
 // --e2e (the Playwright tests): no practical rate limits (every test signs in from the same address) and no pause between quizzes.
 using MarkAi.Tests.Suport;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
 
 var port = args.SkipWhile(a => a != "--port").Skip(1).Select(int.Parse).DefaultIfEmpty(5081).First();
 var e2e = args.Contains("--e2e");
@@ -23,6 +24,7 @@ var previzualizare = await Harness.Porneste(ceasReal: true, port: port, setari: 
 // no subject, so she stays a professor without sessions.
 await previzualizare.Db(async db =>
 {
+    await db.Database.MigrateAsync();
     await Seed.ReferintaAsync(db);
     await SedinteTest.AdaugaAsync(db, ["irina", "director"], ["george"], DateTime.UtcNow);
 });

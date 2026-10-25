@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { API } from '@/lib/api'
 import PrevizualizareFisier from './PrevizualizareFisier'
+import PrevizualizareExcel from './PrevizualizareExcel'
 
 export default function PrevizualizareSalvat({ fisier }) {
   const [local, setLocal] = useState(null)
@@ -15,6 +16,7 @@ export default function PrevizualizareSalvat({ fisier }) {
     controller.current = c
     setBusy(true); setEroare('')
     try {
+      if (fisier.tip === 'xlsx') { setLocal({ excel: true }); return }
       const limita = 20 * 1024 * 1024
       if (fisier.marimeOcteti > limita) throw new Error('Pentru fișiere peste 20 MB, folosește Deschide sau descarcă documentul.')
       const office = ['docx', 'pptx', 'xlsx'].includes(fisier.tip)
@@ -40,6 +42,6 @@ export default function PrevizualizareSalvat({ fisier }) {
     {!local && <button type="button" className="tv-pastila" disabled={busy} onClick={deschide}>{busy ? 'Se deschide…' : 'Previzualizează documentul'}</button>}
     {busy && <button type="button" className="tv-pastila" onClick={() => controller.current?.abort()}>Anulează deschiderea</button>}
     {eroare && <p role="alert">{eroare}</p>}
-    {local && <><PrevizualizareFisier fisier={local} marimeOcteti={fisier.marimeOcteti} deschis origine="Fișier salvat" /><button type="button" className="tv-pastila" onClick={() => setLocal(null)}>Închide documentul</button></>}
+    {local && <>{local.excel ? <PrevizualizareExcel salvat={fisier} /> : <PrevizualizareFisier fisier={local} marimeOcteti={fisier.marimeOcteti} deschis origine="Fișier salvat" />}<button type="button" className="tv-pastila" onClick={() => setLocal(null)}>Închide documentul</button></>}
   </div>
 }

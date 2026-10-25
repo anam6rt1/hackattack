@@ -68,7 +68,7 @@ public sealed class MotorTriviador(IServiceScopeFactory scopes, IHubContext<JocH
             throw new CerereInvalida($"Harta are între {GeneratorHarta.MinInsule} și {GeneratorHarta.MaxInsule} de insule.");
         if (s.MaxJucatori is < MinJucatori or > MaxJucatoriCamera) throw new CerereInvalida($"O cameră are între {MinJucatori} și {MaxJucatoriCamera} jucători.");
         var clasa = string.IsNullOrWhiteSpace(s.Clasa) ? null : s.Clasa.Trim();
-        if (clasa is not null && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+        if (clasa is not null && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie VIII, IX, X, XI, XII sau Bac.");
         Curata();
         if (_camere.Count >= MaxCamere) throw new Conflict("Sunt prea multe camere deschise acum. Încearcă din nou în câteva minute.");
         if (_camere.Values.Count(c => c.GazdaId == gazdaId) >= MaxCamerePeGazda)

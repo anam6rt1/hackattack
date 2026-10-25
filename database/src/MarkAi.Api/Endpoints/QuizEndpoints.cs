@@ -54,6 +54,15 @@ public static class QuizEndpoints
             return await Dto(db, incercare, ct);
         });
 
+        g.MapGet("/{incercareId:int}/stare", async (int id, int incercareId, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        {
+            await AsiguraLectieAsync(acces, h, id, ct);
+            var i = await db.Set<IncercareQuiz>().AsNoTracking().SingleOrDefaultAsync(i => i.Id == incercareId && i.ParcursId == id && i.UtilizatorId == h.User.Id(), ct)
+                ?? throw new KeyNotFoundException("Testul nu există.");
+            h.Response.Headers.CacheControl = "no-store";
+            return (object)new { i.FinalizataLa, Raspunsuri = i.IntrebariIds.Select((q, n) => new { IntrebareId = q, VariantaId = i.Raspunsuri[n] }).ToArray() };
+        });
+
         g.MapPost("/{incercareId:int}/raspuns", async (int id, int incercareId, RaspunsQuiz c, HttpContext h, MarkAiDbContext db,
             AccesContinut acces, ProgresService progres, TimeProvider ceas, CancellationToken ct) =>
         {
@@ -72,6 +81,8 @@ public static class QuizEndpoints
             // A new array, so EF sees the change to the column.
             incercare.Raspunsuri = incercare.Raspunsuri.Select((r, i) => i == pozitie ? c.VariantaId : r).ToArray();
             var corect = variante.Any(o => o.Id == c.VariantaId && o.Corecta);
+            if (!corect) await GreseliEndpoints.NoteazaAsync(db, h.User.Id(), c.IntrebareId, ceas.GetUtcNow().UtcDateTime, ct);
+            db.Add(new RaspunsStatistica { IncercareId = incercare.Id, IntrebareId = c.IntrebareId, UtilizatorId = h.User.Id(), Corect = corect, RaspunsLa = ceas.GetUtcNow().UtcDateTime });
             var ramase = incercare.Raspunsuri.Count(r => r == 0);
             if (ramase > 0)
             {

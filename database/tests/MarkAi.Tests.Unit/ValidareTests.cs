@@ -75,7 +75,7 @@ public sealed class ValidareTests
     public void ClasaGoalaEsteNull(string? intrare) => AutentificareEndpoints.Clasa(intrare).ShouldBeNull();
 
     [Theory]
-    [InlineData("VIII")]
+    [InlineData("VII")]
     [InlineData("XIII")]
     [InlineData("Bac")]
     [InlineData("12")]

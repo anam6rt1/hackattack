@@ -12,7 +12,7 @@ internal static class ParcursuriConfiguration
         {
             e.ToTable("parcurs", "mark_ai", t =>
             {
-                t.HasCheckConstraint("parcurs_clasa_check", "clasa IN ('IX', 'X', 'XI', 'XII', 'Bac')");
+                t.HasCheckConstraint("parcurs_clasa_check", "clasa IN ('VIII', 'IX', 'X', 'XI', 'XII', 'Bac')");
                 t.HasCheckConstraint("parcurs_vizibilitate_check", "vizibilitate IN ('public', 'organizatie')");
                 // Organisation-only content needs an organisation.
                 t.HasCheckConstraint("parcurs_organizatie_check", "vizibilitate = 'public' OR organizatie_id IS NOT NULL");
@@ -91,7 +91,7 @@ internal static class ParcursuriConfiguration
             e.Property(x => x.TextExtras).HasColumnName("text_extras");
             e.Property(x => x.IncarcatDeId).HasColumnName("incarcat_de_id");
             e.Property(x => x.IncarcatLa).HasColumnName("incarcat_la").HasDefaultValueSql("now()");
-            e.HasIndex(x => x.Cheie, "fisier_lectie_cheie_key").IsUnique();
+            e.HasIndex(x => x.Cheie, "fisier_lectie_cheie_key");
             // One file of each type per Lecție.
             e.HasIndex(x => new { x.ParcursId, x.Tip }, "fisier_lectie_parcurs_id_tip_key").IsUnique();
             e.HasIndex(x => x.IncarcatDeId, "idx_fisier_lectie_incarcat_de_id_fkey");

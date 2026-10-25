@@ -12,13 +12,15 @@ import { API, api, EroareApi } from '@/lib/api'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import SetariOrganizatie from '@/components/SetariOrganizatie'
+import SetariSumarParinte from '@/components/SetariSumarParinte'
+import SetariNotificari from '@/components/SetariNotificari'
 import AlegeMaterii, { materie } from '@/components/AlegeMaterii'
 import { useConfirmare } from '@/components/Confirmare'
 import './setari.css'
 
 const DECOR = decorSVG(13)
 const ROLURI = { elev: 'Cont de elev', profesor: 'Cont de profesor', organizatie: 'Administrator de organizație', admin: 'Administrator' }
-const TABS = [ ['profil', 'Date personale', 'user'], ['securitate', 'Securitatea contului', 'shield'] ]
+const TABS = [ ['profil', 'Date personale', 'user'], ['securitate', 'Securitatea contului', 'shield'], ['notificari', 'Notificări', 'mail'] ]
 
 function Icon({ name, ...props }) {
   const paths = {
@@ -220,6 +222,7 @@ export default function SetariCont() {
             <div className="sc-security-note"><span><Icon name="lock" /></span><div><strong>Ieși de pe toate dispozitivele</strong><p>Închide toate sesiunile deschise ale contului, de exemplu dacă ai intrat de pe un calculator străin. După schimbarea parolei sau a emailului, celelalte dispozitive sunt scoase automat.</p></div><button type="button" className="sc-text-button" onClick={iesirePesteTot} disabled={busy}>Ieși peste tot</button></div></>}
 
           {tab === 'organizatie' && utilizator.rol !== 'admin' && <SetariOrganizatie utilizator={utilizator} onSchimbat={reincarca} />}
+          {tab === 'notificari' && <><SetariNotificari />{utilizator.rol === 'elev' && <SetariSumarParinte />}</>}
           {tab === 'profesor' && teacher && <><p className="sc-intro">Ajută elevii să te cunoască. Aceste informații apar pe profilul tău de profesor.</p>
             <div className="sc-status"><Icon name="shield" /><span>{data.profesor?.stareVerificare === 'aprobat' ? 'Profil verificat de echipa noastră' : 'Profilul este în curs de verificare sau necesită actualizare'}</span></div>
             <form className="sc-form" onSubmit={save}><AlegeMaterii alese={form.materieIds.map(id => subjects.find(subject => subject.id === id)).filter(Boolean).map(materie)} onChange={alese => update('materieIds', alese.map(a => a.id))} />

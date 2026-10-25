@@ -7,7 +7,7 @@ import { Baloo_2, Lora, Nunito, Pixelify_Sans } from 'next/font/google'
 
 const baloo = Baloo_2({ subsets: ['latin', 'latin-ext'], variable: '--font-titlu' })
 const nunito = Nunito({ subsets: ['latin', 'latin-ext'], variable: '--font-text' })
-const lora = Lora({ subsets: ['latin', 'latin-ext'], weight: ['600', '700'], variable: '--font-serif' })
-const pixel = Pixelify_Sans({ subsets: ['latin', 'latin-ext'], weight: ['400', '600', '700'], variable: '--font-pixel' })
+const lora = Lora({ subsets: ['latin', 'latin-ext'], weight: ['600', '700'], preload: false, variable: '--font-serif' })
+const pixel = Pixelify_Sans({ subsets: ['latin', 'latin-ext'], weight: ['400', '600', '700'], preload: false, variable: '--font-pixel' })
 
 export const claseFonturi = `${baloo.variable} ${nunito.variable} ${lora.variable} ${pixel.variable}`

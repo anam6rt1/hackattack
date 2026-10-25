@@ -276,7 +276,7 @@ public static class OrganizatiiEndpoints
     private static async Task<Lista<MembruDto>> Membri(MarkAiDbContext db, int organizatieId, string? rol, string? stare, CancellationToken ct,
         Pagini.Marime lista, string? text = null, string? clasa = null, int? materieId = null, int? pagina = null, int? marime = null)
     {
-        if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+        if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie VIII, IX, X, XI, XII sau Bac.");
         Pagini.Fereastra(lista, pagina, marime);
         var q = db.Set<MembruOrganizatie>().AsNoTracking().Where(m => m.OrganizatieId == organizatieId);
         if (!string.IsNullOrEmpty(rol)) q = q.Where(m => m.Rol == rol);

@@ -63,7 +63,7 @@ public sealed class FisiereLectieTests : TestFisiere
         var vechi = await IncarcaId(irina, Pdf(), "a.pdf");
         var cheie = await Cheie(vechi);
         var nou = (await Incarca(irina, Pdf("Nou"), "nou.pdf", inlocuieste: true).Json(HttpStatusCode.Created)).Int("id");
-        File.Exists(Stocare.CaleFisier(cheie)).ShouldBeFalse();
+        File.Exists(Stocare.CaleFisier(cheie)).ShouldBeTrue(); // Shared blobs are collected after the grace period.
         (await h.Db(db => db.Set<FisierLectie>().Where(f => f.ParcursId == lectie && f.Tip == "pdf").Select(f => f.Id).ToListAsync())).ShouldBe([nou]);
         await elena.Get($"/fisiere/{vechi}").Status(HttpStatusCode.NotFound);
     }
@@ -238,11 +238,15 @@ public sealed class FisiereLectieTests : TestFisiere
     }
 
     [Fact]
-    public async Task StergereaUnuiFisierIlScoateDePeDisc()
+    public async Task StergereaUnuiFisierEliminaAccesulIarCopiaSeCurataUlterior()
     {
         var id = await IncarcaId(irina, Pdf(), "a.pdf");
         var cheie = await Cheie(id);
         await irina.Delete($"/fisiere/{id}").Status(HttpStatusCode.NoContent);
+        File.Exists(Stocare.CaleFisier(cheie)).ShouldBeTrue();
+        File.SetLastWriteTimeUtc(Stocare.CaleFisier(cheie)!, h.Ceas.GetUtcNow().UtcDateTime.AddHours(-3));
+        h.Ceas.Advance(TimeSpan.FromHours(2));
+        await Procesor.RuleazaOdataAsync(Ct);
         File.Exists(Stocare.CaleFisier(cheie)).ShouldBeFalse();
         await elena.Get($"/fisiere/{id}").Status(HttpStatusCode.NotFound);
     }
@@ -262,6 +266,9 @@ public sealed class FisiereLectieTests : TestFisiere
         await IncarcaId(irina, Pdf(), "a.pdf");
         await IncarcaId(irina, Docx(), "a.docx");
         await irina.Delete($"/parcursuri/{lectie}").Status(HttpStatusCode.NoContent);
+        foreach (var f in Stocare.Chei(Stocare.DirectorLectii)) File.SetLastWriteTimeUtc(Stocare.CaleFisier(f.Cheie)!, h.Ceas.GetUtcNow().UtcDateTime.AddHours(-3));
+        h.Ceas.Advance(TimeSpan.FromHours(2));
+        await Procesor.RuleazaOdataAsync(Ct);
         Stocare.Chei(Stocare.DirectorLectii).ShouldBeEmpty();
         (await h.Db(db => db.Set<FisierLectie>().CountAsync())).ShouldBe(0);
     }

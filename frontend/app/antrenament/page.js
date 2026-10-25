@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
+import GreselileMele from '@/components/GreselileMele'
 import { numeClasa } from '@/lib/clase'
 
 const DECOR = decorSVG(19)
@@ -46,6 +47,8 @@ export default function PaginaAntrenament() {
         </section>
 
         <div className="tv-coala">
+          <Link className="tv-btn" href="/simulari">Simulări Bac și Evaluare Națională</Link>
+          <GreselileMele />
           {total === 0 ? (
             <div className="tv-cutie" style={{ justifyItems: 'start' }}>
               <h3>Încă nu ai lecții terminate</h3>

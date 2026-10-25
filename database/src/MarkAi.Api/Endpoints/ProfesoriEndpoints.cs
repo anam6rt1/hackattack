@@ -113,12 +113,13 @@ public static class ProfesoriEndpoints
                 Utilizator(h), ct)).SingleOrDefault() ?? throw new KeyNotFoundException("Profesorul nu există."));
 
         // Public only for approved professors; applicants see their own photo and admins review it.
-        g.MapGet("/profesori/{id:int}/poza", async (int id, HttpContext h, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
+        g.MapGet("/profesori/{id:int}/poza", async (int id, string? marime, HttpContext h, MarkAiDbContext db, Stocare stocare, CancellationToken ct) =>
         {
             var poateVedea = h.User.Identity?.IsAuthenticated == true && (h.User.IsInRole(Roluri.Admin) || h.User.Id() == id);
-            return stocare.Serveste(await db.ProfiluriMentor
+            h.Response.Headers.CacheControl = "private, no-cache";
+            return await stocare.ServestePozaAsync(await db.ProfiluriMentor
                 .Where(m => m.UtilizatorId == id && (poateVedea || m.StareVerificare == RezervareService.MentorAprobat))
-                .Select(m => m.PozaUrl).SingleOrDefaultAsync(ct));
+                .Select(m => m.PozaUrl).SingleOrDefaultAsync(ct), marime == "mica", ct);
         });
 
         var elev = app.MapGroup("/rezervari").WithTags("Profesori").RequireAuthorization(Politici.Elev);

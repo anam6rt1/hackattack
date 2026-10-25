@@ -54,7 +54,7 @@ public sealed class CreareLectiiTests : TestLectii
     }
 
     [Theory]
-    [InlineData("VIII")]
+    [InlineData("VII")]
     [InlineData("xi")]
     [InlineData("")]
     public async Task ClasaTrebuieSaFieIxPanaLaXiiSauBac(string clasa)

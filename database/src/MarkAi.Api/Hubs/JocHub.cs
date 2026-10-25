@@ -14,6 +14,8 @@ namespace MarkAi.Api.Hubs;
 [Authorize(Policy = Politici.Elev)]
 public sealed class JocHub(MotorTriviador motor) : Hub
 {
+    private static readonly string InstantaServer = Guid.NewGuid().ToString("N");
+    public string Instanta() => InstantaServer;
     public async Task<StareJoc> Intra(string cod)
     {
         // A connection follows one room: stop receiving the previous room's updates.

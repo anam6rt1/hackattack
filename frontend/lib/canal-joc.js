@@ -15,15 +15,28 @@ export function deschideCanal(cod, { onStare, onConectat, onDeconectat, onEroare
     .configureLogging(LogLevel.Warning)
     .build()
   let inchis = false
+  let instanta
 
   conexiune.on('stare', onStare)
 
   async function intra() {
+    const actuala = await conexiune.invoke('Instanta')
+    if (instanta !== undefined && instanta !== actuala) {
+      const e = new Error('Serverul a repornit. Partida s-a încheiat; poți începe un joc nou.')
+      e.cod = 'SERVER_RESTART'
+      onDeconectat()
+      onEroare(e)
+      inchis = true
+      await conexiune.stop()
+      return
+    }
+    instanta = actuala
     onStare(await conexiune.invoke('Intra', cod))
     onConectat()
   }
   conexiune.onreconnecting(() => onDeconectat())
   conexiune.onreconnected(() => intra().catch(onEroare))
+  conexiune.onclose?.(() => { if (!inchis) { onDeconectat(); onEroare(new Error('Conexiunea cu jocul s-a închis. Poți reveni și începe o partidă nouă.')) } })
 
   // Pornim la următorul tick: în dezvoltare, React montează, demontează și remontează imediat
   // componenta (Strict Mode); o conexiune oprită în timpul negocierii ar apărea ca eroare în consolă.

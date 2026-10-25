@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
 using MarkAi.Api.Infrastructura;
+using MarkAi.Data;
+using Microsoft.EntityFrameworkCore;
 using MarkAi.Data.Servicii;
 
 namespace MarkAi.Api.Servicii;
@@ -21,9 +23,8 @@ public sealed record LimiteApel(int Pasi, TimeSpan Durata, TimeSpan RaspunsMaxim
 /// Outbound "Sună-mă" calls: Twilio calls the student's phone and, once answered, fetches the same
 /// voice webhook as an incoming call. This works on a Twilio trial (calls to verified numbers only).
 /// </summary>
-public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, TimeProvider ceas, ILogger<TwilioApeluri> log)
+public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, TimeProvider ceas, ILogger<TwilioApeluri> log, IServiceScopeFactory scopes)
 {
-    private readonly ConcurrentDictionary<int, DateTime> UltimaCerere = new();
     private static readonly TimeSpan Pauza = TimeSpan.FromSeconds(30);
 
     private static string? Sid => Environment.GetEnvironmentVariable("TWILIO_ACCOUNT_SID");
@@ -40,9 +41,11 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, T
         if (!Configurat) throw new Conflict("Apelurile nu sunt configurate pe server.");
         // A double click must not ring the phone twice.
         var acum = ceas.GetUtcNow().UtcDateTime;
-        if (UltimaCerere.TryGetValue(utilizatorId, out var ultima) && acum - ultima < Pauza)
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
+        if (await db.Utilizatori.Where(u => u.Id == utilizatorId && (u.UltimaCerereApel == null || u.UltimaCerereApel <= acum - Pauza))
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.UltimaCerereApel, acum), ct) != 1)
             throw new Conflict("Te sunăm deja. Așteaptă câteva secunde.");
-        UltimaCerere[utilizatorId] = acum;
 
         var parametri = new Dictionary<string, string>
         {
@@ -60,7 +63,8 @@ public sealed class TwilioApeluri(IConfiguration cfg, IHttpClientFactory http, T
         using var r = await http.CreateClient("twilio").SendAsync(cerere, ct);
         if (r.IsSuccessStatusCode) return (await r.Content.ReadFromJsonAsync<JsonNode>(ct))?["sid"]?.GetValue<string>();
 
-        UltimaCerere.TryRemove(utilizatorId, out _);
+        await db.Utilizatori.Where(u => u.Id == utilizatorId && u.UltimaCerereApel == acum)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.UltimaCerereApel, (DateTime?)null), ct);
         var eroare = await r.Content.ReadFromJsonAsync<JsonNode>(ct);
         var cod = eroare?["code"]?.GetValue<int>();
         log.LogWarning("Twilio a refuzat apelul: {Status} {Cod} {Mesaj}", (int)r.StatusCode, cod, eroare?["message"]?.GetValue<string>());

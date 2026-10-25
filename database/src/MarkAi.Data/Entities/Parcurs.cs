@@ -8,7 +8,7 @@ namespace MarkAi.Data.Entities;
 public class Parcurs
 {
     public const string Public = "public", DoarOrganizatie = "organizatie";
-    public static readonly string[] Clase = ["IX", "X", "XI", "XII", "Bac"];
+    public static readonly string[] Clase = ["VIII", "IX", "X", "XI", "XII", "Bac"];
 
     public int Id { get; set; }
 

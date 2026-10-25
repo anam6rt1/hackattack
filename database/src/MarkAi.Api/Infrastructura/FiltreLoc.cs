@@ -33,7 +33,7 @@ public static class FiltreLectii
     public static IQueryable<Parcurs> Aplica(IQueryable<Parcurs> q, ContextAcces a, LocUtilizator loc, string? filtru, string? clasa)
     {
         var clase = (clasa ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (clase.Any(c => !Parcurs.Clase.Contains(c))) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+        if (clase.Any(c => !Parcurs.Clase.Contains(c))) throw new CerereInvalida("Clasa trebuie să fie VIII, IX, X, XI, XII sau Bac.");
         if (clase.Length > 0) q = q.Where(p => clase.Contains(p.Clasa));
         var org = a.Organizatii;
         return filtru switch

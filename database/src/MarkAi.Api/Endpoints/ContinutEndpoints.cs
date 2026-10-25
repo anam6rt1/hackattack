@@ -198,7 +198,7 @@ public static class ContinutEndpoints
         {
             var lista = h.User.EsteAdmin() ? Pagini.LectiiEditorAdmin : Pagini.LectiiEditorProfesor;
             Pagini.Fereastra(lista, pagina, marime);
-            if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+            if (!string.IsNullOrEmpty(clasa) && !Parcurs.Clase.Contains(clasa)) throw new CerereInvalida("Clasa trebuie să fie VIII, IX, X, XI, XII sau Bac.");
             if (vizibilitate is not (null or "" or Parcurs.Public or Parcurs.DoarOrganizatie))
                 throw new CerereInvalida("Vizibilitatea trebuie să fie „public” sau „organizatie”.");
             var a = await acces.PentruAsync(h.User, ct);
@@ -504,7 +504,7 @@ public static class ContinutEndpoints
     {
         p.Titlu = Validare.Obligatoriu(c.Titlu, "Titlu", 200);
         p.Descriere = Validare.Optional(c.Descriere, 1000);
-        p.Clasa = Parcurs.Clase.Contains(c.Clasa) ? c.Clasa : throw new CerereInvalida("Clasa trebuie să fie IX, X, XI, XII sau Bac.");
+        p.Clasa = Parcurs.Clase.Contains(c.Clasa) ? c.Clasa : throw new CerereInvalida("Clasa trebuie să fie VIII, IX, X, XI, XII sau Bac.");
         var vecheVizibilitate = nou ? null : p.Vizibilitate;
         p.Vizibilitate = c.Vizibilitate is Parcurs.Public or Parcurs.DoarOrganizatie ? c.Vizibilitate
             : throw new CerereInvalida("Vizibilitatea trebuie să fie „public” sau „organizatie”.");

@@ -37,6 +37,18 @@ afterEach(() => vi.useRealTimers());
 const evenimente = () => ({ onStare: vi.fn(), onConectat: vi.fn(), onDeconectat: vi.fn(), onEroare: vi.fn() });
 
 describe("deschideCanal()", () => {
+  it("închide clar partida după repornirea serverului", async () => {
+    let instanta = 'prima'
+    conexiune.obiect.invoke = vi.fn(async metoda => metoda === 'Instanta' ? instanta : { cod: 'ABC234' })
+    const e = evenimente()
+    deschideCanal('ABC234', e)
+    await vi.runAllTimersAsync()
+    instanta = 'noua'
+    await conexiune.obiect.handlers.reconnected()
+    expect(e.onEroare).toHaveBeenCalledWith(expect.objectContaining({ cod: 'SERVER_RESTART' }))
+    expect(apeluri.stop).toBe(1)
+    expect(conexiune.obiect.invoke.mock.calls.filter(x => x[0] === 'Intra')).toHaveLength(1)
+  })
   it("se conectează la /hub/joc cu cookie-ul, cu timpii serverului", () => {
     deschideCanal("ABC234", evenimente());
     expect(conexiune.url).toBe("/api/hub/joc");
