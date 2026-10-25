@@ -51,6 +51,11 @@ public partial class Utilizator
 
     public virtual ICollection<EvenimentRecompensa> EvenimenteRecompensa { get; set; } = new List<EvenimentRecompensa>();
 
+    public DateTime? UltimaCerereApel { get; set; }
+    public DateTime? StergereCerutaLa { get; set; }
+    public bool? Sub16AniDeclarat { get; set; }
+    public DateTime? AcordParinteDeclaratLa { get; set; }
+    public string? VersiuneInformare { get; set; }
     public virtual PreferinteUtilizator? PreferinteUtilizator { get; set; }
 
     public virtual ProfilMentor? ProfilMentor { get; set; }

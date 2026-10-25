@@ -3,17 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useFotografie } from '@/lib/useFotografie'
+import { useIncarcare } from '@/lib/useIncarcare'
+import ProgresIncarcare from '@/components/ProgresIncarcare'
+import PrevizualizareFisier from '@/components/PrevizualizareFisier'
+import OptimizareFotografie from '@/components/OptimizareFotografie'
 import { API, api, EroareApi } from '@/lib/api'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import SetariOrganizatie from '@/components/SetariOrganizatie'
+import SetariSumarParinte from '@/components/SetariSumarParinte'
+import SetariNotificari from '@/components/SetariNotificari'
 import AlegeMaterii, { materie } from '@/components/AlegeMaterii'
 import { useConfirmare } from '@/components/Confirmare'
 import './setari.css'
 
 const DECOR = decorSVG(13)
 const ROLURI = { elev: 'Cont de elev', profesor: 'Cont de profesor', organizatie: 'Administrator de organizație', admin: 'Administrator' }
-const TABS = [ ['profil', 'Date personale', 'user'], ['securitate', 'Securitatea contului', 'shield'] ]
+const TABS = [ ['profil', 'Date personale', 'user'], ['securitate', 'Securitatea contului', 'shield'], ['notificari', 'Notificări', 'mail'] ]
 
 function Icon({ name, ...props }) {
   const paths = {
@@ -86,6 +93,8 @@ export default function SetariCont() {
   const [otpError, setOtpError] = useState('')
   const [scop, setScop] = useState('parola')
   const [files, setFiles] = useState({})
+  const fotografie = useFotografie(files.poza, false)
+  const upload = useIncarcare()
   const [fileKey, setFileKey] = useState(0)
   const securityForm = useRef(null)
   const [confirma, fereastra] = useConfirmare()
@@ -126,11 +135,15 @@ export default function SetariCont() {
     event.preventDefault(); setBusy(true); setError('')
     try {
       const body = new FormData()
-      if (files.poza) body.append('poza', files.poza)
+      if (fotografie.inLucru) throw new Error('Așteaptă pregătirea fotografiei.')
+      const poza = fotografie.fisier || files.poza
+      if (poza?.size > 5 * 1024 * 1024) throw new Error('Fotografia depășește limita de 5 MB.')
+      if (files.dovada?.size > 10 * 1024 * 1024) throw new Error('Dovada depășește limita de 10 MB.')
+      if (poza) body.append('poza', poza)
       if (files.dovada) body.append('dovada', files.dovada)
-      const result = await setariApi('/documente', { metoda: 'POST', formular: body })
+      const result = await upload.trimite('/utilizatori/me/setari/documente', body)
       setFiles({}); setFileKey(k => k + 1); await load(); await reincarca(); notify(result.mesaj)
-    } catch (e) { setError(e.message) } finally { setBusy(false) }
+    } catch (e) { setError(e.name === 'AbortError' ? 'Încărcare anulată. Verifică fișierele salvate înainte de a reîncerca.' : e.message) } finally { setBusy(false) }
   }
 
   async function requestCode(event) {
@@ -209,6 +222,7 @@ export default function SetariCont() {
             <div className="sc-security-note"><span><Icon name="lock" /></span><div><strong>Ieși de pe toate dispozitivele</strong><p>Închide toate sesiunile deschise ale contului, de exemplu dacă ai intrat de pe un calculator străin. După schimbarea parolei sau a emailului, celelalte dispozitive sunt scoase automat.</p></div><button type="button" className="sc-text-button" onClick={iesirePesteTot} disabled={busy}>Ieși peste tot</button></div></>}
 
           {tab === 'organizatie' && utilizator.rol !== 'admin' && <SetariOrganizatie utilizator={utilizator} onSchimbat={reincarca} />}
+          {tab === 'notificari' && <><SetariNotificari />{utilizator.rol === 'elev' && <SetariSumarParinte />}</>}
           {tab === 'profesor' && teacher && <><p className="sc-intro">Ajută elevii să te cunoască. Aceste informații apar pe profilul tău de profesor.</p>
             <div className="sc-status"><Icon name="shield" /><span>{data.profesor?.stareVerificare === 'aprobat' ? 'Profil verificat de echipa noastră' : 'Profilul este în curs de verificare sau necesită actualizare'}</span></div>
             <form className="sc-form" onSubmit={save}><AlegeMaterii alese={form.materieIds.map(id => subjects.find(subject => subject.id === id)).filter(Boolean).map(materie)} onChange={alese => update('materieIds', alese.map(a => a.id))} />
@@ -218,9 +232,9 @@ export default function SetariCont() {
               <button className="sc-button sc-green" disabled={busy || form.materieIds.length === 0}>{busy ? 'Se salvează…' : 'Salvează profilul de profesor'}<Icon name="check" /></button>
             </form>
             <form className="sc-files-form" onSubmit={saveFiles}><h3>Fotografie și calificare</h3><p className="sc-hint">Păstrăm fișierele actuale dacă nu alegi altele noi.</p><div className="sc-two" key={fileKey}>
-              <label className="sc-upload"><Icon name="user" /><strong>Fotografie</strong><small>{data.profesor?.arePoza ? 'Ai deja o fotografie' : 'Adaugă o fotografie'} · JPG, PNG, WebP · max. 5 MB</small><input aria-label="Fotografie" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFiles(f => ({ ...f, poza: e.target.files[0] }))} /></label>
-              <label className="sc-upload"><Icon name="book" /><strong>Dovada calificării</strong><small>{data.profesor?.areDovada ? 'Document existent' : 'Adaugă o diplomă sau un certificat'} · PDF sau imagine · max. 10 MB</small><input aria-label="Dovada calificării" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setFiles(f => ({ ...f, dovada: e.target.files[0] }))} /></label>
-            </div><p className="sc-hint">O dovadă nouă este verificată de un administrator înainte de reactivarea profilului.</p><button className="sc-button sc-gold" disabled={busy || (!files.poza && !files.dovada)}>{busy ? 'Se încarcă…' : 'Actualizează fișierele'}<Icon name="arrow" /></button></form>
+              <label className="sc-upload"><Icon name="user" /><strong>Fotografie</strong><small>{data.profesor?.arePoza ? 'Ai deja o fotografie' : 'Adaugă o fotografie'} · JPG, PNG, WebP · max. 5 MB</small><input disabled={busy} aria-label="Fotografie" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFiles(f => ({ ...f, poza: e.target.files[0] }))} /></label>
+              <label className="sc-upload"><Icon name="book" /><strong>Dovada calificării</strong><small>{data.profesor?.areDovada ? 'Document existent' : 'Adaugă o diplomă sau un certificat'} · PDF sau imagine · max. 10 MB</small><input disabled={busy} aria-label="Dovada calificării" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setFiles(f => ({ ...f, dovada: e.target.files[0] }))} /></label>
+            </div><OptimizareFotografie fisier={fotografie.fisier} inLucru={fotografie.inLucru} /><PrevizualizareFisier fisier={files.dovada} eticheta="Dovada calificării" /><ProgresIncarcare progres={upload.progres} onAnuleaza={upload.anuleaza} /><p className="sc-hint">O dovadă nouă este verificată de un administrator înainte de reactivarea profilului.</p><button className="sc-button sc-gold" disabled={busy || fotografie.inLucru || (!files.poza && !files.dovada)}>{busy ? 'Se încarcă…' : 'Actualizează fișierele'}<Icon name="arrow" /></button></form>
           </>}
         </section>
       </div>}

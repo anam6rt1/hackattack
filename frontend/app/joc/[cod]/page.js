@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { usePagina } from '@/lib/sesiune'
 import { deschideCanal } from '@/lib/canal-joc'
 import Incarcare from '@/components/Incarcare'
@@ -40,7 +41,7 @@ export default function Camera() {
       },
       onConectat: () => setConectat(true),
       onDeconectat: () => setConectat(false),
-      onEroare: (e) => setEroare(e?.message?.includes('nu există') ? 'Camera nu există sau s-a închis.' : 'Nu ne-am putut conecta la cameră. Reîncarcă pagina.'),
+      onEroare: (e) => { setConectat(false); setStare(null); setEroare(e?.cod === 'SERVER_RESTART' ? e.message : e?.message?.includes('nu există') ? 'Camera nu există sau s-a închis.' : 'Conexiunea cu jocul s-a închis. Poți începe o partidă nouă.') },
     })
     return () => canal.current?.inchide()
   }, [euId, cod])
@@ -50,7 +51,7 @@ export default function Camera() {
     canal.current?.trimite(metoda, ...argumente).catch((e) => setMesaj(e.message))
   }
 
-  if (eroare) return <Incarcare text={eroare} />
+  if (eroare) return <main className="tv-pagina"><p role="alert">{eroare}</p><Link className="tv-pastila" href="/joc">Înapoi la jocuri</Link></main>
   if (!utilizator || !stare) return <Incarcare />
   if (!conectat) return <Incarcare text="Se conectează..." />
 

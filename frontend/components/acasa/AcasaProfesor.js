@@ -34,6 +34,7 @@ export default function AcasaProfesor({ utilizator }) {
         </section>
 
         <div className="tv-coala">
+          <Link className="tv-btn" href="/teme">Teme și grupe de elevi</Link>
           <div className="tv-panou">
             <div className="tv-cutie">
               <div className="tv-mic">Câștiguri</div>
@@ -50,7 +51,7 @@ export default function AcasaProfesor({ utilizator }) {
               <div className="tv-nivel">
                 {panou.profil.pozaUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={urlApi(panou.profil.pozaUrl)} alt="" className="tv-poza" width={64} height={64} />
+                  <img src={urlApi(`${panou.profil.pozaUrl}?marime=mica`)} alt="" className="tv-poza" width={64} height={64} loading="lazy" decoding="async" />
                 )}
                 <div>
                   <div className="tv-mic">Profil public</div>

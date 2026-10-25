@@ -26,6 +26,22 @@ export function apiFals(rute = {}) {
     if (!(r instanceof Raspuns)) r = raspuns(200, r);
     return new Response(r.status === 204 ? null : JSON.stringify(r.corp), { status: r.status, headers: { "Content-Type": "application/json" } });
   }));
+  // Component tests share the same fake routes for fetch and multipart XHR.
+  vi.stubGlobal("XMLHttpRequest", class {
+    upload = {};
+    antete = {};
+    open(method, url) { this.method = method; this.url = url; }
+    setRequestHeader(k, v) { this.antete[k] = v; }
+    async send(body) {
+      try {
+        const r = await fetch(this.url, { method: this.method, body, headers: this.antete, credentials: this.withCredentials ? 'include' : undefined });
+        if (this.aborted) return;
+        this.status = r.status; this.responseText = await r.text();
+        this.upload.onload?.(); this.onload?.();
+      } catch { if (!this.aborted) this.onerror?.(); }
+    }
+    abort() { this.aborted = true; this.onabort?.(); }
+  });
   return cereri;
 }
 

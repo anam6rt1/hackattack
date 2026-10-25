@@ -44,7 +44,7 @@ function Cerere({ c, pret, onSchimbat }) {
       <div className="tv-nivel">
         {c.pozaUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={urlApi(c.pozaUrl)} alt="" className="tv-poza" width={64} height={64} />
+          <img src={urlApi(`${c.pozaUrl}?marime=mica`)} alt="" className="tv-poza" width={64} height={64} loading="lazy" decoding="async" />
         )}
         <div style={{ minWidth: 0 }}>
           <h3>{c.nume}</h3>

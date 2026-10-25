@@ -114,7 +114,7 @@ export default function SetariOrganizatie({ utilizator, onSchimbat }) {
               <span>Clasa</span>
               <select className="tv-camp-text" name="clasa" defaultValue={utilizator.clasa ?? ''}>
                 <option value="">Nu spun</option>
-                {['IX', 'X', 'XI', 'XII'].map((c) => <option key={c} value={c}>a {c}-a</option>)}
+                {['VIII', 'IX', 'X', 'XI', 'XII'].map((c) => <option key={c} value={c}>a {c}-a</option>)}
               </select>
             </label>
           )}

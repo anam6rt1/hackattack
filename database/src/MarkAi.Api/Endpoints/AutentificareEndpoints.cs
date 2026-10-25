@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 namespace MarkAi.Api.Endpoints;
 
 public record InregistrareElev(string Nume, string Username, string Email, string Parola,
-    int? JudetId = null, int? LocalitateId = null, string? Clasa = null, int? OrganizatieId = null);
+    int? JudetId = null, int? LocalitateId = null, string? Clasa = null, int? OrganizatieId = null,
+    bool? Sub16Ani = null, bool AcordParinteDeclarat = false);
 public record InregistrareOrganizatie(string Nume, string Username, string Email, string Parola, string Telefon,
     string NumeOrganizatie, string Adresa, int JudetId, int? LocalitateId);
 public record OrganizatieSumar(int Id, string Nume, string Rol, string Stare);
@@ -41,6 +42,10 @@ public static class AutentificareEndpoints
         g.MapPost("/autentificare/inregistrare", async (InregistrareElev c, MarkAiDbContext db, Posta posta, CoduriVerificare coduri,
             ServiciuOrganizatii org, IConfiguration cfg, TimeProvider ceas, CancellationToken ct) =>
         {
+            if (cfg.GetValue("Confidentialitate:SolicitaDeclaratieVarsta", false) && c.Sub16Ani is null)
+                throw new CerereInvalida("Completează declarația privind vârsta înainte de înregistrare.");
+            if (c.Sub16Ani == true && !c.AcordParinteDeclarat)
+                throw new CerereInvalida("Pentru înregistrare este necesară declarația acordului părintelui sau tutorelui.");
             var clasa = Clasa(c.Clasa);
             var loc = c.JudetId is { } j ? await OrganizatiiEndpoints.ValideazaLocul(db, j, c.LocalitateId, ct) : ((int?)null, (int?)null);
             if (c.OrganizatieId is { } oid && !await db.Set<Organizatie>().AnyAsync(o => o.Id == oid && o.Stare == Organizatie.Aprobata, ct))
@@ -49,6 +54,9 @@ public static class AutentificareEndpoints
             if (u is not null)
             {
                 (u.JudetId, u.LocalitateId, u.Clasa) = (loc.Item1, loc.Item2, clasa);
+                u.Sub16AniDeclarat = c.Sub16Ani;
+                u.AcordParinteDeclaratLa = c.Sub16Ani == true && c.AcordParinteDeclarat ? ceas.GetUtcNow().UtcDateTime : null;
+                u.VersiuneInformare = c.Sub16Ani is not null ? DatePersonale.VersiuneInformare : null;
                 await db.SaveChangesAsync(ct);
                 if (c.OrganizatieId is { } organizatieId) await org.CereAsync(u, organizatieId, MembruOrganizatie.RolElev, ct);
             }
@@ -193,7 +201,7 @@ public static class AutentificareEndpoints
             var id = (c.Identificator ?? "").Trim().ToLower();
             var u = await db.Utilizatori.Include(x => x.Roluri).ThenInclude(x => x.Rol)
                 .SingleOrDefaultAsync(x => x.Email.ToLower() == id || x.Username.ToLower() == id, ct);
-            if (u is null || !Parole.Verifica(u, c.Parola ?? ""))
+            if (u is null || u.StergereCerutaLa is not null || !Parole.Verifica(u, c.Parola ?? ""))
                 return Results.Json(new { status = 401, mesaj = "Email/utilizator sau parolă greșită." }, statusCode: 401);
             // Only with the right password: tells the person to confirm, with the address the code went to.
             if (u.EmailConfirmatLa is null)
@@ -325,6 +333,6 @@ public static class AutentificareEndpoints
 
     /// <summary>A student's school year, or null.</summary>
     public static string? Clasa(string? valoare) => string.IsNullOrWhiteSpace(valoare) ? null
-        : valoare.Trim().ToUpperInvariant() is "IX" or "X" or "XI" or "XII" ? valoare.Trim().ToUpperInvariant()
-        : throw new CerereInvalida("Clasa trebuie să fie IX, X, XI sau XII.");
+        : valoare.Trim().ToUpperInvariant() is "VIII" or "IX" or "X" or "XI" or "XII" ? valoare.Trim().ToUpperInvariant()
+        : throw new CerereInvalida("Clasa trebuie să fie VIII, IX, X, XI sau XII.");
 }

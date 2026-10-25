@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using System.Xml;
+using System.Xml.Linq;
 using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
@@ -30,6 +31,7 @@ public static partial class ExtragereText
         {
             case FisierLectie.Pdf: Pdf(cale, text, maxCaractere); break;
             case FisierLectie.Docx: Office(cale, ["word/document.xml"], NsWord, "t", text, maxCaractere); break;
+            case FisierLectie.Xlsx: Excel(cale, text, maxCaractere); break;
             case FisierLectie.Pptx:
                 using (var zip = ZipFile.OpenRead(cale))
                 {
@@ -50,6 +52,41 @@ public static partial class ExtragereText
         {
             text.AppendJoin(' ', pagina.GetWords().Select(w => w.Text)).Append("\n\n");
             if (text.Length >= maxCaractere) return;
+        }
+    }
+
+    // Cached cell values only: formulas, external links and macros are never executed.
+    private static void Excel(string cale, StringBuilder text, int maxCaractere)
+    {
+        using var zip = ZipFile.OpenRead(cale);
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        XDocument Litera(ZipArchiveEntry e)
+        {
+            using var reader = XmlReader.Create(e.Open(), new XmlReaderSettings
+            { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxCaractereXml });
+            return XDocument.Load(reader);
+        }
+        var shared = zip.GetEntry("xl/sharedStrings.xml") is { } strings
+            ? Litera(strings).Descendants(ns + "si").Select(s => string.Concat(s.Descendants(ns + "t").Select(t => t.Value))).ToArray()
+            : [];
+        foreach (var sheet in zip.Entries.Where(e => Regex.IsMatch(e.FullName, @"^xl/worksheets/sheet\d+\.xml$"))
+                     .OrderBy(e => e.FullName, StringComparer.Ordinal))
+        {
+            foreach (var row in Litera(sheet).Descendants(ns + "row"))
+            {
+                foreach (var cell in row.Elements(ns + "c"))
+                {
+                    var value = cell.Element(ns + "v")?.Value ?? "";
+                    var type = (string?)cell.Attribute("t");
+                    if (type == "s") value = int.TryParse(value, out var n) && n >= 0 && n < shared.Length ? shared[n] : "";
+                    else if (type == "inlineStr") value = string.Concat(cell.Descendants(ns + "t").Select(t => t.Value));
+                    var remaining = maxCaractere - text.Length;
+                    if (remaining <= 0) return;
+                    text.Append(value.AsSpan(0, Math.Min(value.Length, remaining))).Append(' ');
+                }
+                text.Append('\n');
+                if (text.Length >= maxCaractere) return;
+            }
         }
     }
 
@@ -168,6 +205,15 @@ public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
+        // Gradually share legacy uploads too; keep old copies until their references have committed.
+        var vechiFisiere = await db.Set<FisierLectie>().Where(f => f.Sha256 != null && f.Cheie.Length < 60)
+            .Select(f => new { f.Id, f.Cheie, f.Sha256, f.Tip }).Take(100).ToListAsync(ct);
+        foreach (var f in vechiFisiere)
+        {
+            var noua = stocare.Consolideaza(f.Cheie, f.Sha256!, f.Tip);
+            if (noua != f.Cheie) await db.Set<FisierLectie>().Where(x => x.Id == f.Id && x.Cheie == f.Cheie)
+                .ExecuteUpdateAsync(set => set.SetProperty(x => x.Cheie, noua), ct);
+        }
         var cunoscute = (await db.Set<FisierLectie>().Select(f => f.Cheie).ToListAsync(ct)).ToHashSet();
         // An hour of margin: an upload in progress has its file on disk before its row is saved.
         var vechi = Acum - TimeSpan.FromHours(1);
@@ -175,7 +221,7 @@ public sealed class ProcesorFisiere(IServiceScopeFactory scopes, Stocare stocare
         foreach (var (cheie, modificatLa) in stocare.Chei(Stocare.DirectorLectii).ToList())
         {
             if (cunoscute.Contains(cheie) || modificatLa > vechi) continue;
-            stocare.Sterge(cheie);
+            stocare.Sterge(cheie, orfan: true, inainteDe: vechi);
             sterse++;
         }
         if (sterse > 0) log.LogInformation("Removed {Count} orphan Lecție files", sterse);

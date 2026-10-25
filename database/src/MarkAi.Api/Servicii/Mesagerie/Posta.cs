@@ -13,11 +13,11 @@ namespace MarkAi.Api.Servicii.Mesagerie;
 public sealed class Posta(MarkAiDbContext db, IServiceScopeFactory scopes, IExpeditorEmail email, IExpeditorSms sms, IConfiguration cfg, TimeProvider ceas)
 {
     /// <summary>Queues a notification; it is saved by the caller's next SaveChanges, together with the change it reports.</summary>
-    public void Pune(Email m, string tip) => db.Add(new MesajIesire
+    public MesajIesire Pune(Email m, string tip) => db.Add(new MesajIesire
     {
         Canal = "email", Catre = m.Catre, Subiect = m.Subiect, Html = m.Html, Text = m.Text, Tip = tip,
         CreatLa = Acum(), UrmatoareaIncercareLa = Acum(),
-    });
+    }).Entity;
 
     public async Task TrimiteAcumAsync(Email m, string tip, CancellationToken ct)
     {
@@ -59,7 +59,7 @@ public sealed class Posta(MarkAiDbContext db, IServiceScopeFactory scopes, IExpe
 }
 
 /// <summary>Sends queued notifications every few seconds; a failure is retried later (1, 5, 15, 60, 240 minutes), then given up.</summary>
-public sealed class ProcesorMesaje(IServiceScopeFactory scopes, TimeProvider ceas, ILogger<ProcesorMesaje> log) : BackgroundService
+public sealed class ProcesorMesaje(IServiceScopeFactory scopes, TimeProvider ceas, ILogger<ProcesorMesaje> log, IConfiguration cfg) : BackgroundService
 {
     private static readonly int[] Asteptari = [1, 5, 15, 60, 240];
 
@@ -82,12 +82,27 @@ public sealed class ProcesorMesaje(IServiceScopeFactory scopes, TimeProvider cea
         var deTrimis = await db.Set<MesajIesire>()
             .Where(m => m.TrimisLa == null && m.UrmatoareaIncercareLa <= acum && m.Incercari <= Asteptari.Length && m.Canal == "email")
             .OrderBy(m => m.Id).Take(20).ToListAsync(ct);
+        var livrate = await db.Set<MesajIesire>().CountAsync(m => m.Canal == "email" && m.TrimisLa >= acum.AddHours(-24) && m.Furnizor != "anulat", ct);
         foreach (var m in deTrimis)
         {
+            var sumar = await db.Set<EmailSumar>().SingleOrDefaultAsync(e => e.MesajId == m.Id, ct);
+            if (sumar != null && !await SumareParinti.Permis(db, sumar, acum, ct))
+            { m.TrimisLa = acum; m.Furnizor = "anulat"; m.Html = null; m.Text = null; continue; }
+            var notificare = await db.Set<Notificare>().SingleOrDefaultAsync(n => n.MesajEmailId == m.Id, ct);
+            if (notificare != null)
+            {
+                var p = await db.Set<PreferinteNotificari>().FindAsync([notificare.UtilizatorId], ct) ?? new PreferinteNotificari();
+                if (!Notificari.Permite(p, notificare.Tip) || !await db.Utilizatori.AnyAsync(u => u.Id == notificare.UtilizatorId && u.StergereCerutaLa == null, ct)
+                    || !await ProcesorNotificari.Actuala(db, notificare, acum, ct))
+                {
+                    m.TrimisLa = acum; m.Furnizor = "anulat"; m.Html = null; m.Text = null; notificare.Canal = "anulata"; continue;
+                }
+            }
+            if (livrate >= cfg.GetValue("Email:MaxPeZi", 500)) break;
             try
             {
                 await email.TrimiteAsync(new Email(m.Catre, m.Subiect ?? "", m.Html ?? "", m.Text ?? ""), ct);
-                (m.TrimisLa, m.Furnizor, m.Eroare) = (acum, email.Nume, null);
+                (m.TrimisLa, m.Furnizor, m.Eroare) = (acum, email.Nume, null); livrate++;
                 // Delivered for real: the content (which may hold a code) is no longer needed here.
                 if (email.Nume != "jurnal") (m.Html, m.Text) = (null, null);
             }

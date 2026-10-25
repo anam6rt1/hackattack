@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Threading.Channels;
 using MarkAi.Api.Infrastructura;
 using MarkAi.Data;
 using MarkAi.Data.Entities;
@@ -11,30 +9,33 @@ namespace MarkAi.Api.Servicii;
 
 public record StareGenerare(string Stare, string? Mesaj, int IntrebariGenerate, DateTime Actualizat);
 
-/// <summary>Lecții waiting for AI question generation (with the number of questions asked), plus the latest status of each (in memory).</summary>
-public sealed class CoadaIntrebari
+/// <summary>Durable queue/status in PostgreSQL. The pilot runs one API instance and one generator.</summary>
+public sealed class CoadaIntrebari(IServiceScopeFactory scopes)
 {
-    private readonly Channel<(int ParcursId, int Numar)> _coada = Channel.CreateUnbounded<(int, int)>();
-    private readonly ConcurrentDictionary<int, StareGenerare> _stari = new();
-
-    public void Adauga(int parcursId, int numar)
+    public StareGenerare? Stare(int parcursId)
     {
-        _stari[parcursId] = new StareGenerare("in_asteptare", null, 0, DateTime.UtcNow);
-        _coada.Writer.TryWrite((parcursId, numar));
+        using var scope = scopes.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<MarkAiDbContext>().Set<GenerareAi>().AsNoTracking()
+            .Where(g => g.ParcursId == parcursId).OrderByDescending(g => g.Id)
+            .Select(g => new StareGenerare(g.Stare, g.Mesaj, g.IntrebariGenerate, g.Actualizat ?? g.CreatLa)).FirstOrDefault();
     }
-
-    public StareGenerare? Stare(int parcursId) => _stari.GetValueOrDefault(parcursId);
-
-    /// <summary>True while a generation for the Lecție is queued or running.</summary>
     public bool InLucru(int parcursId) => Stare(parcursId)?.Stare is "in_asteptare" or "in_lucru";
-
-    internal void Actualizeaza(int parcursId, StareGenerare stare) => _stari[parcursId] = stare;
-
-    internal IAsyncEnumerable<(int ParcursId, int Numar)> Citeste(CancellationToken ct) => _coada.Reader.ReadAllAsync(ct);
-
-    internal bool IncearcaCiteste(out (int ParcursId, int Numar) cerere) => _coada.Reader.TryRead(out cerere);
+    internal void Actualizeaza(int id, StareGenerare stare)
+    {
+        using var scope = scopes.CreateScope();
+        scope.ServiceProvider.GetRequiredService<MarkAiDbContext>().Set<GenerareAi>().Where(g => g.Id == id)
+            .ExecuteUpdate(s => s.SetProperty(g => g.Stare, stare.Stare).SetProperty(g => g.Mesaj, stare.Mesaj)
+                .SetProperty(g => g.IntrebariGenerate, stare.IntrebariGenerate).SetProperty(g => g.Actualizat, stare.Actualizat));
+    }
+    internal bool IncearcaCiteste(out (int Id, int ParcursId, int Numar) cerere)
+    {
+        using var scope = scopes.CreateScope();
+        var g = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>().Set<GenerareAi>().AsNoTracking()
+            .Where(g => g.Stare == "in_asteptare" || g.Stare == "in_lucru").OrderBy(g => g.Id).FirstOrDefault();
+        cerere = g is null ? default : (g.Id, g.ParcursId, g.Numar);
+        return g is not null;
+    }
 }
-
 /// <summary>AI questions the user may still ask for in the last 24 hours: their own budget, capped by what the platform has left.</summary>
 public record BugetAi(int Ramase, int PeZi);
 
@@ -66,15 +67,16 @@ public static class LimitaGenerariAi
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         // One budget check at a time, so two requests at once cannot both spend the last questions.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(hashtext('mark_ai.generare_ai'))", ct);
+        if (await db.Set<GenerareAi>().AnyAsync(g => g.ParcursId == parcursId && (g.Stare == "in_asteptare" || g.Stare == "in_lucru"), ct)) throw new Conflict("Întrebările acestei lecții se generează deja. Așteaptă să se termine.");
         var buget = await BugetAsync(db, cfg, ceas, uid, ct);
         if (buget.Ramase == 0)
             throw new Conflict("Ai folosit întrebările AI disponibile în ultimele 24 de ore. Poți scrie sau edita întrebările manual sau reîncerca mâine.");
         if (numar > buget.Ramase)
             throw new Conflict($"Îți mai rămân {buget.Ramase} întrebări AI în ultimele 24 de ore. Cere cel mult {buget.Ramase}.");
-        db.Add(new GenerareAi { UtilizatorId = uid, ParcursId = parcursId, Numar = numar, CreatLa = ceas.GetUtcNow().UtcDateTime });
+        db.Add(new GenerareAi { UtilizatorId = uid, ParcursId = parcursId, Numar = numar, Stare = "in_asteptare", CreatLa = ceas.GetUtcNow().UtcDateTime });
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        coada.Adauga(parcursId, numar);
+
     }
 }
 
@@ -88,6 +90,7 @@ public static class LimitaGenerariAi
 public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactory scopes, IConfiguration cfg, ModelAi ai, ILogger<GeneratorIntrebari> log)
     : BackgroundService
 {
+    private readonly SemaphoreSlim procesare = new(1, 1);
     private const string Sistem = """
         Ești profesor de liceu în România și pregătești elevi pentru examenul de bacalaureat.
         Scrii întrebări de verificare în limba română, cu diacritice, despre materia din materialul primit: faptele, ideile, operele,
@@ -106,28 +109,30 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        await foreach (var cerere in coada.Citeste(ct)) await ProceseazaAsync(cerere.ParcursId, cerere.Numar, ct);
+        while (!ct.IsCancellationRequested) { await RuleazaOdataAsync(ct); await Task.Delay(1000, ct); }
     }
 
     /// <summary>Processes the Lecții queued so far, then returns. The integration checks call this instead of running the service.</summary>
     public async Task RuleazaOdataAsync(CancellationToken ct)
     {
-        while (coada.IncearcaCiteste(out var cerere)) await ProceseazaAsync(cerere.ParcursId, cerere.Numar, ct);
+        await procesare.WaitAsync(ct);
+        try { while (coada.IncearcaCiteste(out var cerere)) await ProceseazaAsync(cerere.Id, cerere.ParcursId, cerere.Numar, ct); }
+        finally { procesare.Release(); }
     }
 
-    private async Task ProceseazaAsync(int parcursId, int numar, CancellationToken ct)
+    private async Task ProceseazaAsync(int jobId, int parcursId, int numar, CancellationToken ct)
     {
-        coada.Actualizeaza(parcursId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
+        coada.Actualizeaza(jobId, new StareGenerare("in_lucru", null, 0, DateTime.UtcNow));
         try
         {
-            var (n, mesaj) = await GenereazaAsync(parcursId, numar, ct);
-            coada.Actualizeaza(parcursId, new StareGenerare("gata", mesaj, n, DateTime.UtcNow));
+            var (n, mesaj) = await GenereazaAsync(jobId, parcursId, numar, ct);
+            coada.Actualizeaza(jobId, new StareGenerare("gata", mesaj, n, DateTime.UtcNow));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             if (ex is EroareGenerare) log.LogWarning("AI question generation for Lecție {ParcursId}: {Mesaj}", parcursId, ex.Message);
             else log.LogError(ex, "AI question generation failed for Lecție {ParcursId}", parcursId);
-            coada.Actualizeaza(parcursId, new StareGenerare("eroare", ex is EroareGenerare ? ex.Message : "Generarea a eșuat. Încearcă din nou.", 0, DateTime.UtcNow));
+            coada.Actualizeaza(jobId, new StareGenerare("eroare", ex is EroareGenerare ? ex.Message : "Generarea a eșuat. Încearcă din nou.", 0, DateTime.UtcNow));
         }
     }
 
@@ -135,7 +140,7 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
     private sealed class EroareGenerare(string mesaj) : Exception(mesaj);
 
     /// <returns>The number of multiple-choice questions added, and a note for the editor when fewer than asked were added.</returns>
-    private async Task<(int, string?)> GenereazaAsync(int parcursId, int numar, CancellationToken ct)
+    private async Task<(int, string?)> GenereazaAsync(int jobId, int parcursId, int numar, CancellationToken ct)
     {
         var model = ai.Activ ?? throw new EroareGenerare("Generarea AI nu este configurată (setează ANTHROPIC_API_KEY sau GEMINI_API_KEY pe server).");
 
@@ -191,6 +196,9 @@ public sealed class GeneratorIntrebari(CoadaIntrebari coada, IServiceScopeFactor
             });
         foreach (var e in estimariNoi)
             db.Add(new Intrebare { MaterieId = lectie.MaterieId, ParcursId = parcursId, Text = e.Text.Trim(), Tip = Intrebare.Estimare, RaspunsNumeric = e.Raspuns, Sursa = Intrebare.SursaAi });
+        // Commit generated questions and completed job together: a restart cannot add them twice.
+        var job = await db.Set<GenerareAi>().SingleAsync(g => g.Id == jobId, ct);
+        job.Stare = "gata"; job.IntrebariGenerate = valide.Count; job.Actualizat = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         if (valide.Count == numar) return (valide.Count, null);
         var motive = new List<string>();

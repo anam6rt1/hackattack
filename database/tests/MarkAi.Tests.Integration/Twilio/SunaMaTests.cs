@@ -1,12 +1,28 @@
 using System.Net;
 using MarkAi.Tests.Suport;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using MarkAi.Api.Servicii;
+using MarkAi.Api.Infrastructura;
+using MarkAi.Data.Servicii;
 
 namespace MarkAi.Tests.Integration.Twilio;
 
 /// <summary>"Sună-mă": a session and a key per call before Twilio dials, trial-safe parameters, daily caps, Twilio's errors explained.</summary>
 public sealed class SunaMaTests : TestTwilio
 {
+    [Fact]
+    public async Task PauzaSupravietuiesteUneiInstanteNoiDeServiciu()
+    {
+        var (id, _, _) = await Suna();
+        var uid = await h.Db(db => db.Sesiuni.Where(s => s.Id == id).Select(s => s.UtilizatorId).SingleAsync());
+        var nou = ActivatorUtilities.CreateInstance<TwilioApeluri>(h.App.Services);
+        await Should.ThrowAsync<Conflict>(() => nou.SunaAsync(uid, "+40722111222", id, "test", Ct));
+        h.Twilio.Apeluri.Count.ShouldBe(1);
+        DupaPauza();
+        await nou.SunaAsync(uid, "+40722111222", id, "test", Ct);
+        h.Twilio.Apeluri.Count.ShouldBe(2);
+    }
     [Fact]
     public async Task SesiuneaPastreazaCallSidulDeLaTwilio()
     {

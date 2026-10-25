@@ -9,6 +9,7 @@ import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
 import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
 import Paginare from '@/components/Paginare'
+import TemeleMele from '@/components/TemeleMele'
 import { PROGRES_MATERII_PE_PAGINA_ACASA_ELEV, cuPagina } from '@/lib/pagini'
 
 const DECOR = decorSVG(29)
@@ -54,6 +55,7 @@ export default function AcasaElev({ utilizator }) {
         </section>
 
         <div className="tv-coala">
+          <TemeleMele />
           <div className="tv-panou">
             <div className="tv-cutie">
               <div className="tv-nivel">

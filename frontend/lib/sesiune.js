@@ -5,11 +5,17 @@
 //   altfel                   → { id, nume, rol: 'elev' | 'profesor' | 'organizatie' | 'admin', stareProfesor, organizatii, ... }
 // „organizatie” = administratorul unei organizații; predă și el, deci poate tot ce poate un profesor.
 
+import { offlineClear, offlineRead } from '../public/offline-store'
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 
 const Context = createContext(null)
+async function verificaOffline(u) {
+  if (typeof indexedDB === 'undefined') return
+  const rows = await offlineRead()
+  if (rows.some(r => r.uid !== u.id)) await offlineClear()
+}
 
 export function SesiuneProvider({ children }) {
   const [utilizator, setUtilizator] = useState(undefined)
@@ -31,6 +37,7 @@ export function SesiuneProvider({ children }) {
     reincarca,
     async intra(identificator, parola) {
       const u = await api('/autentificare', { metoda: 'POST', corp: { identificator, parola } })
+      await verificaOffline(u)
       setUtilizator(u)
       return u
     },
@@ -43,6 +50,7 @@ export function SesiuneProvider({ children }) {
     },
     async confirmaEmail(email, cod) {
       const u = await api('/autentificare/confirma-email', { metoda: 'POST', corp: { email, cod } })
+      await verificaOffline(u)
       setUtilizator(u)
       return u
     },
@@ -50,6 +58,15 @@ export function SesiuneProvider({ children }) {
       return api('/autentificare/retrimite-confirmare', { metoda: 'POST', corp: { email } })
     },
     async iese() {
+      if (typeof indexedDB !== 'undefined') await offlineClear();
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration('/')
+          const s = await reg?.pushManager.getSubscription()
+          if (s) { await api('/utilizatori/me/notificari/abonamente', { metoda: 'DELETE', corp: { endpoint: s.endpoint } }); await s.unsubscribe() }
+          for (const n of await reg?.getNotifications?.() ?? []) n.close()
+        } catch { /* Logout must remain available even if browser push cleanup fails. */ }
+      }
       await api('/autentificare/iesire', { metoda: 'POST' }).catch(() => {})
       setUtilizator(null)
     },

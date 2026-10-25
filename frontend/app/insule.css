@@ -703,3 +703,8 @@ a.tv-pastila { text-decoration: none; }
 .tv-lectie:hover { transform: translateY(-3px); }
 .tv-lectie .tv-butoane { gap: 6px; }
 .tv-harta-autor { color: #fff; font-weight: 700; opacity: .85; margin-top: -6px; }
+
+/* Avoid whole-map compositing on narrow/mobile viewports. */
+@media (max-width: 768px), (prefers-reduced-motion: reduce) {
+  html[data-tema][data-theme] .tv-harta, html[data-tema][data-theme] .harta-insule, [data-theme="realist"] .tv-harta svg, [data-theme="pixel"] .tv-harta svg { filter: none; }
+}

@@ -3,6 +3,10 @@ namespace MarkAi.Data.Entities;
 /// <summary>One AI question generation a professor asked for (<see cref="Numar"/> questions for a Lecție); counted for the daily limit per person.</summary>
 public class GenerareAi
 {
+    public string Stare { get; set; } = "gata";
+    public string? Mesaj { get; set; }
+    public int IntrebariGenerate { get; set; }
+    public DateTime? Actualizat { get; set; }
     public int Id { get; set; }
 
     public int UtilizatorId { get; set; }

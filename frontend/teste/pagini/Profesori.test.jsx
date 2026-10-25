@@ -34,6 +34,16 @@ function porneste(utilizator = ELEV, profesori = [IRINA], rute = {}) {
 }
 
 describe("pagina Profesori (elev)", () => {
+  it("cere fotografia mică fără schimbarea dimensiunilor cardului", async () => {
+    porneste(ELEV, [{ ...IRINA, pozaUrl: "/profesori/2/poza" }]);
+    await screen.findByRole("heading", { name: "Irina Marin" });
+    const imagine = document.querySelector("img.tv-poza");
+    expect(imagine).toHaveAttribute("src", expect.stringContaining("/profesori/2/poza?marime=mica"));
+    expect(imagine).toHaveAttribute("width", "64");
+    expect(imagine).toHaveAttribute("height", "64");
+    expect(imagine).toHaveAttribute("loading", "lazy");
+  });
+
   it("arată profesorii cu ședințele lor", async () => {
     porneste();
     expect(await screen.findByRole("heading", { name: "Irina Marin" })).toBeInTheDocument();

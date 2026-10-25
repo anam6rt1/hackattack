@@ -2,6 +2,9 @@ using System.Net;
 using System.Text.Json;
 using MarkAi.Api.Servicii;
 using MarkAi.Tests.Suport;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using MarkAi.Data.Entities;
 
 namespace MarkAi.Tests.Integration.Continut;
 
@@ -42,6 +45,23 @@ public sealed class GenerareIntrebariTests : TestCuHarness
         (c ?? admin).Post($"/parcursuri/{parcurs ?? lectie}/genereaza-intrebari", new { numar });
 
     private Task Ruleaza() => h.Serviciu<GeneratorIntrebari>().RuleazaOdataAsync(Ct);
+
+    [Fact]
+    public async Task GenerareaIntreruptaSeReiaDinBazaFaraConsumSauIntrebariDuplicate()
+    {
+        await Cere(2).Status(HttpStatusCode.Accepted);
+        h.Ai.Raspunde = (_, _, _) => throw new OperationCanceledException();
+        await Should.ThrowAsync<OperationCanceledException>(Ruleaza);
+        var coadaNoua = ActivatorUtilities.CreateInstance<CoadaIntrebari>(h.App.Services);
+        coadaNoua.Stare(lectie)!.Stare.ShouldBe("in_lucru");
+        h.Ai.Raspunde = (_, _, _) => Raspuns(2);
+        var workerNou = ActivatorUtilities.CreateInstance<GeneratorIntrebari>(h.App.Services, coadaNoua);
+        await workerNou.RuleazaOdataAsync(Ct);
+        await workerNou.RuleazaOdataAsync(Ct);
+        coadaNoua.Stare(lectie)!.IntrebariGenerate.ShouldBe(2);
+        (await Intrebari()).Count.ShouldBe(2);
+        (await h.Db(db => db.Set<GenerareAi>().CountAsync())).ShouldBe(1);
+    }
     private Task<JsonElement> Stare() => admin.GetJson($"/parcursuri/{lectie}/generare");
     private async Task<List<JsonElement>> Intrebari() => (await admin.GetJson($"/continut/parcursuri/{lectie}/intrebari")).Lista();
 

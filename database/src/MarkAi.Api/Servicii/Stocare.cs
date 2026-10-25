@@ -16,6 +16,7 @@ public sealed record FisierSalvat(string Cheie, string Tip, long Marime, string 
 /// </summary>
 public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger<Stocare> log)
 {
+    private readonly object fisiereLock = new();
     /// <summary>Largest upload request (photo + document at registration), applied per endpoint.</summary>
     public const long MaxCerereMb = 16;
 
@@ -43,19 +44,92 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
     {
         [".pdf"] = Documente[".pdf"],
         [".docx"] = new("application/vnd.openxmlformats-officedocument.wordprocessingml.document", EsteZip),
+        [".xlsx"] = new("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", EsteZip),
         [".pptx"] = new("application/vnd.openxmlformats-officedocument.presentationml.presentation", EsteZip),
     };
 
     /// <summary>The folder of Lecție files, for the orphan sweep.</summary>
     public const string DirectorLectii = "lectii";
 
-    public async Task<string> SalveazaPozaAsync(IFormFile f, CancellationToken ct) => (await Salveaza(f, "poze", Imagini, 5, null, ct)).Cheie;
+    public async Task<string> SalveazaPozaAsync(IFormFile f, CancellationToken ct)
+    {
+        var original = await Salveaza(f, "poze", Imagini, 5, null, ct);
+        var cheie = $"poze/{Guid.NewGuid():N}.webp";
+        try
+        {
+            var variante = await PozeProfil.CreeazaAsync(await File.ReadAllBytesAsync(Cale(original.Cheie)!, ct), ct);
+            await File.WriteAllBytesAsync(Cale(cheie)!, variante.Profil, ct);
+            await File.WriteAllBytesAsync(Cale(cheie + ".mic.webp")!, variante.Mica, ct);
+            return cheie;
+        }
+        catch { Sterge(cheie); throw; }
+        finally { Sterge(original.Cheie); }
+    }
+
+    /// <summary>Legacy photos acquire cached derivatives on demand, after endpoint access checks.</summary>
+    public async Task<IResult> ServestePozaAsync(string? cheie, bool mica, CancellationToken ct)
+    {
+        if (Cale(cheie) is not { } cale || !File.Exists(cale)) return Results.NotFound();
+        var varianta = cheie + (mica ? ".mic.webp" : ".profil.webp");
+        if (!File.Exists(Cale(varianta)))
+        {
+            if (!mica && File.Exists(Cale(cheie + ".mic.webp"))) return Serveste(cheie);
+            if (new FileInfo(cale).Length > 5 * 1024 * 1024) return Results.NotFound();
+            var poze = await PozeProfil.CreeazaAsync(await File.ReadAllBytesAsync(cale, ct), ct);
+            lock (fisiereLock)
+            {
+                if (!File.Exists(cale)) return Results.NotFound();
+                ScrieVarianta(Cale(cheie + ".mic.webp")!, poze.Mica);
+                ScrieVarianta(Cale(cheie + ".profil.webp")!, poze.Profil);
+            }
+        }
+        return Serveste(varianta);
+    }
+
+    private static void ScrieVarianta(string cale, byte[] date)
+    {
+        var temporar = cale + "." + Guid.NewGuid().ToString("N") + ".partial";
+        try { File.WriteAllBytes(temporar, date); File.Move(temporar, cale, overwrite: true); }
+        finally { File.Delete(temporar); }
+    }
 
     public async Task<string> SalveazaDovadaAsync(IFormFile f, CancellationToken ct) => (await Salveaza(f, "dovezi", Documente, 10, null, ct)).Cheie;
 
     /// <summary>A Lecție file: PDF, or DOCX/PPTX checked inside (a real Office document, no macros, no zip bomb).</summary>
-    public Task<FisierSalvat> SalveazaFisierLectieAsync(IFormFile f, CancellationToken ct) =>
-        Salveaza(f, DirectorLectii, FisiereLectie, MaxFisierLectieMb, VerificaFisierLectie, ct);
+    public async Task<FisierSalvat> SalveazaFisierLectieAsync(IFormFile f, CancellationToken ct, bool deduplica = true)
+    {
+        var salvat = await Salveaza(f, DirectorLectii, FisiereLectie, MaxFisierLectieMb, VerificaFisierLectie, ct);
+        if (!deduplica) return salvat;
+        var cheie = $"{DirectorLectii}/{salvat.Sha256}.{salvat.Tip}";
+        var destinatie = Cale(cheie)!;
+        lock (fisiereLock)
+        {
+            try { File.Move(Cale(salvat.Cheie)!, destinatie); }
+            catch (IOException) when (File.Exists(destinatie)) { File.Delete(Cale(salvat.Cheie)!); }
+            // Renew the orphan grace period before a new reference is committed.
+            File.SetLastWriteTimeUtc(destinatie, DateTime.UtcNow);
+        }
+        return salvat with { Cheie = cheie };
+    }
+
+    public string Consolideaza(string cheie, string sha, string tip)
+    {
+        if (sha.Length != 64 || !sha.All(Uri.IsHexDigit) || !FisiereLectie.ContainsKey("." + tip)) return cheie;
+        var noua = $"{DirectorLectii}/{sha.ToLowerInvariant()}.{tip}";
+        if (noua == cheie || !File.Exists(Cale(cheie))) return cheie;
+        lock (fisiereLock)
+        {
+            var destinatie = Cale(noua)!;
+            if (!File.Exists(destinatie))
+            {
+                var temporar = destinatie + "." + Guid.NewGuid().ToString("N") + ".partial";
+                try { File.Copy(Cale(cheie)!, temporar); try { File.Move(temporar, destinatie); } catch (IOException) when (File.Exists(destinatie)) { } }
+                finally { File.Delete(temporar); }
+            }
+            File.SetLastWriteTimeUtc(destinatie, DateTime.UtcNow);
+        }
+        return noua;
+    }
 
     private async Task<FisierSalvat> Salveaza(IFormFile f, string folder, Dictionary<string, Tip> permise, int maxMb,
         Action<string, string>? verificaContinut, CancellationToken ct)
@@ -124,7 +198,7 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
             using (var r = new StreamReader(tipuri.Open())) continut = CitesteCelMult(r, 1024 * 1024);
             if (continut.Contains("macroEnabled", StringComparison.OrdinalIgnoreCase))
                 throw new CerereInvalida($"Fișierul {tip} conține macrocomenzi. Salvează-l fără macrocomenzi și încearcă din nou.");
-            var principal = ext == ".docx" ? "word/document.xml" : "ppt/presentation.xml";
+            var principal = ext switch { ".docx" => "word/document.xml", ".xlsx" => "xl/workbook.xml", _ => "ppt/presentation.xml" };
             if (zip.GetEntry(principal) is null) throw new CerereInvalida($"Fișierul nu este un {tip} valid.");
         }
         catch (InvalidDataException) { throw new CerereInvalida($"Fișierul nu este un {tip} valid."); }
@@ -138,10 +212,13 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
     }
 
     /// <summary>Deletes a stored file that is no longer referenced (after the database change is saved).</summary>
-    public void Sterge(string? cheie)
+    public void Sterge(string? cheie, bool orfan = false, DateTime? inainteDe = null)
     {
+        // Content-addressed lesson files can be shared. Only the reference-aware sweep removes them.
+        if (!orfan && cheie?.StartsWith(DirectorLectii + "/", StringComparison.Ordinal) == true
+            && Path.GetFileNameWithoutExtension(cheie).Length == 64) return;
         if (Cale(cheie) is not { } cale) return;
-        try { File.Delete(cale); }
+        try { lock (fisiereLock) { if (inainteDe is { } prag && File.GetLastWriteTimeUtc(cale) > prag) return; File.Delete(cale); File.Delete(cale + ".mic.webp"); File.Delete(cale + ".profil.webp"); } }
         catch (IOException ex) { log.LogWarning(ex, "Could not delete stored file {Cheie}", cheie); }
     }
 
@@ -181,6 +258,22 @@ public sealed class Stocare(IConfiguration cfg, IWebHostEnvironment env, ILogger
 
     /// <summary>The file on disk for a key, for reading (text extraction); null when the key is invalid.</summary>
     public string? CaleFisier(string cheie) => Cale(cheie);
+
+    public void StergeDatePersonale(string cheie)
+    {
+        var parti = cheie.Split('/');
+        var inFolderPersonal = parti.Length == 2 && (parti[0] == "poze" || parti[0] == "dovezi");
+        var nume = parti[^1];
+        var legacy = parti.Length == 1 && new[] { ".jpg", ".jpeg", ".png", ".webp", ".pdf" }.Contains(Path.GetExtension(nume).ToLowerInvariant());
+        if ((!inFolderPersonal && !legacy) || nume.Length == 0 || nume is "." or ".." || nume.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_'))
+            || Cale(cheie) is not { } cale) throw new InvalidDataException("Invalid personal-file key.");
+        lock (fisiereLock)
+        {
+            File.Delete(cale); // Let the durable cleanup job retry failures instead of marking them completed.
+            File.Delete(cale + ".mic.webp");
+            File.Delete(cale + ".profil.webp");
+        }
+    }
 
     private string? Cale(string? cheie)
     {

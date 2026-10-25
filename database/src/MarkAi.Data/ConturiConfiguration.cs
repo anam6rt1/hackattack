@@ -10,6 +10,10 @@ internal static class ConturiConfiguration
     {
         model.Entity<Utilizator>(e =>
         {
+            e.Property(x => x.StergereCerutaLa).HasColumnName("stergere_ceruta_la");
+            e.Property(x => x.Sub16AniDeclarat).HasColumnName("sub_16_ani_declarat");
+            e.Property(x => x.AcordParinteDeclaratLa).HasColumnName("acord_parinte_declarat_la");
+            e.Property(x => x.VersiuneInformare).HasColumnName("versiune_informare");
             e.Property(x => x.EmailConfirmatLa).HasColumnName("email_confirmat_la");
             e.Property(x => x.AvertizatLa).HasColumnName("avertizat_la");
             e.Property(x => x.TelefonVerificatLa).HasColumnName("telefon_verificat_la");
@@ -19,6 +23,19 @@ internal static class ConturiConfiguration
                 .HasComputedColumnSql(CautareText.Sql("nume || ' ' || username || ' ' || email"), stored: true);
             e.HasIndex(x => x.CautareNume, "idx_utilizator_cautare_nume_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
             e.HasIndex(x => x.CautareCont, "idx_utilizator_cautare_cont_trgm").HasMethod("gin").HasOperators("gin_trgm_ops");
+        });
+
+        model.Entity<StergereDateCont>(e =>
+        {
+            e.ToTable("stergere_date_cont", "mark_ai");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").UseIdentityAlwaysColumn();
+            e.Property(x => x.UtilizatorId).HasColumnName("utilizator_id");
+            e.Property(x => x.CerutLa).HasColumnName("cerut_la");
+            e.Property(x => x.FinalizatLa).HasColumnName("finalizat_la");
+            e.Property(x => x.CheiFisiere).HasColumnName("chei_fisiere");
+            e.HasIndex(x => x.UtilizatorId).IsUnique();
+            e.HasOne<Utilizator>().WithMany().HasForeignKey(x => x.UtilizatorId).OnDelete(DeleteBehavior.Cascade);
         });
 
         model.Entity<CodVerificare>(e =>

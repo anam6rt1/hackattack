@@ -6,6 +6,7 @@
 // - Profesorii aprobați: cererile elevilor din organizațiile în care predau (le pot aproba sau respinge).
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { API, api, dataOra } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
@@ -292,7 +293,7 @@ export default function PaginaOrganizatie() {
               : 'Elevii care cer să intre în organizațiile în care predai așteaptă confirmarea ta sau a administratorului.'}
           </p>
         </section>
-        <div className="tv-coala">{org ? <PanouAdmin org={org} onSchimbat={incarca} /> : <PanouProfesor />}</div>
+        <div className="tv-coala">{org && <Link className="tv-btn" href="/organizatie/raport">Raport lunar și invitații CSV</Link>}<Link className="tv-btn" href="/teme">Teme și grupe de elevi</Link>{org ? <PanouAdmin org={org} onSchimbat={incarca} /> : <PanouProfesor />}</div>
       </div>
     </main>
   )

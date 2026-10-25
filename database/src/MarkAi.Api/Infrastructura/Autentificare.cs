@@ -99,17 +99,20 @@ public static class ExtensiiUtilizator
 /// </summary>
 public sealed class VersiuniSesiune(IServiceScopeFactory scopes, IMemoryCache cache)
 {
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte> sterse = new();
+    public void MarcheazaSters(int uid) { sterse.TryAdd(uid, 0); cache.Remove(("sv", uid)); }
     private static readonly TimeSpan Durata = TimeSpan.FromSeconds(30);
 
     /// <summary>The current version, or null when the account no longer exists.</summary>
     public async Task<int?> CitesteAsync(int utilizatorId, CancellationToken ct)
     {
+        if (sterse.ContainsKey(utilizatorId)) return null;
         if (cache.TryGetValue(("sv", utilizatorId), out int? v)) return v;
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MarkAiDbContext>();
-        v = await db.Utilizatori.Where(u => u.Id == utilizatorId).Select(u => (int?)u.VersiuneSesiune).SingleOrDefaultAsync(ct);
+        v = await db.Utilizatori.Where(u => u.Id == utilizatorId && u.StergereCerutaLa == null).Select(u => (int?)u.VersiuneSesiune).SingleOrDefaultAsync(ct);
         cache.Set(("sv", utilizatorId), v, Durata);
-        return v;
+        return sterse.ContainsKey(utilizatorId) ? null : v;
     }
 
     /// <summary>Signs the account out on every device; returns the new version (for a fresh token on this device).</summary>

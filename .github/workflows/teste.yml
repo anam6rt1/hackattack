@@ -44,11 +44,19 @@ jobs:
         working-directory: frontend
       - run: npm test
         working-directory: frontend
+      - run: npm run test:optimizare
+        working-directory: frontend
       - name: next build
         working-directory: frontend
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: /api
+      - name: Browser pentru previzualizare și încărcare (fără bază de date)
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Previzualizare, progres, anulare și reîncercare
+        working-directory: frontend
+        run: npx playwright test --config playwright.upload.config.ts
 
   e2e:
     name: Browser (${{ matrix.browser }})

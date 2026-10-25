@@ -4,11 +4,18 @@
 // administrează și (adminul platformei) toate.
 // Lecția are o clasă, o organizație de bază (al cărei administrator o poate edita), vizibilitate publică sau doar pentru
 // organizație, și poate fi arătată (doar vizualizare) și în celelalte organizații ale autorului.
-// Testul și fișierele sunt ale lecției întregi: cel mult un PDF, un DOCX și un PPTX (unul nou de același tip îl înlocuiește),
+// Testul și fișierele sunt ale lecției întregi: cel mult un PDF, un DOCX, un PPTX și un XLSX (unul nou de același tip îl înlocuiește),
 // iar întrebările testului se generează cu AI doar la cerere (câte vrea profesorul), din notițele tuturor capitolelor și
 // textul fișierelor; se adaugă la cele existente și pot fi editate, șterse sau scrise de mână.
 
+import StatisticiIntrebari from '@/components/StatisticiIntrebari'
 import { useCallback, useEffect, useState } from 'react'
+import { useIncarcare } from '@/lib/useIncarcare'
+import { useDocumente } from '@/lib/useDocumente'
+import { marimeFisier } from '@/lib/marime-fisier'
+import ProgresIncarcare from '@/components/ProgresIncarcare'
+import PrevizualizareFisier from '@/components/PrevizualizareFisier'
+import PrevizualizareSalvat from '@/components/PrevizualizareSalvat'
 import { api, marime, urlApi } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import { CLASE, numeClasa } from '@/lib/clase'
@@ -302,6 +309,12 @@ function Intrebare({ q, onSalvat, onStearsa }) {
   const [eroare, setEroare] = useState('')
   const [confirma, fereastra] = useConfirmare()
 
+  useEffect(() => {
+    const deschide = e => { if (e.detail === q.id) setEditare(true) }
+    window.addEventListener('editeaza-intrebare', deschide)
+    return () => window.removeEventListener('editeaza-intrebare', deschide)
+  }, [q.id])
+
   async function salveaza(modificari) {
     const urmator = { ...date, ...modificari }
     try {
@@ -328,7 +341,7 @@ function Intrebare({ q, onSalvat, onStearsa }) {
   }
 
   return (
-    <li className={`tv-cutie tv-intrebare-editor ${date.activa ? '' : 'tv-inactiva'}`}>
+    <li id={`intrebare-${q.id}`} className={`tv-cutie tv-intrebare-editor ${date.activa ? '' : 'tv-inactiva'}`}>
       <div className="tv-butoane" style={{ justifyContent: 'space-between' }}>
         <span className="tv-butoane">
           <span className={`tv-pastila ${date.sursa === 'ai' ? 'tv-pastila-aur' : ''}`}>{date.sursa === 'ai' ? 'Generată AI' : 'Scrisă de om'}</span>
@@ -375,7 +388,7 @@ function Intrebare({ q, onSalvat, onStearsa }) {
   )
 }
 
-const TIPURI_FISIER = '.pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation'
+const TIPURI_FISIER = '.pdf,.docx,.pptx,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation'
 const STARE_TEXT = {
   in_asteptare: 'se citește textul...',
   gata: null,
@@ -384,15 +397,18 @@ const STARE_TEXT = {
 }
 const tipFisier = (nume) => nume.split('.').pop().toLowerCase()
 
-// Fișierele lecției: cel mult un PDF, un Word (.docx) și un PowerPoint (.pptx). Unul nou de un tip care există deja îl
+// Fișierele lecției: cel mult un PDF, un Word (.docx), un PowerPoint (.pptx) și un Excel (.xlsx). Unul nou de un tip care există deja îl
 // înlocuiește, după confirmare. Textul lor intră în materialul din care se generează întrebările (doar la cerere).
 function Fisiere({ parcursId }) {
   const [date, setDate] = useState(null)
   const [incarcare, setIncarcare] = useState(null) // { nume, ramase }
+  const [selectate, setSelectate] = useState([])
+  const documente = useDocumente(selectate, false)
+  const upload = useIncarcare()
   const [erori, setErori] = useState([])
   const [confirma, fereastra] = useConfirmare()
 
-  const incarca = useCallback(() => api(`/continut/parcursuri/${parcursId}/fisiere`).then(setDate), [parcursId])
+  const incarca = useCallback(() => api(`/continut/parcursuri/${parcursId}/fisiere`).then(r => { setDate(r); return r }), [parcursId])
 
   // Cât timp se citește textul unui fișier, lista se reîmprospătează.
   useEffect(() => {
@@ -406,16 +422,31 @@ function Fisiere({ parcursId }) {
   }, [asteapta, incarca])
 
   async function adauga(e) {
-    const alese = [...e.target.files]
+    setSelectate([...e.target.files])
     e.target.value = ''
+    setErori([])
+  }
+
+  async function trimiteSelectate() {
+    if (incarcare || documente.inLucru) return
+    const alese = selectate
+    const pregatite = documente.items
     const noi = []
-    for (const [i, f] of alese.entries()) {
+    const reusite = new Set()
+    let lista = date.elemente
+    setIncarcare({ nume: 'fișierele selectate', ramase: alese.length })
+    for (const [i, sursa] of alese.entries()) {
+      const f = pregatite[i].fisier
+      if (!['pdf', 'docx', 'pptx', 'xlsx'].includes(tipFisier(f.name)) || !f.size) {
+        noi.push(`${f.name}: alege un PDF, DOCX, PPTX sau XLSX nevid.`)
+        continue
+      }
       // Verificat și aici, ca fișierul să nu fie trimis degeaba.
       if (f.size > date.maxMb * 1024 * 1024) {
         noi.push(`${f.name}: are ${marime(f.size)}; limita este ${date.maxMb} MB.`)
         continue
       }
-      const existent = date.elemente.find((x) => x.tip === tipFisier(f.name))
+      const existent = lista.find((x) => x.tip === tipFisier(f.name))
       if (existent && !(await confirma({
         titlu: `Înlocuiești ${existent.tip.toUpperCase()}-ul?`,
         mesaj: `Lecția are deja „${existent.nume}”. Dacă îl înlocuiești cu „${f.name}”, cel vechi se șterge.`,
@@ -425,15 +456,22 @@ function Fisiere({ parcursId }) {
       const formular = new FormData()
       formular.append('fisier', f)
       try {
-        await api(`/parcursuri/${parcursId}/fisiere${existent ? '?inlocuieste=true' : ''}`, { metoda: 'POST', formular })
-        await incarca()
+        await upload.trimite(`/parcursuri/${parcursId}/fisiere${existent ? '?inlocuieste=true' : ''}`, formular)
+        reusite.add(sursa)
+        const actualizate = await incarca()
+        lista = actualizate.elemente
       } catch (err) {
+        if (err.name === 'AbortError') {
+          noi.push('Încărcare anulată. Verifică lista înainte de a reîncerca; fișierele deja salvate rămân disponibile.')
+          break
+        }
         noi.push(`${f.name}: ${err.message}`)
       }
     }
     setIncarcare(null)
+    setSelectate(alese.filter(f => !reusite.has(f)))
     setErori(noi)
-    incarca()
+    incarca().catch(e => setErori(erori => [...erori, e.message]))
   }
 
   async function sterge(f) {
@@ -452,16 +490,16 @@ function Fisiere({ parcursId }) {
     <div className="tv-form">
       <h3 style={{ fontSize: 21, color: 'var(--navy)' }}>Fișierele lecției</h3>
       <p className="tv-indiciu">
-        Cel mult un PDF, un Word (.docx) și un PowerPoint (.pptx), de până la {date.maxMb} MB fiecare. Elevii le deschid din pagina lecției;
+        Cel mult un PDF, un Word (.docx), un PowerPoint (.pptx) și un Excel (.xlsx), de până la {date.maxMb} MB fiecare. Elevii le deschid din pagina lecției;
         textul lor intră și în întrebările generate cu AI.
       </p>
       <ul className="tv-lista">
         {date.elemente.map((f) => (
-          <li key={f.id} className="tv-rand">
+          <li key={f.id} className="tv-rand" style={{ flexWrap: 'wrap' }}>
             <div>
               <b>{f.nume}</b>
               <small>
-                {f.tip.toUpperCase()} · {marime(f.marimeOcteti)}
+                {f.tip.toUpperCase()} · {marimeFisier(f.marimeOcteti)}
                 {f.incarcatDe ? ` · de ${f.incarcatDe}` : ''}
                 {f.stareText === 'gata'
                   ? ` · text citit (${f.caractereText.toLocaleString('ro-RO')} caractere), folosit la întrebările AI`
@@ -470,6 +508,7 @@ function Fisiere({ parcursId }) {
             </div>
             <a className="tv-pastila" href={urlApi(`/fisiere/${f.id}`)} target="_blank" rel="noreferrer">Deschide</a>
             <button type="button" className="tv-pastila tv-pastila-rosu" onClick={() => sterge(f)}>Șterge</button>
+            <PrevizualizareSalvat key={`${f.id}-${f.marimeOcteti}`} fisier={f} />
           </li>
         ))}
         {date.elemente.length === 0 && <p className="tv-gol">Lecția nu are fișiere.</p>}
@@ -480,11 +519,20 @@ function Fisiere({ parcursId }) {
           {incarcare.ramase > 1 && <span>Mai sunt {incarcare.ramase - 1} după el.</span>}
         </p>
       )}
+      <ProgresIncarcare progres={upload.progres} onAnuleaza={upload.anuleaza} />
       {erori.map((e) => <p key={e} className="tv-eroare">{e}</p>)}
       <label className="tv-eticheta-camp">
         <span>Adaugă sau înlocuiește fișiere</span>
         <input className="tv-fisier" type="file" multiple accept={TIPURI_FISIER} onChange={adauga} disabled={!!incarcare} />
       </label>
+      {selectate.map((f, i) => {
+        const pregatit = documente.items[i]?.fisier
+        return <div key={`${f.name}-${i}`}>
+          {pregatit ? <PrevizualizareFisier fisier={pregatit} /> : <p role="status">Se pregătește „{f.name}”…</p>}
+          <button type="button" className="tv-pastila" disabled={!!incarcare} onClick={() => setSelectate(lista => lista.filter((_, j) => j !== i))}>Elimină din selecție</button>
+        </div>
+      })}
+      {selectate.length > 0 && <button type="button" className="tv-btn" disabled={!!incarcare || documente.inLucru} onClick={trimiteSelectate}>Încarcă fișierele selectate</button>}
       {fereastra}
     </div>
   )
@@ -610,6 +658,7 @@ function Intrebari({ parcursId }) {
       {eroare && <p className="tv-eroare">{eroare}</p>}
       <IntrebareNoua parcursId={parcursId} onAdaugata={incarca} />
       {intrebari?.length === 0 && !lucreaza && <p className="tv-gol">Lecția nu are încă întrebări.</p>}
+      <StatisticiIntrebari key={parcursId} parcursId={parcursId} />
       <ul className="tv-lista">{intrebari?.map((q) => <Intrebare key={q.id} q={q} onSalvat={incarca} onStearsa={incarca} />)}</ul>
     </div>
   )

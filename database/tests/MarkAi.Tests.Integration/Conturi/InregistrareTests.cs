@@ -168,7 +168,7 @@ public sealed class InregistrareTests : TestCuHarness
     [Fact]
     public async Task ClasaNevalidaEsteRefuzata()
     {
-        (await Inregistreaza(h.Anonim(), extra: new { nume = "Ana", username = "ana", email = Email, parola = Harness.ParolaTest, clasa = "VIII" })
+        (await Inregistreaza(h.Anonim(), extra: new { nume = "Ana", username = "ana", email = Email, parola = Harness.ParolaTest, clasa = "VII" })
             .Mesaj(HttpStatusCode.BadRequest)).ShouldContain("IX, X, XI sau XII");
     }
 

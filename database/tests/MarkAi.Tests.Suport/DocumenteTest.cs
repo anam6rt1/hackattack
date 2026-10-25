@@ -70,6 +70,13 @@ public static class DocumenteTest
         return Zip([.. intrari]);
     }
 
+    public static byte[] Xlsx(bool macro = false) => Zip(
+        ("[Content_Types].xml", U("<Types/>")),
+        ("xl/workbook.xml", U("<workbook/>")),
+        ("xl/sharedStrings.xml", U("""<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Ștefan în Excel</t></si></sst>""")),
+        ("xl/worksheets/sheet1.xml", U("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="C1"><v>42</v></c><c r="D1" t="inlineStr"><is><t>Valoare locală</t></is></c><c r="E1"><f>1+1</f><v>2</v></c></row></sheetData></worksheet>""")),
+        (macro ? "xl/vbaProject.bin" : "xl/styles.xml", macro ? new byte[50] : U("<styles/>")));
+
     /// <summary>60 MB of zeros compress to a few dozen KB: far over any real document's ratio.</summary>
     public static byte[] ZipBomba()
     {

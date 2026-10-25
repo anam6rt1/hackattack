@@ -41,6 +41,41 @@ public static class FisiereEndpoints
         });
 
         var e = app.MapGroup("").WithTags("Fișiere lecție").RequireAuthorization(Politici.Continut);
+        IncarcariReluabile.Mapeaza(e);
+
+        g.MapGet("/fisiere/{id:int}/previzualizare", async (int id, int? foaie, HttpContext h, MarkAiDbContext db, AccesContinut acces,
+            Stocare stocare, PrevizualizareOffice office, CancellationToken ct) =>
+        {
+            var f = await db.Set<FisierLectie>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct)
+                ?? throw new KeyNotFoundException("Fișierul nu există.");
+            await AsiguraVizibilAsync(acces, h, f.ParcursId, ct);
+            var pdf = await office.PdfAsync(stocare.CaleFisier(f.Cheie) ?? throw new KeyNotFoundException("Fișierul nu există."), f.Tip, ct, foaie);
+            h.Response.Headers.CacheControl = "no-store";
+            return Results.File(pdf, "application/pdf");
+        });
+
+        // Temporary validated input, no lesson or stored file changes.
+        g.MapGet("/fisiere/{id:int}/foi", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, Stocare stocare, CancellationToken ct) =>
+        {
+            var f = await db.Set<FisierLectie>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new KeyNotFoundException("Fișierul nu există.");
+            await AsiguraVizibilAsync(acces, h, f.ParcursId, ct);
+            if (f.Tip != "xlsx") throw new CerereInvalida("Documentul nu este un Excel.");
+            return PrevizualizareOffice.Foi(stocare.CaleFisier(f.Cheie)!);
+        });
+
+        e.MapPost("/fisiere/previzualizare", async (int? foaie, bool? foi, HttpContext h, Stocare stocare, PrevizualizareOffice office, CancellationToken ct) =>
+        {
+            var fisier = (await h.Request.ReadFormAsync(ct)).Files.GetFile("fisier") ?? throw new CerereInvalida("Alege un document.");
+            var salvat = await stocare.SalveazaFisierLectieAsync(fisier, ct, deduplica: false);
+            try
+            {
+                if (foi == true && salvat.Tip == "xlsx") return Results.Json(PrevizualizareOffice.Foi(stocare.CaleFisier(salvat.Cheie)!));
+                var pdf = await office.PdfAsync(stocare.CaleFisier(salvat.Cheie) ?? throw new KeyNotFoundException(), salvat.Tip, ct, foaie);
+                h.Response.Headers.CacheControl = "no-store";
+                return Results.File(pdf, "application/pdf");
+            }
+            finally { stocare.Sterge(salvat.Cheie); }
+        }).DisableAntiforgery().AddEndpointFilter(LimitaMarime);
 
         e.MapGet("/continut/parcursuri/{id:int}/fisiere", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, Stocare stocare,
             CancellationToken ct) =>
@@ -55,7 +90,24 @@ public static class FisiereEndpoints
             ProcesorFisiere procesor, CancellationToken ct) =>
         {
             await acces.PentruEditareAsync(h.User, id, ct);
-            var fisier = (await h.Request.ReadFormAsync(ct)).Files.GetFile("fisier") ?? throw new CerereInvalida("Alege un fișier PDF, DOCX sau PPTX.");
+            var fisier = (await h.Request.ReadFormAsync(ct)).Files.GetFile("fisier") ?? throw new CerereInvalida("Alege un fișier PDF, DOCX, PPTX sau XLSX.");
+            return await SalveazaAsync(id, inlocuieste, fisier, h, db, acces, stocare, procesor, ct);
+        }).DisableAntiforgery().AddEndpointFilter(LimitaMarime);
+
+        e.MapDelete("/fisiere/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, Stocare stocare, CancellationToken ct) =>
+        {
+            var f = await db.Set<FisierLectie>().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new KeyNotFoundException("Fișierul nu există.");
+            await acces.PentruEditareAsync(h.User, f.ParcursId, ct);
+            db.Remove(f);
+            await db.SaveChangesAsync(ct);
+            stocare.Sterge(f.Cheie);
+            return Results.NoContent();
+        });
+    }
+
+    internal static async Task<IResult> SalveazaAsync(int id, bool? inlocuieste, IFormFile fisier, HttpContext h, MarkAiDbContext db, AccesContinut acces, Stocare stocare, ProcesorFisiere procesor, CancellationToken ct)
+    {
+        await acces.PentruEditareAsync(h.User, id, ct);
             var tip = Path.GetExtension(fisier.FileName).TrimStart('.').ToLowerInvariant();
             if (inlocuieste != true && await db.Set<FisierLectie>().AnyAsync(f => f.ParcursId == id && f.Tip == tip, ct))
                 throw new Conflict(ExistaDeja(tip));
@@ -92,17 +144,6 @@ public static class FisiereEndpoints
                 stocare.Sterge(salvat.Cheie);
                 throw;
             }
-        }).DisableAntiforgery().AddEndpointFilter(LimitaMarime);
-
-        e.MapDelete("/fisiere/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, Stocare stocare, CancellationToken ct) =>
-        {
-            var f = await db.Set<FisierLectie>().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new KeyNotFoundException("Fișierul nu există.");
-            await acces.PentruEditareAsync(h.User, f.ParcursId, ct);
-            db.Remove(f);
-            await db.SaveChangesAsync(ct);
-            stocare.Sterge(f.Cheie);
-            return Results.NoContent();
-        });
     }
 
     /// <summary>

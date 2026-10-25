@@ -4,6 +4,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { useFotografie } from '@/lib/useFotografie'
+import { useIncarcare } from '@/lib/useIncarcare'
+import ProgresIncarcare from '@/components/ProgresIncarcare'
+import PrevizualizareFisier from '@/components/PrevizualizareFisier'
+import OptimizareFotografie from '@/components/OptimizareFotografie'
 import { esteProfesor, useSesiune } from '@/lib/sesiune'
 import { decorSVG } from '@/app/joc/arta'
 import AlegeLoc from '@/components/AlegeLoc'
@@ -222,7 +227,7 @@ function FormularElev({ onConfirmare }) {
         <span>Clasa (opțional)</span>
         <select className="tv-camp-text" name="clasa" defaultValue="">
           <option value="">Nu spun</option>
-          {['IX', 'X', 'XI', 'XII'].map((c) => <option key={c} value={c}>a {c}-a</option>)}
+          {['VIII', 'IX', 'X', 'XI', 'XII'].map((c) => <option key={c} value={c}>a {c}-a</option>)}
         </select>
       </label>
       <AlegeLoc onChange={(v) => setJudetId(v.judetId)} />
@@ -235,12 +240,14 @@ function FormularElev({ onConfirmare }) {
 }
 
 function FormularProfesor({ onConfirmare }) {
-  const { inregistreazaProfesor } = useSesiune()
   const [materii, setMaterii] = useState([])
   const [organizatii, setOrganizatii] = useState([])
   const [eroare, setEroare] = useState('')
   const [trimite, setTrimite] = useState(false)
   const [judetId, setJudetId] = useState(null)
+  const [files, setFiles] = useState({})
+  const fotografie = useFotografie(files.poza, false)
+  const upload = useIncarcare()
 
   async function trimiteFormular(e) {
     e.preventDefault()
@@ -251,11 +258,14 @@ function FormularProfesor({ onConfirmare }) {
     setTrimite(true)
     setEroare('')
     try {
-      // După confirmarea emailului, cererea așteaptă aprobarea (pagina /in-asteptare).
-      const r = await inregistreazaProfesor(f)
+      if (fotografie.inLucru) throw new Error('Așteaptă pregătirea fotografiei.')
+      if (fotografie.fisier) f.set('poza', fotografie.fisier)
+      if (f.get('poza')?.size > 5 * 1024 * 1024) throw new Error('Fotografia depășește limita de 5 MB.')
+      if (f.get('dovada')?.size > 10 * 1024 * 1024) throw new Error('Dovada depășește limita de 10 MB.')
+      const r = await upload.trimite('/autentificare/inregistrare-profesor', f)
       onConfirmare(r.email, r.mesaj)
     } catch (err) {
-      setEroare(err.message)
+      setEroare(err.name === 'AbortError' ? 'Încărcare anulată. Poți reîncerca.' : err.message)
       setTrimite(false)
     }
   }
@@ -277,18 +287,21 @@ function FormularProfesor({ onConfirmare }) {
       <div className="tv-grid-2">
         <label className="tv-eticheta-camp">
           <span>Fotografie</span>
-          <input className="tv-fisier" type="file" name="poza" accept="image/jpeg,image/png,image/webp" required />
+          <input className="tv-fisier" type="file" name="poza" accept="image/jpeg,image/png,image/webp" required disabled={trimite} onChange={e => setFiles(f => ({ ...f, poza: e.target.files[0] }))} />
         </label>
         <label className="tv-eticheta-camp">
           <span>Dovada calificării</span>
-          <input className="tv-fisier" type="file" name="dovada" accept="application/pdf,image/jpeg,image/png" required />
+          <input className="tv-fisier" type="file" name="dovada" accept="application/pdf,image/jpeg,image/png" required disabled={trimite} onChange={e => setFiles(f => ({ ...f, dovada: e.target.files[0] }))} />
         </label>
       </div>
+      <OptimizareFotografie fisier={fotografie.fisier} inLucru={fotografie.inLucru} />
+      <PrevizualizareFisier fisier={files.dovada} eticheta="Dovada calificării" />
+      <ProgresIncarcare progres={upload.progres} onAnuleaza={upload.anuleaza} />
       <AlegeLoc obligatoriu onChange={(v) => setJudetId(v.judetId)} />
       <AlegeOrganizatii judetId={judetId} alese={organizatii} onChange={setOrganizatii} />
       <p className="tv-indiciu">Administratorii organizațiilor alese îți verifică cererea. Dacă nu ești aprobat în 7 zile, contul se șterge automat.</p>
       {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
-      <button className="tv-btn tv-aur" disabled={trimite}>{trimite ? 'Se trimite...' : 'Trimite cererea'}</button>
+      <button className="tv-btn tv-aur" disabled={trimite || fotografie.inLucru}>{trimite ? 'Se trimite...' : 'Trimite cererea'}</button>
     </form>
   )
 }

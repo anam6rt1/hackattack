@@ -27,6 +27,9 @@ public sealed class StergereContinut(MarkAiDbContext db, Stocare stocare, ILogge
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var fisiere = await db.Set<FisierLectie>().Where(f => f.ParcursId == parcursId).Select(f => f.Cheie).ToListAsync(ct);
         var cursIds = await db.Curs.Where(c => c.ParcursId == parcursId).Select(c => c.Id).ToArrayAsync(ct);
+        // A removed requirement must not silently turn an incomplete assignment into a completed one.
+        await db.Set<Tema>().Where(t => t.Lectii.Any(l => l.ParcursId == parcursId))
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.Anulata, true), ct);
         await DezleagaCapitoleAsync(cursIds, ct);
         await db.Set<Parcurs>().Where(p => p.Id == parcursId).ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);

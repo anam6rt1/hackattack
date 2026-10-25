@@ -12,9 +12,16 @@ public sealed class IncarcariTests : TestCuHarness
         ["Limite:InregistrariPeOra"] = "100", ["Limite:AutentificariPeMinut"] = "100", ["Limite:EmailuriPeOra"] = "100",
     };
 
-    static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52];
-    static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, (byte)'J', (byte)'F', (byte)'I', (byte)'F', 0, 1];
-    static readonly byte[] Webp = [(byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'W', (byte)'E', (byte)'B', (byte)'P'];
+    static readonly byte[] Png = Raspunsuri.Png;
+    static readonly byte[] Jpeg = Imagine(SkiaSharp.SKEncodedImageFormat.Jpeg);
+    static readonly byte[] Webp = Imagine(SkiaSharp.SKEncodedImageFormat.Webp);
+    private static byte[] Imagine(SkiaSharp.SKEncodedImageFormat format)
+    {
+        using var imagine = new SkiaSharp.SKBitmap(2, 2);
+        imagine.Erase(SkiaSharp.SKColors.CornflowerBlue);
+        using var date = imagine.Encode(format, 90);
+        return date.ToArray();
+    }
     static readonly byte[] Pdf = "%PDF-1.4\n%fals\n"u8.ToArray();
     static readonly byte[] Exe = [(byte)'M', (byte)'Z', 0x90, 0, 3, 0, 0, 0, 4, 0, 0, 0, 0xFF, 0xFF, 0, 0];
 
@@ -173,7 +180,7 @@ public sealed class IncarcariTests : TestCuHarness
     {
         await Aplica(h.Anonim(), "prof", ("../../etc/poza.png", Png), ("dovada.pdf", Pdf)).Status(HttpStatusCode.Accepted);
         var p = await h.Db(db => db.ProfiluriMentor.SingleAsync(x => x.Utilizator.Username == "prof"));
-        p.PozaUrl!.ShouldMatch(@"^poze/[0-9a-f]{32}\.png$");
+        p.PozaUrl!.ShouldMatch(@"^poze/[0-9a-f]{32}\.webp$");
     }
 
     [Fact]
@@ -190,7 +197,7 @@ public sealed class IncarcariTests : TestCuHarness
     {
         var (c, id) = await Aplicant();
         var r = await c.Get($"/profesori/{id}/poza").Status(HttpStatusCode.OK);
-        r.Content.Headers.ContentType!.MediaType.ShouldBe("image/png");
+        r.Content.Headers.ContentType!.MediaType.ShouldBe("image/webp");
     }
 
     [Fact]

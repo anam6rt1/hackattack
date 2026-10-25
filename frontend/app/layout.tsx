@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import "./insule.css";
+import FeedbackPilot from "@/components/FeedbackPilot";
 import Meniu from "@/components/Meniu";
 import Furnizori from "@/components/Furnizori";
 import Incarcare from "@/components/Incarcare";
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Meniu />
           </Suspense>
           <Suspense fallback={<Incarcare />}>{children}</Suspense>
+        <FeedbackPilot />
         </Furnizori>
       </body>
     </html>
