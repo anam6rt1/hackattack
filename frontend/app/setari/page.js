@@ -17,6 +17,8 @@ import SetariNotificari from '@/components/SetariNotificari'
 import AlegeMaterii, { materie } from '@/components/AlegeMaterii'
 import { useConfirmare } from '@/components/Confirmare'
 import './setari.css'
+import { AlegereServer } from '@/components/ServerAplicatie'
+import { esteAplicatie, serverAles } from '@/lib/platforma'
 
 const DECOR = decorSVG(13)
 const ROLURI = { elev: 'Cont de elev', profesor: 'Cont de profesor', organizatie: 'Administrator de organizație', admin: 'Administrator' }
@@ -178,7 +180,8 @@ export default function SetariCont() {
 
   const teacher = esteProfesor(utilizator)
   const tabs = [...TABS, ...(teacher ? [['profesor', 'Profil de profesor', 'book']] : []),
-    ...(utilizator && utilizator.rol !== 'admin' ? [['organizatie', 'Organizație și loc', 'user']] : [])]
+    ...(utilizator && utilizator.rol !== 'admin' ? [['organizatie', 'Organizație și loc', 'user']] : []),
+    ...(esteAplicatie() ? [['aplicatie', 'Serverul aplicației', 'shield']] : [])]
 
   return <main className="tv-pagina sc-page">
     <div className="sc-shell">
@@ -223,6 +226,7 @@ export default function SetariCont() {
 
           {tab === 'organizatie' && utilizator.rol !== 'admin' && <SetariOrganizatie utilizator={utilizator} onSchimbat={reincarca} />}
           {tab === 'notificari' && <><SetariNotificari />{utilizator.rol === 'elev' && <SetariSumarParinte />}</>}
+          {tab === 'aplicatie' && <><p className="sc-intro">Aplicația e conectată la {serverAles()}.</p><AlegereServer actual={serverAles()} /></>}
           {tab === 'profesor' && teacher && <><p className="sc-intro">Ajută elevii să te cunoască. Aceste informații apar pe profilul tău de profesor.</p>
             <div className="sc-status"><Icon name="shield" /><span>{data.profesor?.stareVerificare === 'aprobat' ? 'Profil verificat de echipa noastră' : 'Profilul este în curs de verificare sau necesită actualizare'}</span></div>
             <form className="sc-form" onSubmit={save}><AlegeMaterii alese={form.materieIds.map(id => subjects.find(subject => subject.id === id)).filter(Boolean).map(materie)} onChange={alese => update('materieIds', alese.map(a => a.id))} />

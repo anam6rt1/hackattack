@@ -4,10 +4,12 @@ using MarkAi.Data;
 using MarkAi.Data.Entities;
 using MarkAi.Data.Servicii;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MarkAi.Api.Endpoints;
 
 public record SimulareNoua(int MaterieId, string Tip, string Clasa, int NumarIntrebari, int DurataMinute);
+public record OptiuneSimulare(int MaterieId, string Clasa, string Materie, int Disponibile);
 public record RaspunsSimulare(int IntrebareId, int? VariantaId, int? Valoare);
 public class IntrebareSimulare
 {
@@ -47,7 +49,7 @@ public static class SimulariEndpoints
     }
     private static IQueryable<Intrebare> Disponibile(MarkAiDbContext db, AccesContinut acces, ContextAcces a) => db.Set<Intrebare>()
         .Where(q => q.Activa && q.ParcursId != null && acces.Parcursuri(a).Any(p => p.Id == q.ParcursId && p.Publicat)
-            && ((q.Tip == Intrebare.Grila && q.Variante.Count >= 2 && q.Variante.Count(v => v.Corecta) == 1) || (q.Tip == Intrebare.Estimare && q.RaspunsNumeric != null)));
+            && ((q.Tip == Intrebare.Grila && q.Variante.Any(v => v.Corecta) && q.Variante.Any(v => !v.Corecta)) || (q.Tip == Intrebare.Estimare && q.RaspunsNumeric != null)));
     private static async Task<Simulare> Gaseste(int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct)
     {
         var s = await db.Set<Simulare>().SingleOrDefaultAsync(s => s.Id == id && s.UtilizatorId == h.User.Id(), ct) ?? throw new KeyNotFoundException("Simularea nu există.");
@@ -59,11 +61,20 @@ public static class SimulariEndpoints
     public static void Mapeaza(WebApplication app)
     {
         var e = app.MapGroup("/simulari").RequireAuthorization(Politici.Elev).WithTags("Simulări");
-        e.MapGet("/optiuni", async (HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
+        // The same for everyone who sees the same Lecții (their organisations), so kept for a minute per such group: counting every
+        // question takes ~300 ms. Starting a simulation counts again, so a number a minute old never yields a short exam.
+        e.MapGet("/optiuni", async (HttpContext h, MarkAiDbContext db, AccesContinut acces, IMemoryCache cache, CancellationToken ct) =>
         {
             var a = await acces.PentruAsync(h.User, ct);
-            return (object)await Disponibile(db, acces, a).GroupBy(q => new { q.MaterieId, q.Parcurs!.Clasa, Materie = q.Parcurs.Materie.Denumire })
-                .Select(g => new { g.Key.MaterieId, g.Key.Clasa, g.Key.Materie, Disponibile = g.Count() }).OrderBy(x => x.Materie).ThenBy(x => x.Clasa).ToListAsync(ct);
+            var autor = a.Admin || h.User.IsInRole(Roluri.Profesor) || h.User.IsInRole(Roluri.Organizatie) ? a.UtilizatorId : 0;
+            var cheie = $"simulari-optiuni:{a.Admin}:{autor}:{string.Join(',', a.Organizatii.Order())}:{string.Join(',', a.Administrate.Order())}";
+            return (object)(await cache.GetOrCreateAsync(cheie, async intrare =>
+            {
+                intrare.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
+                return (await Disponibile(db, acces, a).GroupBy(q => new { q.MaterieId, q.Parcurs!.Clasa, Materie = q.Parcurs.Materie.Denumire })
+                    .Select(g => new { g.Key.MaterieId, g.Key.Clasa, g.Key.Materie, Disponibile = g.Count() }).OrderBy(x => x.Materie).ThenBy(x => x.Clasa).ToListAsync(ct))
+                    .Select(x => new OptiuneSimulare(x.MaterieId, x.Clasa, x.Materie, x.Disponibile)).ToList();
+            }))!;
         });
         e.MapGet("", async (int? pagina, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {

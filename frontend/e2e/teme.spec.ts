@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { intraRapid } from './ajutor'
+import { intraRapid, unic } from './ajutor'
 
 test('profesorul publică tema, elevul promovează și profesorul vede rezultatul', async ({ browser, page, request }) => {
   const antete = { 'X-MarkAi': '1' }
@@ -17,7 +17,7 @@ test('profesorul publică tema, elevul promovează și profesorul vede rezultatu
     const username = `tema${Date.now().toString(36)}`
     const email = `${username}@example.invalid`
     expect((await elev.request.post('/api/autentificare/inregistrare', { headers: antete, data: {
-      nume: 'Elev Teme', username, email, parola: 'Test-demo-2026!', organizatieId: org,
+      nume: `Elev ${username}`, username, email, parola: 'Test-demo-2026!', organizatieId: org,
     } })).ok()).toBeTruthy()
     let cod = ''
     await expect.poll(async () => {
@@ -29,19 +29,23 @@ test('profesorul publică tema, elevul promovează și profesorul vede rezultatu
     const eu = await (await elev.request.get('/api/utilizatori/me')).json()
     expect((await page.request.post(`/api/organizatii/${org}/elevi/${eu.id}/aprobare`, { headers: antete })).ok()).toBeTruthy()
     await page.goto('/teme')
-    await page.getByLabel('Titlul temei').fill('Tema de recapitulare')
+    // Unique: the Chromium and Firefox runs share the test database and the organisation.
+    const titluTema = unic('Tema de recapitulare ')
+    await page.getByLabel('Titlul temei').fill(titluTema)
     const termen = new Date(Date.now() + 3 * 86400000)
     await page.getByLabel('Termen de predare').fill(termen.toISOString().slice(0, 16))
     await page.getByRole('checkbox', { name: titlu, exact: true }).check()
     await page.getByRole('button', { name: 'Publică tema', exact: true }).click()
     await expect(page.getByText('Tema a fost publicată.')).toBeVisible()
     await elev.goto('/')
-    await expect(elev.getByRole('heading', { name: 'Tema de recapitulare' })).toBeVisible()
-    await elev.getByRole('link', { name: 'Deschide testul', exact: true }).click()
+    await expect(elev.getByRole('heading', { name: titluTema })).toBeVisible()
+    // This run's homework only: it is assigned to the whole organisation, so the other browser's run shows up here too.
+    const tema = elev.locator('article').filter({ has: elev.getByRole('heading', { name: titluTema }) })
+    await tema.getByRole('link', { name: 'Deschide testul', exact: true }).click()
     await Promise.all([elev.waitForResponse(r => r.url().endsWith('/raspuns') && r.status() === 200), elev.getByRole('button', { name: /Patru/ }).click()])
     await elev.goto('/teme')
-    await expect(elev.getByText('Predată', { exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Rezultate Tema de recapitulare' }).click()
+    await expect(elev.locator('article').filter({ has: elev.getByRole('heading', { name: titluTema }) }).getByText('Predată', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: `Rezultate ${titluTema}` }).click()
     const raport = page.getByRole('region', { name: 'Rezultatele temei' })
     await expect(raport.getByText(eu.nume)).toBeVisible()
     await expect(raport.getByText('1/1 lecții · Predată')).toBeVisible()

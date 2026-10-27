@@ -21,7 +21,7 @@ public record CursDetaliu(int Id, int MaterieId, string Materie, int ParcursId, 
 public record ParcursRezumat(int Id, int MaterieId, string Titlu, string? Descriere, string Clasa, string? Autor, string? Organizatie, string Vizibilitate,
     bool Publicat, int Ordine, int NumarCapitole, bool Completata, string? Loc, bool InLocalitateaTa);
 public record CapitolGasit(int Id, string Titlu, string? Capitol, int ParcursId, string Parcurs, string Clasa, int MaterieId, string Materie);
-public record RezultatCautare(IReadOnlyList<ParcursRezumat> Lectii, IReadOnlyList<CapitolGasit> Capitole);
+public record RezultatCautare(IReadOnlyList<ParcursRezumat> Lectii, IReadOnlyList<CapitolGasit> Capitole, int TotalLectii, int TotalCapitole);
 /// <param name="IntrebariTest">Questions the Lecție's quiz can draw from (0: no quiz yet).</param>
 public record ParcursDetaliu(int Id, int MaterieId, string Materie, string Titlu, string? Descriere, string Clasa, string? Autor, string? Organizatie,
     string Vizibilitate, bool Publicat, bool PoateEdita, int IntrebariTest, ProgresLectieDto? Progres, IReadOnlyList<CursRezumat> Capitole);
@@ -80,25 +80,30 @@ public static class ContinutEndpoints
         // The subject's Lecții the user may see, a page at a time (pagina from 1, marime: Pagini.LectiiMaterie* by role; Total = all).
         // clasa: one or more of IX, X, XI, XII, Bac (comma-separated); filtru: toate | organizatia-mea | public | local (see
         // FiltreLectii); under "local", the user's own locality comes first; ascundeTerminate: without the ones the user passed.
-        g.MapGet("/materii/{id:int}/parcursuri", async (int id, string? clasa, string? filtru, bool? ascundeTerminate, int? pagina, int? marime,
+        // q (optional): only the Lecții with every word of it in their title or description, or in one of their published chapters.
+        g.MapGet("/materii/{id:int}/parcursuri", async (int id, string? clasa, string? filtru, bool? ascundeTerminate, string? q, int? pagina, int? marime,
             HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
             var lista = h.User.EsteAdmin() ? Pagini.LectiiMaterieAdmin : Pagini.LectiiMaterieElev;
             Pagini.Fereastra(lista, pagina, marime);
+            var termeni = TermeniCautare.Optionali(q);
             var a = await acces.PentruAsync(h.User, ct);
             var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
-            var q = FiltreLectii.Aplica(acces.Parcursuri(a).AsNoTracking().Where(p => p.MaterieId == id), a, loc, filtru, clasa);
+            var lectii = FiltreLectii.Aplica(acces.Parcursuri(a).AsNoTracking().Where(p => p.MaterieId == id), a, loc, filtru, clasa);
+            foreach (var t in termeni)
+                lectii = lectii.Where(p => EF.Functions.ILike(p.Cautare, t, "\\") || p.Capitole.Any(c => c.Publicat && EF.Functions.ILike(c.Cautare, t, "\\")));
             var uid = a.UtilizatorId;
-            if (ascundeTerminate == true) q = q.Where(p => !p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null));
-            var total = await q.CountAsync(ct);
-            return new Lista<ParcursRezumat>(await Rezumate(Ordonate(q, filtru == "local" ? loc.LocalitateId : null).Pagina(lista, pagina, marime), uid, loc, ct), total);
+            if (ascundeTerminate == true) lectii = lectii.Where(p => !p.Progrese.Any(x => x.UtilizatorId == uid && x.PromovatLa != null));
+            var total = await lectii.CountAsync(ct);
+            return new Lista<ParcursRezumat>(await Rezumate(Ordonate(lectii, filtru == "local" ? loc.LocalitateId : null).Pagina(lista, pagina, marime), uid, loc, ct), total);
         });
 
         // Lecții and chapters whose title or description has every word of q (without diacritics: "sarpe" finds "Șarpe"),
-        // among what the user may see, with the same filters as the Lecții list; at most 30 of each.
-        g.MapGet("/cautare", async (string? q, int? materieId, string? clasa, string? filtru, HttpContext h, MarkAiDbContext db, AccesContinut acces,
-            CancellationToken ct) =>
+        // among what the user may see, with the same filters as the Lecții list; each list paged on its own (30 by default).
+        g.MapGet("/cautare", async (string? q, int? materieId, string? clasa, string? filtru, int? pagina, int? marime, int? paginaCapitole, int? marimeCapitole,
+            HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>
         {
+            Pagini.Fereastra(Pagini.LectiiCautare, pagina, marime); Pagini.Fereastra(Pagini.CapitoleCautare, paginaCapitole, marimeCapitole);
             var termeni = TermeniCautare.Din(q);
             var a = await acces.PentruAsync(h.User, ct);
             var loc = await LocUtilizator.PentruAsync(db, a.UtilizatorId, ct);
@@ -111,12 +116,12 @@ public static class ContinutEndpoints
                 lectii = lectii.Where(p => EF.Functions.ILike(p.Cautare, t, "\\"));
                 capitole = capitole.Where(c => EF.Functions.ILike(c.Cautare, t, "\\"));
             }
-            var gasite = await Rezumate((filtru == "local" ? Ordonate(lectii, loc.LocalitateId) : lectii.OrderBy(p => p.Titlu).ThenBy(p => p.Id)).Take(30),
-                a.UtilizatorId, loc, ct);
-            var cap = await capitole.OrderBy(c => c.Titlu).Take(30)
+            var gasite = await Rezumate((filtru == "local" ? Ordonate(lectii, loc.LocalitateId) : lectii.OrderBy(p => p.Titlu).ThenBy(p => p.Id))
+                .Pagina(Pagini.LectiiCautare, pagina, marime), a.UtilizatorId, loc, ct);
+            var cap = await capitole.OrderBy(c => c.Titlu).ThenBy(c => c.Id).Pagina(Pagini.CapitoleCautare, paginaCapitole, marimeCapitole)
                 .Select(c => new CapitolGasit(c.Id, c.Titlu, c.Capitol, c.ParcursId, c.Parcurs.Titlu, c.Parcurs.Clasa, c.MaterieId, c.Materie.Denumire))
                 .ToListAsync(ct);
-            return new RezultatCautare(gasite, cap);
+            return new RezultatCautare(gasite, cap, await lectii.CountAsync(ct), await capitole.CountAsync(ct));
         });
 
         g.MapGet("/parcursuri/{id:int}", async (int id, HttpContext h, MarkAiDbContext db, AccesContinut acces, CancellationToken ct) =>

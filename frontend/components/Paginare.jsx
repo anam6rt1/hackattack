@@ -52,11 +52,12 @@ function Salt({ total, onAlege }) {
  * pagina: pagina curentă (de la 1); totalPagini: câte sunt; onAlege(p): cere pagina p. Fără bară când e o singură pagină.
  * compact: butoane mai mici și doar prima și ultima pagină la capete (‹ 1 … 4 5 6 … 9 ›), pentru coloane înguste.
  */
-export default function Paginare({ pagina, totalPagini, onAlege, compact = false }) {
+/** eticheta: numele barei pentru cititoarele de ecran, când o pagină are mai multe. */
+export default function Paginare({ pagina, totalPagini, onAlege, compact = false, eticheta = 'Pagini' }) {
   // Și fără un total valid (NaN, undefined): nicio bară.
   if (!(totalPagini > 1)) return null
   return (
-    <nav className={compact ? 'tv-paginare tv-paginare-compacta' : 'tv-paginare'} aria-label="Pagini">
+    <nav className={compact ? 'tv-paginare tv-paginare-compacta' : 'tv-paginare'} aria-label={eticheta}>
       <button type="button" className="tv-filtru" aria-label="Pagina anterioară" disabled={pagina <= 1} onClick={() => onAlege(pagina - 1)}>‹</button>
       {paginiVizibile(pagina, totalPagini, compact ? 1 : 2).map((p, i) =>
         p === null ? (

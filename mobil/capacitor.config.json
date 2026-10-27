@@ -1,0 +1,10 @@
+{
+  "appId": "ro.telebac.app",
+  "appName": "TeleBac",
+  "webDir": "../frontend/out",
+  "server": { "androidScheme": "https" },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true },
+    "CapacitorCookies": { "enabled": true }
+  }
+}

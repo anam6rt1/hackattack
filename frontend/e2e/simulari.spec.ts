@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { intraRapid } from './ajutor'
+import { elevNou, intraRapid } from './ajutor'
 
 test('simulare cronometrată cu răspunsuri salvate și notificări opționale', async ({ page, request }) => {
   const headers = { 'X-MarkAi': '1' }
@@ -21,6 +21,9 @@ test('simulare cronometrată cu răspunsuri salvate și notificări opționale',
   await expect(page.getByText('Răspuns salvat. Îl poți schimba până la final.')).toBeVisible()
   await page.getByRole('button', { name: 'Încheie simularea' }).click()
   await expect(page.getByText(/Nota orientativă:/)).toBeVisible()
+  // A new student for the preferences: george is shared with the other browser's run, which saves the same switch.
+  await page.context().clearCookies()
+  await intraRapid(page, await elevNou('notif'))
   await page.goto('/setari')
   await page.getByRole('button', { name: 'Notificări', exact: true }).click()
   const sedinte = page.getByRole('checkbox', { name: /Ședințe/ })

@@ -4,7 +4,12 @@
 // Sesiunea e un cookie httpOnly pus de API, de aceea fiecare cerere trimite `credentials: 'include'`.
 // Antetul X-MarkAi: 1 dovedește API-ului că cererea vine din site (un formular de pe alt site nu îl poate adăuga).
 
-export const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5080').replace(/\/$/, '')
+import { adresaApi } from './platforma'
+import { areDateOffline } from './offline/depozit'
+import { raporteazaServer } from './useOnline'
+
+// Pe site: /api (sau adresa din .env.local); în aplicația mobilă: adresa serverului ales (vezi lib/platforma.js).
+export const API = adresaApi()
 
 // date = corpul răspunsului de eroare (de ex. { cod: 'email_neconfirmat', email } la intrarea în cont)
 export class EroareApi extends Error {
@@ -15,8 +20,42 @@ export class EroareApi extends Error {
   }
 }
 
+// GET-uri identice pornite în același timp (de ex. meniul și pagina cer amândouă /progres) folosesc o singură cerere;
+// fiecare apelant primește propria copie a datelor, ca modificarea uneia să nu le atingă pe celelalte.
+// O modificare (intrare în cont, ieșire, salvare) poate schimba răspunsul: un GET cerut după ea nu primește unul pornit înainte.
+const inCurs = new Map()
+export const uitaCereriInCurs = () => inCurs.clear()
+
+// Modul offline (lib/offline): testele și simulările începute fără internet au id negativ și rămân pe dispozitiv; cât timp
+// nu e rețea, lecțiile descărcate și ultimele răspunsuri păstrate țin locul serverului. Codul lor se încarcă doar la nevoie.
+const LOCAL = /\/(quiz|simulari)\/-\d+/
+const offline = () => import('./offline/adaptor')
+const faraRetea = () => typeof navigator !== 'undefined' && navigator.onLine === false
+
 // corp = obiect trimis ca JSON; formular = FormData (pentru fișiere)
-export async function api(cale, { metoda = 'GET', corp, formular } = {}) {
+export async function api(cale, optiuni = {}) {
+  if (LOCAL.test(cale) || (faraRetea() && areDateOffline())) return (await offline()).raspundeOffline(cale, optiuni)
+  try {
+    return await online(cale, optiuni)
+  } catch (e) {
+    if (e.status !== 0 || !areDateOffline()) throw e
+    return (await offline()).raspundeOffline(cale, optiuni)
+  }
+}
+
+async function online(cale, optiuni) {
+  if ((optiuni.metoda ?? 'GET') !== 'GET') { uitaCereriInCurs(); return cerere(cale, optiuni) }
+  let comuna = inCurs.get(cale)
+  if (!comuna) {
+    comuna = cerere(cale, optiuni).finally(() => { if (inCurs.get(cale) === comuna) inCurs.delete(cale) })
+    inCurs.set(cale, comuna)
+    if (areDateOffline()) comuna.then((d) => offline().then((o) => o.pastreaza(cale, d))).catch(() => {})
+  }
+  const date = await comuna
+  return date === null || typeof date !== 'object' ? date : structuredClone(date)
+}
+
+async function cerere(cale, { metoda = 'GET', corp, formular } = {}) {
   let raspuns
   try {
     raspuns = await fetch(API + cale, {
@@ -26,8 +65,10 @@ export async function api(cale, { metoda = 'GET', corp, formular } = {}) {
       body: formular ?? (corp !== undefined ? JSON.stringify(corp) : undefined),
     })
   } catch {
+    raporteazaServer(false)
     throw new EroareApi(0, 'Nu ne putem conecta la server. Verifică internetul și încearcă din nou.')
   }
+  raporteazaServer(true)
   if (raspuns.status === 204) return null
   const date = await raspuns.json().catch(() => null)
   if (!raspuns.ok) {

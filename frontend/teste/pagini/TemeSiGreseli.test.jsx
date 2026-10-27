@@ -11,7 +11,7 @@ describe('teme și recapitulare', () => {
     apiFals({ 'GET /teme': { total: 1, elemente: [{ id: 1, titlu: 'Tema de luni', organizatie: 'Liceul', termenLa: '2026-01-01T12:00:00Z', lectii: [{ id: 2, titlu: 'Romanul', promovatLa: '2026-01-02T12:00:00Z' }] }] } })
     render(<TemeleMele />)
     expect(await screen.findByText('Predată cu întârziere')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Romanul' })).toHaveAttribute('href', '/parcurs/2')
+    expect(screen.getByRole('link', { name: 'Romanul' })).toHaveAttribute('href', '/parcurs?id=2')
   })
   it('arată erorile de încărcare a temelor', async () => {
     apiFals({ 'GET /teme': raspuns(503, { mesaj: 'Temele nu sunt disponibile.' }) })

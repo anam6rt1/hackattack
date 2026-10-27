@@ -182,6 +182,32 @@ public sealed class CautareTests : TestCautare
     }
 
     [Fact]
+    public async Task LectiileSiCapitoleleGasiteSePaginezSeparatCuTotalurile()
+    {
+        for (var i = 0; i < 11; i++) await Creeaza(admin, Lectie($"Comun {i:D2}", null));
+        var pagina2 = await george.GetJson("/cautare?q=comun&pagina=2&marime=9&marimeCapitole=10");
+        pagina2.Int("totalLectii").ShouldBe(11); pagina2.Int("totalCapitole").ShouldBe(0);
+        pagina2.Lista("lectii").Select(x => x.Str("titlu")).ShouldBe(["Comun 09", "Comun 10"]);
+        var cap = await george.GetJson("/cautare?q=stefan&paginaCapitole=2&marimeCapitole=1");
+        cap.Int("totalCapitole").ShouldBe(1); cap.Lista("capitole").ShouldBeEmpty();
+        await george.Get("/cautare?q=comun&marime=101").Status(HttpStatusCode.BadRequest);
+        await george.Get("/cautare?q=comun&paginaCapitole=0").Status(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CautareaDinMaterieGasesteDupaLectieSauCapitolSiPastreazaFiltrele()
+    {
+        var alta = await Creeaza(admin, Lectie("Moara cu noroc", null, clasa: "XI"));
+        // By the Lecție's own title, by one of its chapters, and only within the grade filter.
+        (await george.GetJson("/materii/1/parcursuri?q=moara")).Lista("elemente").Select(x => x.Int("id")).ShouldBe([alta]);
+        (await george.GetJson("/materii/1/parcursuri?q=stefan")).Lista("elemente").Select(x => x.Int("id")).ShouldBe([sarpe]);
+        (await george.GetJson("/materii/1/parcursuri?q=moara&clasa=XII")).Int("total").ShouldBe(0);
+        // A single letter is no search: the whole list.
+        (await george.GetJson("/materii/1/parcursuri?q=m")).Int("total").ShouldBe((await george.GetJson("/materii/1/parcursuri")).Int("total"));
+        (await george.GetJson("/materii/2/parcursuri?q=moara")).Int("total").ShouldBe(0);
+    }
+
+    [Fact]
     public async Task CelMultSaseCuvinteConteaza()
     {
         // Only the first six distinct words are used; the seventh does not have to match.

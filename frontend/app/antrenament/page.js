@@ -9,6 +9,7 @@ import { decorSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
 import GreselileMele from '@/components/GreselileMele'
 import { numeClasa } from '@/lib/clase'
+import { rute } from '@/lib/rute'
 
 const DECOR = decorSVG(19)
 const FORMAT = new Intl.DateTimeFormat('ro-RO', { day: 'numeric', month: 'long' })
@@ -72,8 +73,8 @@ export default function PaginaAntrenament() {
                           <small>{numeClasa(l.clasa)} · terminată pe {FORMAT.format(new Date(l.completatLa))}</small>
                         </div>
                         <span className="tv-butoane">
-                          <Link className="tv-pastila tv-pastila-aur" href={`/parcurs/${l.parcursId}`}>Notițe și video</Link>
-                          <Link className="tv-pastila" href={`/test/${l.parcursId}`}>Test</Link>
+                          <Link className="tv-pastila tv-pastila-aur" href={rute.parcurs(l.parcursId)}>Notițe și video</Link>
+                          <Link className="tv-pastila" href={rute.test(l.parcursId)}>Test</Link>
                         </span>
                       </li>
                     ))}

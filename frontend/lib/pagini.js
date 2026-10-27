@@ -31,8 +31,12 @@ export const LECTII_PE_PAGINA_EDITOR_ADMIN = 8
 export const PROGRES_MATERII_PE_PAGINA_ACASA_ELEV = 4
 
 // Materiale — lista materiilor.
-export const MATERII_PE_PAGINA_MATERIALE_ELEV = 8
-export const MATERII_PE_PAGINA_MATERIALE_ADMIN = 8
+export const MATERII_PE_PAGINA_MATERIALE_ELEV = 6
+export const MATERII_PE_PAGINA_MATERIALE_ADMIN = 6
+
+// Materiale — căutarea: lecțiile găsite (carduri) și capitolele găsite (rânduri), fiecare cu paginile lui.
+export const LECTII_PE_PAGINA_CAUTARE = 9
+export const CAPITOLE_PE_PAGINA_CAUTARE = 10
 
 // Materiale → o materie: lecțiile ei.
 export const LECTII_PE_PAGINA_MATERIE_ELEV = 9

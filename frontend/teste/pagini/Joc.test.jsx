@@ -34,7 +34,7 @@ describe("Triviador: crearea unei camere", () => {
     expect(creeaza).toBeEnabled();
     expect(screen.queryByText(/Bifează cel puțin o materie/)).not.toBeInTheDocument();
     await u.click(creeaza);
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/joc/ABC234"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/joc/camera?cod=ABC234"));
     expect(cereri.find((c) => c.metoda === "POST").corp.materieIds).toEqual([1]);
   });
 

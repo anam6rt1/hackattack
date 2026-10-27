@@ -1,13 +1,21 @@
 // Canalul unei camere Triviador, prin hub-ul SignalR al API-ului (/hub/joc).
 // Jocul rulează pe server: aici doar trimitem intenții (atac, răspuns, estimare...) și primim starea publică
 // după fiecare schimbare. Identitatea jucătorului vine din cookie-ul de autentificare, nu din browser.
+// În aplicațiile desktop/mobil, WebSocket-ul pleacă din originea aplicației și nu poartă cookie-ul: cere un token de două minute,
+// valabil doar pentru /hub (POST /utilizatori/me/token-joc), la fiecare (re)conectare.
 
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
-import { API } from '@/lib/api'
+import { API, api } from '@/lib/api'
+import { adresaSite, esteAplicatie } from '@/lib/platforma'
+
+const optiuniConexiune = () => esteAplicatie()
+  ? { url: adresaSite() + '/api/hub/joc', accessTokenFactory: async () => (await api('/utilizatori/me/token-joc', { metoda: 'POST' })).token }
+  : { url: API + '/hub/joc', withCredentials: true }
 
 export function deschideCanal(cod, { onStare, onConectat, onDeconectat, onEroare }) {
+  const { url, ...optiuni } = optiuniConexiune()
   const conexiune = new HubConnectionBuilder()
-    .withUrl(API + '/hub/joc', { withCredentials: true })
+    .withUrl(url, optiuni)
     .withAutomaticReconnect()
     // Pe măsura serverului (semnal la 5 s, deconectare după 15 s): cine pierde legătura apare repede ca plecat.
     .withKeepAliveInterval(5000)

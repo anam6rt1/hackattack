@@ -46,18 +46,29 @@ public sealed class OptiuniJwt
     public const string Emitent = "markai-api";
     /// <summary>Claim with the account's <see cref="Utilizator.VersiuneSesiune"/> when the token was issued.</summary>
     public const string ClaimVersiune = "sv";
+    /// <summary>Claim of a token that only opens the game connection (<see cref="Tokenuri.EmiteJoc"/>).</summary>
+    public const string ClaimScop = "scop", ScopJoc = "joc";
 }
 
 public sealed class Tokenuri(OptiuniJwt optiuni)
 {
-    public string Emite(Utilizator u, string rol)
+    public string Emite(Utilizator u, string rol) => Scrie(u.Id, u.Nume, rol, u.VersiuneSesiune, optiuni.Durata);
+
+    /// <summary>
+    /// For the desktop and mobile apps: a WebSocket from the app's own origin to the server carries no session cookie, so the
+    /// game connection gets a two-minute token in its address instead. It opens only /hub (see the JWT events) and dies with
+    /// the session like any other token.
+    /// </summary>
+    public string EmiteJoc(ClaimsPrincipal p) => Scrie(p.Id(), p.FindFirstValue(ClaimTypes.Name) ?? "", p.FindFirstValue(ClaimTypes.Role) ?? "",
+        int.TryParse(p.FindFirstValue(OptiuniJwt.ClaimVersiune), out var v) ? v : 0, TimeSpan.FromMinutes(2), OptiuniJwt.ScopJoc);
+
+    private string Scrie(int id, string nume, string rol, int versiune, TimeSpan durata, string? scop = null)
     {
-        var token = new JwtSecurityToken(
-            issuer: OptiuniJwt.Emitent, audience: OptiuniJwt.Emitent,
-            claims: [new Claim(ClaimTypes.NameIdentifier, u.Id.ToString()), new Claim(ClaimTypes.Name, u.Nume), new Claim(ClaimTypes.Role, rol),
-                new Claim(OptiuniJwt.ClaimVersiune, u.VersiuneSesiune.ToString())],
-            expires: DateTime.UtcNow.Add(optiuni.Durata),
-            signingCredentials: new SigningCredentials(optiuni.Cheie, SecurityAlgorithms.HmacSha256));
+        List<Claim> claims = [new(ClaimTypes.NameIdentifier, id.ToString()), new(ClaimTypes.Name, nume), new(ClaimTypes.Role, rol),
+            new(OptiuniJwt.ClaimVersiune, versiune.ToString())];
+        if (scop is not null) claims.Add(new(OptiuniJwt.ClaimScop, scop));
+        var token = new JwtSecurityToken(issuer: OptiuniJwt.Emitent, audience: OptiuniJwt.Emitent, claims: claims,
+            expires: DateTime.UtcNow.Add(durata), signingCredentials: new SigningCredentials(optiuni.Cheie, SecurityAlgorithms.HmacSha256));
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
@@ -182,11 +193,18 @@ public static class ConfigurareAutentificare
                 OnMessageReceived = c =>
                 {
                     if (string.IsNullOrEmpty(c.Token) && c.Request.Cookies.TryGetValue(OptiuniJwt.Cookie, out var t)) c.Token = t;
+                    // The apps' game connection (SignalR puts the token in the address of a WebSocket).
+                    if (string.IsNullOrEmpty(c.Token) && c.Request.Path.StartsWithSegments("/hub") && c.Request.Query["access_token"] is { Count: 1 } q) c.Token = q[0];
                     return Task.CompletedTask;
                 },
                 // Tokens issued before session versions existed have no claim and count as version 0.
                 OnTokenValidated = async c =>
                 {
+                    if (c.Principal!.FindFirstValue(OptiuniJwt.ClaimScop) == OptiuniJwt.ScopJoc && !c.Request.Path.StartsWithSegments("/hub"))
+                    {
+                        c.Fail("Acest token deschide doar jocul.");
+                        return;
+                    }
                     var versiuni = c.HttpContext.RequestServices.GetRequiredService<VersiuniSesiune>();
                     var curenta = await versiuni.CitesteAsync(c.Principal!.Id(), c.HttpContext.RequestAborted);
                     var dinToken = int.TryParse(c.Principal!.FindFirstValue(OptiuniJwt.ClaimVersiune), out var v) ? v : 0;

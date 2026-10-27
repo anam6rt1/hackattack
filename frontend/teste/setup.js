@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import { parametri, router } from "./ajutor";
+import { uitaCereriInCurs } from "@/lib/api";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
@@ -24,6 +25,8 @@ vi.mock("next/link", async () => {
 
 afterEach(() => {
   cleanup();
+  // A request still in flight from this test must not answer the next one's.
+  uitaCereriInCurs();
   sessionStorage.clear();
   localStorage.clear();
   router.replace.mockClear();

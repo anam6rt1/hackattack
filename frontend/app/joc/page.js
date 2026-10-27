@@ -9,6 +9,7 @@ import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import { CLASE, numeClasa } from '@/lib/clase'
 import Harta from './Harta'
+import { rute } from '@/lib/rute'
 
 const LUNGIME_COD = 6
 
@@ -39,7 +40,7 @@ export default function PaginaJoc() {
     setEroare('')
     try {
       const r = await api('/trivia/camere', { metoda: 'POST', corp: { materieIds: alese, insule, maxJucatori, clasa: clasa || null } })
-      router.push('/joc/' + r.cod)
+      router.push(rute.camera(r.cod))
     } catch (e) {
       setEroare(e.message)
       setSeCreeaza(false)
@@ -49,7 +50,7 @@ export default function PaginaJoc() {
   function intraInCamera(e) {
     e.preventDefault()
     const c = cod.trim().toUpperCase()
-    if (c.length === LUNGIME_COD) router.push('/joc/' + c)
+    if (c.length === LUNGIME_COD) router.push(rute.camera(c))
   }
 
   return (

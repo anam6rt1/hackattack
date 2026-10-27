@@ -92,6 +92,8 @@ internal static class OrganizatiiConfiguration
             e.HasIndex(x => x.UtilizatorId, "membru_organizatie_un_elev_key").IsUnique()
                 .HasFilter("rol = 'elev' AND stare IN ('in_asteptare', 'aprobat')");
             e.HasIndex(x => new { x.OrganizatieId, x.Rol, x.Stare }, "idx_membru_organizatie_org_rol_stare");
+            // An account's own memberships (read on almost every request); the partial index above covers only students.
+            e.HasIndex(x => x.UtilizatorId, "idx_membru_organizatie_utilizator");
             e.HasOne(x => x.Organizatie).WithMany(o => o.Membri).HasForeignKey(x => x.OrganizatieId)
                 .OnDelete(DeleteBehavior.Cascade).HasConstraintName("membru_organizatie_organizatie_id_fkey");
             e.HasOne(x => x.Utilizator).WithMany(u => u.Organizatii).HasForeignKey(x => x.UtilizatorId)

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api, dataOra } from '@/lib/api'
 import Paginare from '@/components/Paginare'
+import { rute } from '@/lib/rute'
 
 export default function TemeleMele() {
   const [pagina, setPagina] = useState(1)
@@ -27,7 +28,7 @@ export default function TemeleMele() {
         <h3>{t.titlu}</h3><p>{t.organizatie} · Termen: {dataOra(t.termenLa)}</p>
         {t.descriere && <p style={{ whiteSpace: 'pre-wrap' }}>{t.descriere}</p>}
         <strong>{predata ? (intarziata ? 'Predată cu întârziere' : 'Predată') : new Date(t.termenLa) < new Date() ? 'Termen depășit — poți continua' : 'De rezolvat'}</strong>
-        <ul className="tv-lista">{t.lectii.map(l => <li key={l.id} className="tv-rand"><Link href={`/parcurs/${l.id}`}>{l.titlu}</Link><span>{l.promovatLa ? 'Promovată' : <Link href={`/test/${l.id}`}>Deschide testul</Link>}</span></li>)}</ul>
+        <ul className="tv-lista">{t.lectii.map(l => <li key={l.id} className="tv-rand"><Link href={rute.parcurs(l.id)}>{l.titlu}</Link><span>{l.promovatLa ? 'Promovată' : <Link href={rute.test(l.id)}>Deschide testul</Link>}</span></li>)}</ul>
       </article>
     })}
     <Paginare pagina={pagina} totalPagini={Math.ceil((date?.total ?? 0) / 10)} onAlege={p => { setDate(null); setPagina(p) }} />

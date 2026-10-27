@@ -56,6 +56,17 @@ describe("deschideCanal()", () => {
     expect([conexiune.keepAlive, conexiune.timeout]).toEqual([5000, 15000]);
   });
 
+  it("în aplicații se conectează direct la server, cu token de joc", async () => {
+    window.Capacitor = { isNativePlatform: () => true };
+    localStorage.setItem("telebac-server", "https://scoala.example.ro");
+    try {
+      deschideCanal("ABC234", evenimente());
+      expect(conexiune.url).toBe("https://scoala.example.ro/api/hub/joc");
+      expect(conexiune.optiuni.withCredentials).toBeUndefined();
+      expect(typeof conexiune.optiuni.accessTokenFactory).toBe("function");
+    } finally { delete window.Capacitor; }
+  });
+
   it("pornește abia la următorul tick, apoi intră în cameră", async () => {
     const e = evenimente();
     deschideCanal("ABC234", e);

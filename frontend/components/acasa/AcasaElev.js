@@ -11,6 +11,7 @@ import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
 import Paginare from '@/components/Paginare'
 import TemeleMele from '@/components/TemeleMele'
 import { PROGRES_MATERII_PE_PAGINA_ACASA_ELEV, cuPagina } from '@/lib/pagini'
+import { rute } from '@/lib/rute'
 
 const DECOR = decorSVG(29)
 
@@ -79,7 +80,7 @@ export default function AcasaElev({ utilizator }) {
             <div className="tv-cutie tv-panou-lat">
               <h3>{ultimaLectie && !ultimaLectie.completata ? 'Continuă de unde ai rămas' : 'Următorul pas'}</h3>
               {ultimaLectie ? (
-                <Link className="tv-rand" href={`/parcurs/${ultimaLectie.parcursId}`}>
+                <Link className="tv-rand" href={rute.parcurs(ultimaLectie.parcursId)}>
                   <div>
                     <b>{ultimaLectie.titlu}</b>
                     <small>{ultimaLectie.materie}{ultimaLectie.capitol ? ` · ultimul capitol: ${ultimaLectie.capitol}` : ''}</small>
@@ -106,7 +107,7 @@ export default function AcasaElev({ utilizator }) {
               <ul className="tv-lista">
                 {(materii ?? []).map((m) => (
                   <li key={m.materieId}>
-                    <Link className="tv-rand" href={`/materiale/${m.materieId}`}>
+                    <Link className="tv-rand" href={rute.materie(m.materieId)}>
                       <div>
                         <b>{m.denumire}</b>
                         <small>{m.lectiiCompletate} din {m.totalLectii} lecții · {m.puncte} puncte</small>

@@ -4,7 +4,8 @@ public class PreferinteNotificari
 {
     public int UtilizatorId { get; set; }
     public bool Sedinte { get; set; }
-    public bool Decizii { get; set; }
+    /// <summary>On by default: it answers a request the person made themselves (join an organisation); the other types are opt-in.</summary>
+    public bool Decizii { get; set; } = true;
     public bool TemeNoi { get; set; }
     public bool TermeneTeme { get; set; }
     public DateTime ActualizatLa { get; set; }

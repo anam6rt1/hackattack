@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import "./insule.css";
-import FeedbackPilot from "@/components/FeedbackPilot";
 import Meniu from "@/components/Meniu";
 import Furnizori from "@/components/Furnizori";
 import Incarcare from "@/components/Incarcare";
+import StareOffline from "@/components/StareOffline";
+import PoartaServer from "@/components/ServerAplicatie";
+import IntegrareMobil from "@/components/IntegrareMobil";
+import SubsolSite from "@/components/SubsolSite";
 import { claseFonturi } from "@/lib/fonturi";
 import { SCRIPT_TEMA } from "@/lib/tema-sezon";
 
@@ -28,8 +31,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Suspense fallback={<header className="mn-bara" />}>
             <Meniu />
           </Suspense>
-          <Suspense fallback={<Incarcare />}>{children}</Suspense>
-        <FeedbackPilot />
+          <StareOffline />
+          <IntegrareMobil />
+          <Suspense fallback={<Incarcare />}><PoartaServer>{children}</PoartaServer></Suspense>
+          <SubsolSite />
         </Furnizori>
       </body>
     </html>

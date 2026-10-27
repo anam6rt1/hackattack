@@ -47,6 +47,10 @@ public static class Pagini
     public static readonly Marime LectiiMaterieElev = new(20, 100);
     public static readonly Marime LectiiMaterieAdmin = new(20, 100);
 
+    // Search (Materiale): the Lecții found and the chapters found, paged separately. 30 by default, as before paging.
+    public static readonly Marime LectiiCautare = new(30, 100);
+    public static readonly Marime CapitoleCautare = new(30, 100);
+
     /// <summary>Rows to skip and take for page <paramref name="pagina"/> (from 1) of <paramref name="marime"/> items.</summary>
     public static (int Sari, int Ia) Fereastra(Marime lista, int? pagina, int? marime)
     {

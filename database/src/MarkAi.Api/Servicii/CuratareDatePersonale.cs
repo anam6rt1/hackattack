@@ -48,5 +48,11 @@ public sealed class CuratareDatePersonale(IServiceScopeFactory scopes, Stocare s
             var limita = acum.AddDays(-mesaje);
             await db.Set<MesajIesire>().Where(m => m.TrimisLa != null && m.TrimisLa < limita).ExecuteDeleteAsync(ct);
         }
+        var contact = cfg.GetValue<int>("Confidentialitate:MesajeContactZile");
+        if (contact > 0)
+        {
+            var limita = acum.AddDays(-contact);
+            await db.Set<MesajContact>().Where(m => m.RezolvatLa != null && m.RezolvatLa < limita).ExecuteDeleteAsync(ct);
+        }
     }
 }

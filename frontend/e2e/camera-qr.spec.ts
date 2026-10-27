@@ -8,19 +8,19 @@ async function cameraNoua(browser: import("@playwright/test").Browser) {
   await gazda.goto("/joc");
   await gazda.getByLabel("Limba și literatura română").check();
   await gazda.getByRole("button", { name: "Creează o cameră" }).click();
-  await expect(gazda).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
-  return { gazda, cod: gazda.url().split("/").pop()! };
+  await expect(gazda).toHaveURL(/\/joc\/camera\?cod=[A-Z0-9]{6}$/);
+  return { gazda, cod: new URL(gazda.url()).searchParams.get("cod")! };
 }
 
 test("linkul camerei, deschis fără cont, duce în cameră după intrare", async ({ browser, page }) => {
   const { gazda, cod } = await cameraNoua(browser);
   const musafir = await elevNou("musafir");
   await page.goto(`/joc/${cod}`);
-  await expect(page).toHaveURL(new RegExp(`inapoi=%2Fjoc%2F${cod}`));
+  await expect(page).toHaveURL(new RegExp(`inapoi=%2Fjoc%2Fcamera%3Fcod%3D${cod}`));
   await page.getByLabel("Email sau utilizator").fill(musafir);
   await page.getByLabel("Parolă", { exact: true }).fill(PAROLA);
   await page.getByRole("button", { name: "Intră în cont" }).click();
-  await expect(page).toHaveURL(new RegExp(`/joc/${cod}$`));
+  await expect(page).toHaveURL(new RegExp(`/joc/camera\\?cod=${cod}$`));
   await expect(page.getByText(`Elev ${musafir}`).first()).toBeVisible();
   await expect(gazda.getByText(`Elev ${musafir}`).first()).toBeVisible();
   await gazda.close();
@@ -39,7 +39,7 @@ test("linkul camerei, cu un cont nou făcut pe loc, duce tot în cameră", async
   await page.getByRole("button", { name: "Creează contul de elev" }).click();
   await page.getByLabel(/Codul de 6 cifre/).fill(await ultimulCod(email));
   await page.getByRole("button", { name: "Confirmă și intră în cont" }).click();
-  await expect(page).toHaveURL(new RegExp(`/joc/${cod}$`));
+  await expect(page).toHaveURL(new RegExp(`/joc/camera\\?cod=${cod}$`));
   await expect(gazda.getByText("Ioana Nouă").first()).toBeVisible();
   await gazda.close();
 });

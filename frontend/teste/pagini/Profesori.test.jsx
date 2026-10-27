@@ -51,18 +51,26 @@ describe("pagina Profesori (elev)", () => {
     expect(screen.getByRole("button", { name: "Rezervă" })).toBeEnabled();
   });
 
-  it("arată doar următoarea ședință; „și alte 2 sesiuni” le aduce pe toate, iar „Ascunde” le strânge la loc", async () => {
+  it("arată doar următoarea ședință; „și alte 2 sesiuni” le deschide pe toate într-o fereastră, de unde se poate rezerva", async () => {
     const { u } = porneste(ELEV, [{ ...IRINA, sloturi: [sedinta(10)], alteSesiuni: 2 }], {
       "GET /profesori/2": { ...IRINA, sloturi: [sedinta(10), sedinta(12), sedinta(13)], alteSesiuni: 0 },
     });
     expect(await screen.findByText("Ședința 10")).toBeInTheDocument();
     expect(screen.queryByText("Ședința 12")).not.toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "și alte 2 sesiuni" }));
-    expect(await screen.findByText("Ședința 13")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Rezervă" })).toHaveLength(3);
-    await u.click(screen.getByRole("button", { name: "Ascunde celelalte sesiuni" }));
-    expect(screen.queryByText("Ședința 13")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "și alte 2 sesiuni" })).toHaveAttribute("aria-expanded", "false");
+    const fereastra = await screen.findByRole("dialog", { name: "Ședințele lui Irina Marin" });
+    expect(await within(fereastra).findByText("Ședința 13")).toBeInTheDocument();
+    expect(within(fereastra).getByText("3 ședințe viitoare")).toBeInTheDocument();
+    // The card itself stays short.
+    expect(screen.getAllByText("Ședința 12")).toHaveLength(1);
+    await u.click(within(fereastra).getAllByRole("button", { name: "Rezervă" })[2]);
+    expect(await screen.findByRole("dialog", { name: "" })).toHaveTextContent("Ședința 13");
+    // Escape closes the booking first, then the list.
+    await u.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Ședințele lui Irina Marin" })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Renunț" }));
+    await u.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("celelalte sesiuni respectă filtrul online / față în față", async () => {

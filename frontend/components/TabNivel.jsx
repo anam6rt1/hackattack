@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { api, idYoutube } from "@/lib/api";
 import { ACTIVITATI } from "@/components/Iconite";
 import { T } from "@/lib/tema";
+import { rute } from "@/lib/rute";
 
 const DESCRIERI = {
   video: "Urmărește capitolul explicat pe scurt",
@@ -105,7 +106,7 @@ export default function TabNivel({ insula, nivel, parcursId, onInchide, onCitit 
             </div>
             <p className={`mt-4 text-center text-sm ${T.textSlab}`}>
               Lecția e terminată când treci testul ei, cu întrebări din toate capitolele.{" "}
-              <Link href={`/test/${parcursId}`} className="font-bold underline">
+              <Link href={rute.test(parcursId)} className="font-bold underline">
                 Testul lecției →
               </Link>
             </p>

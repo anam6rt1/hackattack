@@ -40,7 +40,7 @@ describe("panoul elevului", () => {
     expect(await screen.findByRole("heading", { name: "Salut, Ana!" })).toBeInTheDocument();
     expect(screen.getByText("Data trecută ai lucrat la „Glasul pământului”.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Continuă de unde ai rămas" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ion/ })).toHaveAttribute("href", "/parcurs/7");
+    expect(screen.getByRole("link", { name: /Ion/ })).toHaveAttribute("href", "/parcurs?id=7");
   });
 
   it("nivelul, XP-ul și cât mai e", async () => {

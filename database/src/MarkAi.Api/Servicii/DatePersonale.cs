@@ -34,7 +34,8 @@ public sealed class DatePersonale(MarkAiDbContext db, VersiuniSesiune versiuni, 
         var date = new Dictionary<string, object?>
         {
             ["invitatiiPrimite"] = await Randuri(db.Set<InvitatieElev>().Where(x => x.Email == u.Email.ToLower()), "OrganizatieId Nume Email Clasa CreatLa ExpiraLa AcceptataLa", ct),
-            ["feedback"] = await Randuri(db.Set<FeedbackPilot>().Where(x => x.UtilizatorId == uid), "Id Text Pagina CreatLa RezolvatLa", ct),
+            // Also what was sent from the contact page before signing in, with the same email address.
+            ["mesajeContact"] = await Randuri(db.Set<MesajContact>().Where(x => x.UtilizatorId == uid || x.Email == u.Email.ToLower()), "Id Subiect Text Pagina Nume Email CreatLa RezolvatLa", ct),
             ["sumarParinte"] = await Randuri(db.Set<SumarParinte>().Where(x => x.UtilizatorId == uid), "Email CreatLa ExpiraLa ConfirmatLa UltimaSaptamana", ct),
             ["statisticiRaspunsuri"] = await Randuri(db.Set<RaspunsStatistica>().Where(x => x.UtilizatorId == uid), "IncercareId IntrebareId Corect RaspunsLa", ct),
             ["versiune"] = 1, ["exportatLa"] = ceas.GetUtcNow(),
@@ -111,11 +112,12 @@ public sealed class DatePersonale(MarkAiDbContext db, VersiuniSesiune versiuni, 
         await db.Set<IncercareQuiz>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
         await db.Set<ProgresLectie>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
         await db.Set<Greseala>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
-        await db.Set<FeedbackPilot>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
+        await db.Set<MesajContact>().Where(x => x.UtilizatorId == uid || x.Email == u.Email.ToLower()).ExecuteDeleteAsync(ct);
         await db.Set<SumarParinte>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
         await db.Set<MesajIesire>().Where(m => db.Set<EmailSumar>().Any(e => e.MesajId == m.Id && e.UtilizatorId == uid)).ExecuteDeleteAsync(ct);
         await db.Set<InvitatieElev>().Where(i => i.Email == u.Email.ToLower()).ExecuteDeleteAsync(ct);
         await db.Set<Simulare>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
+        await db.Set<OperatieSincronizata>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
         await db.Set<Notificare>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
         await db.Set<AbonamentPush>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);
         await db.Set<PreferinteNotificari>().Where(x => x.UtilizatorId == uid).ExecuteDeleteAsync(ct);

@@ -9,7 +9,7 @@
 // - Răspunsul corect ajunge în browser abia după ce serverul închide întrebarea.
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { usePagina } from '@/lib/sesiune'
 import { deschideCanal } from '@/lib/canal-joc'
@@ -17,10 +17,11 @@ import Incarcare from '@/components/Incarcare'
 import Harta from '../Harta'
 import { PanouCamera, PanouJoc } from '../Panou'
 import Fereastra from '../Fereastra'
+import { adresaSite } from '@/lib/platforma'
+import { rute } from '@/lib/rute'
 
 export default function Camera() {
-  const params = useParams()
-  const cod = String(params.cod).toUpperCase()
+  const cod = String(useSearchParams().get('cod') ?? '').toUpperCase()
   const utilizator = usePagina('elev')
   const euId = utilizator ? String(utilizator.id) : null
 
@@ -55,7 +56,7 @@ export default function Camera() {
   if (!utilizator || !stare) return <Incarcare />
   if (!conectat) return <Incarcare text="Se conectează..." />
 
-  const link = window.location.origin + '/joc/' + cod
+  const link = adresaSite() + rute.camera(cod)
   const inJoc = stare.faza !== 'lobby'
   const curent = stare.faza === 'alegere' ? stare.jucatori[stare.tura] : null
   const cetati = stare.jucatori.map((j) => j.cetate).filter(Boolean)
@@ -63,6 +64,16 @@ export default function Camera() {
   return (
     <main className="tv-pagina">
       <div className="tv-joc">
+        {inJoc && (
+          <div className="tv-card tv-joc-stare" role="status">
+            <span className="tv-runda">{Math.min(stare.runda, stare.runde)}</span>
+            <span>
+              {stare.faza === 'final' ? 'Bătălia s-a terminat.'
+                : !curent ? 'Duel în desfășurare...'
+                : curent.id === euId ? 'Rândul tău: alege o insulă cu marginea aurie.' : `Rândul lui ${curent.nume}...`}
+            </span>
+          </div>
+        )}
         <Harta
           harta={stare.harta}
           proprietari={stare.proprietari}

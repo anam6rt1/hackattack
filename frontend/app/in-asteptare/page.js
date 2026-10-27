@@ -99,7 +99,7 @@ export default function InAsteptare() {
           {!org && <CereriProfesor />}
           <div className="tv-butoane">
             <button className="tv-btn" onClick={reincarca}>Verifică din nou</button>
-            <button className="tv-btn tv-gri" onClick={async () => { await iese(); router.push('/') }}>Ieși din cont</button>
+            <button className="tv-btn tv-gri" onClick={async () => { if (await iese()) router.push('/') }}>Ieși din cont</button>
           </div>
         </div>
       </div>

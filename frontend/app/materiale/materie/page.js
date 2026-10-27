@@ -2,20 +2,22 @@
 // /materiale/1 : Lecțiile unei materii (fiecare făcută de un profesor), cu filtru de clasă și de loc.
 // Clasa implicită: clasa elevului + „Bac”; fără clasă setată, toate. Loc: toate / organizația mea / doar publice /
 // aproape de mine (județul din Setări; cele din localitatea elevului primele). Elevul poate ascunde lecțiile terminate
-// (alegerea e salvată în cont, ca tema).
+// (alegerea e salvată în cont, ca tema). Căutarea din materie găsește lecțiile după titlu, descriere sau capitolele lor și se
+// adaugă filtrelor de mai sus.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import Paginare from '@/components/Paginare'
 import { LECTII_PE_PAGINA_MATERIE_ADMIN, LECTII_PE_PAGINA_MATERIE_ELEV, cuPagina } from '@/lib/pagini'
 import { CLASE, numeClasa } from '@/lib/clase'
+import { rute } from '@/lib/rute'
 
 export default function PaginaMaterie() {
-  const { id } = useParams()
+  const id = useSearchParams().get('id')
   const elev = usePagina('elev', 'admin')
   const [materie, setMaterie] = useState(null)
   const [lectii, setLectii] = useState(null)
@@ -24,6 +26,8 @@ export default function PaginaMaterie() {
   const [aleseDeElev, setAleseDeElev] = useState(null) // null = implicitul de mai jos; [] = toate
   const [unde, setUndeFiltru] = useState('toate')
   const [ascunde, setAscunde] = useState(false)
+  const [cautare, setCautare] = useState('')
+  const [cautat, setCautat] = useState('') // textul trimis serverului, după o pauză scurtă la tastare
   const [eroare, setEroare] = useState('')
   const esteElev = elev?.rol === 'elev'
   const marime = esteElev ? LECTII_PE_PAGINA_MATERIE_ELEV : LECTII_PE_PAGINA_MATERIE_ADMIN
@@ -32,6 +36,14 @@ export default function PaginaMaterie() {
   const setUnde = (v) => { setUndeFiltru(v); setPagina(1) }
 
   const alese = aleseDeElev ?? (elev?.clasa ? [elev.clasa, 'Bac'] : [])
+
+  useEffect(() => {
+    const text = cautare.trim()
+    const nou = text.length >= 2 ? text : ''
+    if (nou === cautat) return
+    const t = setTimeout(() => { setCautat(nou); setPagina(1) }, 300)
+    return () => clearTimeout(t)
+  }, [cautare, cautat])
 
   useEffect(() => {
     if (!elev) return
@@ -52,6 +64,7 @@ export default function PaginaMaterie() {
   if (alese.length) q.set('clasa', alese.join(','))
   if (unde !== 'toate') q.set('filtru', unde)
   if (esteElev && ascunde) q.set('ascundeTerminate', 'true')
+  if (cautat) q.set('q', cautat)
   const url = cuPagina(`/materii/${id}/parcursuri?${q}`, pagina, marime)
   useEffect(() => {
     if (!elev) return
@@ -74,6 +87,11 @@ export default function PaginaMaterie() {
           <span className="tv-pastila tv-pastila-aur">{materie.lectiiCompletate} din {materie.numarLectii} {materie.numarLectii === 1 ? 'lecție terminată' : 'lecții terminate'}</span>
         </section>
         <div className="tv-coala">
+          <label className="tv-eticheta-camp">
+            <span>Caută în {materie.denumire}</span>
+            <input className="tv-camp-text" type="search" value={cautare} onChange={(e) => setCautare(e.target.value)}
+              placeholder="titlul lecției sau al unui capitol..." maxLength={100} />
+          </label>
           <div className="tv-filtre" role="group" aria-label="Filtru după clasă">
             <button type="button" className="tv-filtru" aria-pressed={alese.length === 0} onClick={() => setAlese([])}>Toate</button>
             {CLASE.map((c) => (
@@ -97,7 +115,7 @@ export default function PaginaMaterie() {
           )}
           <div className="tv-planuri">
             {vizibile.map((l) => (
-              <Link key={l.id} href={`/parcurs/${l.id}`} className="tv-plan tv-lectie">
+              <Link key={l.id} href={rute.parcurs(l.id)} className="tv-plan tv-lectie">
                 <span className="tv-butoane">
                   <span className="tv-pastila tv-pastila-aur">{numeClasa(l.clasa)}</span>
                   {l.vizibilitate === 'organizatie' && <span className="tv-pastila">Doar organizația</span>}
@@ -113,13 +131,19 @@ export default function PaginaMaterie() {
             ))}
           </div>
           <Paginare pagina={pagina} totalPagini={Math.ceil(total / marime)} onAlege={(p) => { setPagina(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />
-          {lectii.length === 0 && esteElev && ascunde && (
+          {lectii.length === 0 && !cautat && esteElev && ascunde && (
             <p className="tv-gol">
               Nicio lecție neterminată aici.{' '}
               <button type="button" className="tv-pastila tv-pastila-aur" onClick={() => comutaAscunde(false)}>Arată și lecțiile terminate</button>
             </p>
           )}
-          {lectii.length === 0 && !(esteElev && ascunde) && (
+          {lectii.length === 0 && cautat && (
+            <p className="tv-gol">
+              Nicio lecție pentru „{cautat}”{alese.length || unde !== 'toate' ? ' cu filtrele alese' : ''}.{' '}
+              <button type="button" className="tv-pastila tv-pastila-aur" onClick={() => { setCautare(''); setCautat(''); setPagina(1) }}>Șterge căutarea</button>
+            </p>
+          )}
+          {lectii.length === 0 && !cautat && !(esteElev && ascunde) && (
             <p className="tv-gol">
               {unde === 'local' ? 'Nu există lecții ale organizațiilor din județul tău aici.' : unde !== 'toate' ? 'Nu există lecții pentru filtrul ales.'
                 : alese.length ? 'Nu există lecții pentru clasa aleasă. Alege „Toate” sau altă clasă.' : 'Materia nu are încă lecții.'}

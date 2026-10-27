@@ -32,11 +32,16 @@ public sealed class PachetIntrebari(List<IntrebareGrila> grila, List<IntrebareEs
             && (clasa == null || (q.Parcurs != null && q.Parcurs.Clasa == clasa)));
         // Per island: a random sample of that Lecție's own questions (one SQL query with a per-Lecție limit).
         var deInsule = db.Set<Parcurs>().AsNoTracking().Where(p => insule.Contains(p.Id));
-        var grila = await CitesteGrile(deInsule.SelectMany(p => p.Intrebari.AsQueryable().Where(GrilaFolosibila).OrderBy(_ => EF.Functions.Random()).Take(PeInsula)), ct);
+        // The islands' filter is repeated on the questions: EF numbers each Lecție's sample in a subquery (ROW_NUMBER) that
+        // PostgreSQL does not narrow through the join, so without it every question in the database is checked and numbered
+        // (~180 ms with 29 000 questions; under 1 ms with it).
+        var intrebariInsule = db.Set<Intrebare>().Where(q => q.ParcursId != null && insule.Contains(q.ParcursId.Value));
+        var grila = await CitesteGrile(deInsule.SelectMany(p => intrebariInsule.Where(q => q.ParcursId == p.Id && q.MaterieId == p.MaterieId)
+            .Where(GrilaFolosibila).OrderBy(_ => EF.Functions.Random()).Take(PeInsula)), ct);
         var luate = grila.Select(q => q.Id).ToList();
         grila.AddRange(await CitesteGrile(active.Where(GrilaFolosibila).Where(q => !luate.Contains(q.Id)).OrderBy(_ => EF.Functions.Random()).Take(Rezerva), ct));
 
-        var estimari = await CitesteEstimari(deInsule.SelectMany(p => p.Intrebari.AsQueryable().Where(EstimareFolosibila)
+        var estimari = await CitesteEstimari(deInsule.SelectMany(p => intrebariInsule.Where(q => q.ParcursId == p.Id && q.MaterieId == p.MaterieId).Where(EstimareFolosibila)
             .OrderBy(_ => EF.Functions.Random()).Take(PeInsula / 5 + 1)), ct);
         luate = estimari.Select(q => q.Id).ToList();
         estimari.AddRange(await CitesteEstimari(active.Where(EstimareFolosibila).Where(q => !luate.Contains(q.Id))
@@ -46,7 +51,7 @@ public sealed class PachetIntrebari(List<IntrebareGrila> grila, List<IntrebareEs
 
     // A multiple-choice question is usable when active, with 2–4 options and exactly one right one; an estimate when it has an answer.
     private static readonly Expression<Func<Intrebare, bool>> GrilaFolosibila = q => q.Activa && q.Tip == Intrebare.Grila
-        && q.Variante.Count >= 2 && q.Variante.Count <= 4 && q.Variante.Count(v => v.Corecta) == 1;
+        && q.Variante.Any(v => v.Corecta) && q.Variante.Any(v => !v.Corecta) && q.Variante.Count <= 4;
     private static readonly Expression<Func<Intrebare, bool>> EstimareFolosibila = q => q.Activa && q.Tip == Intrebare.Estimare && q.RaspunsNumeric != null;
 
     private static async Task<List<IntrebareGrila>> CitesteGrile(IQueryable<Intrebare> q, CancellationToken ct) =>

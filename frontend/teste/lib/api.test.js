@@ -31,6 +31,33 @@ describe("api()", () => {
     await expect(api("/utilizatori/me")).resolves.toEqual({ id: 7, nume: "Ana" });
   });
 
+  it("GET-urile identice simultane fac o singură cerere, cu copii separate", async () => {
+    const cereri = apiFals({ "GET /progres": { nivel: { nivel: 3 } } });
+    const [a, b] = await Promise.all([api("/progres"), api("/progres")]);
+    expect(cereri).toHaveLength(1);
+    expect(a).toEqual(b);
+    a.nivel.nivel = 99;
+    expect(b.nivel.nivel).toBe(3);
+    await api("/progres");
+    expect(cereri).toHaveLength(2);
+  });
+
+  it("după o modificare, un GET nou nu primește răspunsul unuia pornit înainte", async () => {
+    let n = 0;
+    const cereri = apiFals({ "GET /utilizatori/me": () => ({ id: ++n }), "POST /autentificare": { id: 1 } });
+    const vechi = api("/utilizatori/me");
+    await api("/autentificare", { metoda: "POST", corp: {} });
+    const nou = api("/utilizatori/me");
+    expect((await vechi).id).not.toBe((await nou).id);
+    expect(cereri.filter((c) => c.cale === "/utilizatori/me")).toHaveLength(2);
+  });
+
+  it("POST-urile nu sunt comasate", async () => {
+    const cereri = apiFals({ "POST /teme/1/predare": raspuns(204) });
+    await Promise.all([api("/teme/1/predare", { metoda: "POST" }), api("/teme/1/predare", { metoda: "POST" })]);
+    expect(cereri).toHaveLength(2);
+  });
+
   it("întoarce null la 204", async () => {
     apiFals({ "POST /autentificare/iesire": raspuns(204) });
     await expect(api("/autentificare/iesire", { metoda: "POST" })).resolves.toBeNull();

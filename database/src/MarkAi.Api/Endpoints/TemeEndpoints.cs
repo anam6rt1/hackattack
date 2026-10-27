@@ -142,6 +142,8 @@ public static class TemeEndpoints
 
     private static IQueryable<Parcurs> PentruOrganizatie(MarkAiDbContext db, int org) => db.Set<Parcurs>().Where(l => l.Publicat
         && (l.Vizibilitate == Parcurs.Public || l.OrganizatieId == org || l.Partajari.Any(s => s.OrganizatieId == org))
+        // Counted here, not two EXISTS as in QuizEndpoints.IntrebariValide: inside "has any such question" the counts let PostgreSQL stop at
+        // the Lecție's first valid question, while EXISTS becomes a hash join over every option (~25 vs ~32 ms with 29 000 questions).
         && l.Intrebari.Any(q => q.Activa && q.Tip == Intrebare.Grila && q.Variante.Count >= 2 && q.Variante.Count(v => v.Corecta) == 1));
     private static IQueryable<MembruOrganizatie> Elevi(MarkAiDbContext db, int org) => db.Set<MembruOrganizatie>().Where(m => m.OrganizatieId == org && m.Rol == "elev" && m.Stare == "aprobat" && m.Utilizator.StergereCerutaLa == null);
     private static async Task<bool> Profesor(MarkAiDbContext db, int org, int uid, CancellationToken ct)

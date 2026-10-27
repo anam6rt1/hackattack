@@ -147,7 +147,7 @@ describe("testul lecției", () => {
     render(<IntrebareNivel parcursId={5} />);
     expect(await screen.findByText("Lecția nu are încă întrebări.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Încearcă din nou" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Înapoi la lecție/ })[0]).toHaveAttribute("href", "/parcurs/5");
+    expect(screen.getAllByRole("link", { name: /Înapoi la lecție/ })[0]).toHaveAttribute("href", "/parcurs?id=5");
   });
 
   it("pauza dintre teste e explicată", async () => {

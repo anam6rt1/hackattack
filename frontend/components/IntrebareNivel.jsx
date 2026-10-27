@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { T } from "@/lib/tema";
+import { rute } from "@/lib/rute";
 
 const LITERE = ["A", "B", "C", "D", "E", "F"];
 
@@ -67,7 +68,7 @@ export default function IntrebareNivel({ parcursId }) {
     setRezultat(null);
   }
 
-  const inapoi = `/parcurs/${parcursId}`;
+  const inapoi = rute.parcurs(parcursId);
   const final = rezultat?.final;
   const intrebare = test?.intrebari[pas];
   const numar = test ? test.raspunse + pas + 1 : 0;
@@ -157,6 +158,7 @@ function Rezumat({ final, texte, inapoi, onReia }) {
             : `${final.corecte} din ${final.total} corecte. Ai nevoie de ${final.necesare} ca să treci lecția.`}
         </p>
         {!final.promovat && <p className={`mt-1 text-sm ${T.textSecundar}`}>Recitește materialele și reia testul peste un minut.</p>}
+        {final.offline && <p className={`mt-1 text-sm ${T.textSecundar}`}>Rezultat calculat pe dispozitiv: serverul îl verifică și acordă XP-ul când revii online.</p>}
       </div>
 
       <ol className="mt-5 grid gap-3">

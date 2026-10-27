@@ -81,6 +81,16 @@ public sealed class ProfesoriOrganizatieTests : TestOrganizatii
     }
 
     [Fact]
+    public async Task CuDeciziileOpriteAprobareaNuTrimiteEmail()
+    {
+        var (c, id) = await ProfesorNou();
+        await c.Put("/utilizatori/me/notificari", new { sedinte = false, decizii = false, temeNoi = false, termeneTeme = false }).Status(HttpStatusCode.NoContent);
+        await director.Post($"/organizatia-mea/membri/{id}/aprobare").Status(HttpStatusCode.NoContent);
+        await Proceseaza();
+        h.Emailuri.Trimise.ShouldNotContain(m => m.Catre == "paul@example.invalid" && m.Subiect.Contains("a fost aprobată"));
+    }
+
+    [Fact]
     public async Task AdminiiPlatformeiNuMaiAprobaProfesori()
     {
         var (_, id) = await ProfesorNou();

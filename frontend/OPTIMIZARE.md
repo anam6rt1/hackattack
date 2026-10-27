@@ -19,14 +19,25 @@ cu numele, dimensiunea și o singură previzualizare, fără comparații sau det
 despre optimizare. În timpul pregătirii apare doar „Se pregătește fișierul…”.
 PDF: rescriere structurală cu obiecte comprimate, fără rasterizare sau re-encodarea
 imaginilor; formularele, semnăturile și protecțiile determină păstrarea originalului.
-Office: recompresie ZIP nivel 9, păstrând fiecare fișier intern identic octet cu
-octet după dezarhivare; documentele semnate sunt păstrate originale. Containerul
-rezultat diferă de original, deci aceste operații nu promit identitate binară a
-întregului fișier. Nu se reduc rezoluția sau calitatea imaginilor din documente.
+Office (decizia proprietarului, planul 4): textul, XML-ul și relațiile rămân identice
+octet cu octet, dar imaginile din folderele media (PNG/JPEG) sunt micșorate mereu,
+cu o pierdere mică de calitate:
+- latura lungă a imaginii este redusă la cel mult 1920 px;
+- fotografiile PNG opace (cel puțin 1024 de culori, fără transparență) devin JPEG
+  calitate 0,85; relațiile (.rels) și [Content_Types].xml sunt actualizate;
+- diagramele, desenele cu paletă și imaginile transparente rămân PNG;
+- toate PNG-urile rămase sunt recomprimate fără pierderi (nivel 9 cât ține bugetul
+  de 16 MiB pixeli per document, apoi fluxul nativ al browserului, mai rapid);
+- fotografiile JPEG rotite prin EXIF nu sunt atinse, ca să nu apară întoarse;
+- o imagine al cărei rezultat ar fi mai mare rămâne cum era.
+Documentele semnate sunt păstrate originale. Pe prezentările testate (25 oct. 2026):
+21,2 → 7,9 MiB (-63%), 4,2 → 1,8 MiB (-57%), 3,4 → 1,0 MiB (-70%), 0,7 → 0,55 MiB
+(-20%), în 1–6 secunde, în Chromium și Firefox. Rezultatele depind de document.
 
-Documentele sunt procesate secvențial, într-un worker, maximum 20 MB la intrare,
-20 secunde per fișier, maximum 500 pagini PDF sau 64 MB/5000 intrări Office la
-dezarhivare. Fișierele sub 32 KiB sunt păstrate originale. La erori, depășirea
+Documentele sunt procesate secvențial, într-un worker, maximum 64 MB la intrare
+(un fișier peste limita de upload poate încăpea după micșorarea imaginilor),
+20 secunde plus o secundă per MiB (maximum 90), maximum 500 pagini PDF sau
+160 MB/5000 intrări Office la dezarhivare. Fișierele sub 32 KiB sunt păstrate originale. La erori, depășirea
 limitelor, rezultat mai mare sau economie sub 5%, se trimite originalul și motivul
 rămâne intern, fără a încărca interfața cu detalii tehnice. Schimbarea selecției anulează workerul. Nicio reducere nu este garantată.
 

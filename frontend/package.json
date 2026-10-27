@@ -16,7 +16,8 @@
     "test:e2e:webkit": "e2e/webkit-container.sh",
     "test:optimizare": "node --test teste/optimizare-fisiere.node.mjs",
     "verifica": "node tools/verifica.mjs",
-    "test:uploads": "node tools/verifica-upload.mjs"
+    "test:uploads": "node tools/verifica-upload.mjs",
+    "build:aplicatii": "node tools/build-aplicatii.mjs"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.11",
@@ -43,6 +44,7 @@
     "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.13.0",
     "eslint-config-next": "16.4.2",
+    "fake-indexeddb": "^6.2.6",
     "jsdom": "^30.1.3",
     "tailwindcss": "^4",
     "typescript": "^6",

@@ -1,7 +1,9 @@
 import { unzipSync, zipSync } from 'fflate'
+import { esteImagineOffice, micsoreazaImagini } from './imagini-office.mjs'
 
-// Rewrites containers, never rasterizes pages or changes Office entry contents.
-export async function reconstruiesteDocument(bytes, ext) {
+// PDF: structural rewrite only, pages are never rasterized. Office: text and XML stay byte-for-byte identical; the images in
+// the media folders are made smaller (see imagini-office.mjs), with `codeaza` (the browser's encoder) when it is available.
+export async function reconstruiesteDocument(bytes, ext, { codeaza } = {}) {
   if (ext === 'pdf') {
     const { PDFDocument, PDFName } = await import('pdf-lib')
     const pdf = await PDFDocument.load(bytes, { updateMetadata: false, throwOnInvalidObject: true })
@@ -18,7 +20,7 @@ export async function reconstruiesteDocument(bytes, ext) {
   const seen = new Set()
   const entries = unzipSync(bytes, { filter: f => {
     total += f.originalSize
-    if (++count > 5000 || total > 64 * 1024 * 1024 || seen.has(f.name)) throw new Error('Arhivă prea complexă sau ambiguă.')
+    if (++count > 5000 || total > 160 * 1024 * 1024 || seen.has(f.name)) throw new Error('Arhivă prea complexă sau ambiguă.')
     seen.add(f.name)
     return true
   } })
@@ -26,6 +28,8 @@ export async function reconstruiesteDocument(bytes, ext) {
   if ([...seen].some(n => n.toLowerCase().includes('_xmlsignatures/')) ||
       Object.entries(entries).some(([n, b]) => n.endsWith('.rels') && new TextDecoder().decode(b).includes('/digital-signature/')))
     return { motiv: 'Document semnat digital: păstrăm originalul.' }
-  // XML, images, relationships and embedded media remain byte-for-byte identical after decompression.
-  return { bytes: zipSync(entries, { level: 9, mtime: new Date(1980, 0, 1) }) }
+  await micsoreazaImagini(entries, codeaza)
+  // JPEG and PNG are compressed already: storing them as they are is as small and much faster than deflating them again.
+  const arhiva = Object.fromEntries(Object.entries(entries).map(([n, b]) => [n, esteImagineOffice(n) ? [b, { level: 0 }] : b]))
+  return { bytes: zipSync(arhiva, { level: 9, mtime: new Date(1980, 0, 1) }) }
 }

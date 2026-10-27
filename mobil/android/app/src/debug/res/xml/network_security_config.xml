@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Doar în build-ul de test (debug): HTTP simplu către acest dispozitiv, pentru stiva de test adusă cu `adb reverse`.
+     Build-ul de lansare nu are acest fișier: acolo Android permite numai HTTPS. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

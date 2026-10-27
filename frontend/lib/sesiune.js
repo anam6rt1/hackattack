@@ -5,16 +5,26 @@
 //   altfel                   → { id, nume, rol: 'elev' | 'profesor' | 'organizatie' | 'admin', stareProfesor, organizatii, ... }
 // „organizatie” = administratorul unei organizații; predă și el, deci poate tot ce poate un profesor.
 
-import { offlineClear, offlineRead } from '../public/offline-store'
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 
 const Context = createContext(null)
+// Lecțiile descărcate și rezultatele offline aparțin unui singur cont: alt cont pe același dispozitiv le golește.
 async function verificaOffline(u) {
-  if (typeof indexedDB === 'undefined') return
-  const rows = await offlineRead()
-  if (rows.some(r => r.uid !== u.id)) await offlineClear()
+  const { proprietar, golesteTot } = await import('./offline/depozit')
+  const p = await proprietar()
+  if (p !== null && p !== u.id) await golesteTot()
+}
+
+/** Înainte de ieșire: rezultatele offline netrimise se trimit; dacă nu se poate, elevul alege dacă le pierde. */
+async function trimiteInainteDeIesire() {
+  const { areDateOffline } = await import('./offline/depozit')
+  if (!areDateOffline()) return true
+  const { actiuniInAsteptare, sincronizeaza } = await import('./offline/sincronizare')
+  if ((await actiuniInAsteptare()).length) await sincronizeaza().catch(() => {})
+  const ramase = (await actiuniInAsteptare()).length
+  return !ramase || window.confirm(`Ai ${ramase} ${ramase === 1 ? 'rezultat offline netrimis' : 'rezultate offline netrimise'} (teste, simulări). Dacă ieși acum, se pierd. Ieși oricum?`)
 }
 
 export function SesiuneProvider({ children }) {
@@ -58,7 +68,8 @@ export function SesiuneProvider({ children }) {
       return api('/autentificare/retrimite-confirmare', { metoda: 'POST', corp: { email } })
     },
     async iese() {
-      if (typeof indexedDB !== 'undefined') await offlineClear();
+      if (!(await trimiteInainteDeIesire())) return false
+      await (await import('./offline/depozit')).golesteTot().catch(() => {})
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         try {
           const reg = await navigator.serviceWorker.getRegistration('/')
@@ -69,6 +80,7 @@ export function SesiuneProvider({ children }) {
       }
       await api('/autentificare/iesire', { metoda: 'POST' }).catch(() => {})
       setUtilizator(null)
+      return true
     },
   }
   return <Context.Provider value={valoare}>{children}</Context.Provider>

@@ -16,10 +16,16 @@ export default function PrevizualizareSalvat({ fisier }) {
     controller.current = c
     setBusy(true); setEroare('')
     try {
+      const office = ['docx', 'pptx', 'xlsx'].includes(fisier.tip)
+      // A downloaded Lecție has the file (and, for Office, its PDF copy) on the device: instant, and it works offline.
+      // Excel keeps its sheet picker online; offline it shows the copy of the first sheet.
+      if ((await import('@/lib/offline/depozit')).areDateOffline() && (fisier.tip !== 'xlsx' || !navigator.onLine)) {
+        const blob = await (await import('@/lib/offline/pachete')).fisierDescarcat(fisier.id, office ? 'pdf' : 'original')
+        if (blob) { setLocal(new File([blob], fisier.nume, { type: 'application/pdf' })); return }
+      }
       if (fisier.tip === 'xlsx') { setLocal({ excel: true }); return }
       const limita = 20 * 1024 * 1024
       if (fisier.marimeOcteti > limita) throw new Error('Pentru fișiere peste 20 MB, folosește Deschide sau descarcă documentul.')
-      const office = ['docx', 'pptx', 'xlsx'].includes(fisier.tip)
       const r = await fetch(`${API}/fisiere/${fisier.id}${office ? '/previzualizare' : '?descarca=true'}`, { credentials: 'include', headers: { 'X-MarkAi': '1' }, signal: c.signal })
       if (!r.ok) { const e = await r.json().catch(() => null); throw new Error(e?.mesaj || 'Fișierul nu poate fi deschis. Verifică accesul și reîncearcă.') }
       const reader = r.body.getReader()

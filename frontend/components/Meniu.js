@@ -59,7 +59,7 @@ const PAGINI = {
     { href: '/admin/profesori', nume: 'Profesori', icon: 'profesori' },
     { href: '/admin/continut', nume: 'Conținut', icon: 'continut' },
     { href: '/admin/mesaje', nume: 'Mesaje', icon: 'mesaje' },
-    { href: '/admin/feedback', nume: 'Feedback', icon: 'mesaje' },
+    { href: '/admin/contact', nume: 'Contact', icon: 'mesaje' },
   ],
 }
 
@@ -119,6 +119,16 @@ function Cont({ utilizator, onIese }) {
             <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
             Profil: avatar și stil
           </Link>
+          {utilizator.rol === 'elev' && (
+            <Link href="/descarcate" className="sc-menu-link" onClick={() => setDeschis(false)}>
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 19h16" /></svg>
+              Lecții descărcate
+            </Link>
+          )}
+          <Link href="/contact" className="sc-menu-link" onClick={() => setDeschis(false)}>
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></svg>
+            Contact și ajutor
+          </Link>
           <div className="mn-pop-titlu">Tema site-ului</div>
           <div className="mn-teme">
             <button className={`mn-tema ${preferinta === 'auto' ? 'mn-tema-activa' : ''}`} onClick={() => alege('auto')}>
@@ -157,8 +167,8 @@ export default function Meniu() {
   const pagini = utilizator && (!esteProfesor(utilizator) || profesorAprobat(utilizator)) ? PAGINI[utilizator.rol] : []
 
   async function ieseSiPleaca() {
-    await iese()
-    router.push('/')
+    // false: elevul a ales să rămână, ca rezultatele offline netrimise să nu se piardă.
+    if (await iese()) router.push('/')
   }
 
   return (

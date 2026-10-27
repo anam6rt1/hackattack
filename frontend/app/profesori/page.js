@@ -7,7 +7,7 @@
 //    „și alte X sesiuni” le aduce pe toate (cu același filtru online / față în față).
 //  • profesor: ședințele proprii (programare, înscrieri, anulare).
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { api, dataOra, urlApi } from '@/lib/api'
 import { PARTICIPARE, TIPURI_SEDINTA, textAlteSesiuni, textLoc } from '@/lib/sedinte'
@@ -20,6 +20,72 @@ import SloturileMele from '@/components/profesori/SloturileMele'
 import AnuleazaRezervare from '@/components/profesori/AnuleazaRezervare'
 
 const DECOR = decorSVG(41)
+
+// Un rând din lista de ședințe a unui profesor (pe card și în fereastra cu toate ședințele).
+function RandSedinta({ s, pret, rezervareMea, onRezerva, onAnulat }) {
+  return (
+    <li className="tv-rand">
+      <div>
+        <b>{s.titlu}</b>
+        <small>
+          {dataOra(s.inceputLa)} · {TIPURI_SEDINTA[s.tip]}{s.loc ? ` (${[textLoc({ ...s.loc, judet: null }), s.notaLoc].filter(Boolean).join(' · ')})` : ''} · {s.locuriLibere > 0 ? `${s.locuriLibere} din ${s.capacitate} locuri libere` : 'complet'} · {s.proBono ? 'gratuit' : pret ? `${pret.suma} ${pret.moneda}` : 'plătit'}
+        </small>
+      </div>
+      {s.rezervatDeMine ? (
+        <span className="tv-butoane">
+          <span className="tv-pastila tv-pastila-verde">Rezervat</span>
+          {rezervareMea && <AnuleazaRezervare rezervareId={rezervareMea} onAnulat={onAnulat} />}
+        </span>
+      ) : (
+        <button className="tv-pastila tv-pastila-aur" disabled={s.locuriLibere === 0} onClick={onRezerva}>
+          {s.locuriLibere === 0 ? 'Complet' : 'Rezervă'}
+        </button>
+      )}
+    </li>
+  )
+}
+
+// „și alte X sesiuni”: toate ședințele viitoare ale profesorului, în fereastra site-ului. activa = false cât e deschisă rezervarea
+// peste ea (Escape o închide doar pe aceea).
+function SedinteProfesor({ profesor, sloturi, activa, onInchide, children }) {
+  const inchide = useRef(null)
+  useEffect(() => { inchide.current?.focus() }, [])
+  useEffect(() => {
+    if (!activa) return
+    const tasta = (e) => e.key === 'Escape' && onInchide()
+    window.addEventListener('keydown', tasta)
+    return () => window.removeEventListener('keydown', tasta)
+  }, [activa, onInchide])
+  return (
+    <div className="tv-fundal" onClick={onInchide}>
+      <div className="tv-fereastra tv-fereastra-sedinte" role="dialog" aria-modal="true" aria-labelledby="sedinte-titlu" onClick={(e) => e.stopPropagation()}>
+        <div className="tv-nivel">
+          {profesor.pozaUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={urlApi(`${profesor.pozaUrl}?marime=mica`)} alt="" className="tv-poza" width={56} height={56} decoding="async" />
+          ) : (
+            <span className="tv-nivel-insigna" style={{ width: 56, height: 56, fontSize: 24 }}>{profesor.nume.charAt(0)}</span>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <h3 id="sedinte-titlu" style={{ color: 'var(--maro)', fontSize: 24 }}>Ședințele lui {profesor.nume}</h3>
+            <p className="tv-indiciu">{profesor.materii.map((m) => m.denumire).join(', ')}</p>
+          </div>
+        </div>
+        {sloturi === null ? (
+          <p className="tv-asteapta">Se încarcă...</p>
+        ) : sloturi.length === 0 ? (
+          <p className="tv-gol">Profesorul nu mai are ședințe viitoare.</p>
+        ) : (
+          <>
+            <div className="tv-mic">{sloturi.length === 1 ? 'O ședință viitoare' : `${sloturi.length} ședințe viitoare`}</div>
+            <ul className="tv-lista tv-lista-sedinte">{sloturi.map(children)}</ul>
+          </>
+        )}
+        <button type="button" ref={inchide} className="tv-btn tv-gri" onClick={onInchide}>Închide</button>
+      </div>
+    </div>
+  )
+}
 
 function Rezervare({ slot, profesor, pret, onInchide, onRezervat }) {
   const [stare, setStare] = useState('confirmare') // confirmare | trimite | gata
@@ -112,10 +178,8 @@ function Director({ utilizator }) {
   const [ales, setAles] = useState(null) // { slot, profesor }
   const [rezervarileMele, setRezervarileMele] = useState({}) // slotId → id-ul rezervării mele confirmate
   const [eroare, setEroare] = useState('')
-  // id profesor → toate ședințele lui viitoare (după „și alte X sesiuni”), pentru filtrul (și pagina) de atunci: la alt filtru,
-  // cardurile pornesc din nou restrânse.
-  const [extinse, setExtinse] = useState({ pentru: null, sloturi: {} })
-  const deschise = extinse.pentru === filtru ? extinse.sloturi : {}
+  // „și alte X sesiuni”: toate ședințele viitoare ale unui profesor, într-o fereastră ({ profesor, sloturi }; sloturi null cât se încarcă).
+  const [toate, setToate] = useState(null)
 
   const incarca = useCallback(() => {
     const q = new URLSearchParams()
@@ -133,21 +197,20 @@ function Director({ utilizator }) {
       .catch(() => {})
   }, [filtru])
 
-  function extinde(id) {
-    api(`/profesori/${id}` + (filtru.tip ? `?tip=${filtru.tip}` : ''))
-      .then((p) => setExtinse((e) => ({ pentru: filtru, sloturi: { ...(e.pentru === filtru ? e.sloturi : {}), [id]: p.sloturi } })))
-      .catch((e) => setEroare(e.message))
+  function deschideToate(profesor) {
+    setToate({ profesor, sloturi: null })
+    api(`/profesori/${profesor.id}` + (filtru.tip ? `?tip=${filtru.tip}` : ''))
+      .then((r) => setToate((t) => (t?.profesor.id === profesor.id ? { profesor, sloturi: r.sloturi } : t)))
+      .catch((e) => { setToate(null); setEroare(e.message) })
   }
-  function ascunde(id) {
-    const rest = { ...deschise }
-    delete rest[id]
-    setExtinse({ pentru: filtru, sloturi: rest })
-  }
-  // După o rezervare sau o anulare: lista și ședințele deschise, ca locurile libere să fie la zi.
+  // După o rezervare sau o anulare: lista și fereastra cu toate ședințele, ca locurile libere să fie la zi.
   function reincarca() {
     incarca()
-    Object.keys(deschise).forEach(extinde)
+    if (toate) deschideToate(toate.profesor)
   }
+  const randSedinta = (s, p) => (
+    <RandSedinta key={s.id} s={s} pret={pret} rezervareMea={rezervarileMele[s.id]} onRezerva={() => setAles({ slot: s, profesor: p })} onAnulat={reincarca} />
+  )
 
   function alegePagina(p) {
     setFiltru((f) => ({ ...f, pagina: p }))
@@ -236,32 +299,10 @@ function Director({ utilizator }) {
               </div>
               {p.descriere && <p>{p.descriere}</p>}
               <div className="tv-mic">Ședințe viitoare</div>
-              <ul className="tv-lista">
-                {(deschise[p.id] ?? p.sloturi).map((s) => (
-                  <li key={s.id} className="tv-rand">
-                    <div>
-                      <b>{s.titlu}</b>
-                      <small>
-                        {dataOra(s.inceputLa)} · {TIPURI_SEDINTA[s.tip]}{s.loc ? ` (${[textLoc({ ...s.loc, judet: null }), s.notaLoc].filter(Boolean).join(' · ')})` : ''} · {s.locuriLibere > 0 ? `${s.locuriLibere} din ${s.capacitate} locuri libere` : 'complet'} · {s.proBono ? 'gratuit' : pret ? `${pret.suma} ${pret.moneda}` : 'plătit'}
-                      </small>
-                    </div>
-                    {s.rezervatDeMine ? (
-                      <span className="tv-butoane">
-                        <span className="tv-pastila tv-pastila-verde">Rezervat</span>
-                        {rezervarileMele[s.id] && <AnuleazaRezervare rezervareId={rezervarileMele[s.id]} onAnulat={reincarca} />}
-                      </span>
-                    ) : (
-                      <button className="tv-pastila tv-pastila-aur" disabled={s.locuriLibere === 0} onClick={() => setAles({ slot: s, profesor: p })}>
-                        {s.locuriLibere === 0 ? 'Complet' : 'Rezervă'}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <ul className="tv-lista">{p.sloturi.map((s) => randSedinta(s, p))}</ul>
               {p.alteSesiuni > 0 && (
-                <button type="button" className="tv-alte-sesiuni" aria-expanded={Boolean(deschise[p.id])}
-                  onClick={() => (deschise[p.id] ? ascunde(p.id) : extinde(p.id))}>
-                  {deschise[p.id] ? 'Ascunde celelalte sesiuni' : textAlteSesiuni(p.alteSesiuni)}
+                <button type="button" className="tv-alte-sesiuni" aria-haspopup="dialog" onClick={() => deschideToate(p)}>
+                  {textAlteSesiuni(p.alteSesiuni)}
                 </button>
               )}
             </article>
@@ -275,6 +316,11 @@ function Director({ utilizator }) {
         </>
       )}
 
+      {toate && (
+        <SedinteProfesor profesor={toate.profesor} sloturi={toate.sloturi} activa={!ales} onInchide={() => setToate(null)}>
+          {(s) => randSedinta(s, toate.profesor)}
+        </SedinteProfesor>
+      )}
       {ales && pret !== undefined && (
         <Rezervare slot={ales.slot} profesor={ales.profesor} pret={pret ?? { suma: 0, moneda: 'RON', durataMinute: 60 }} onInchide={() => setAles(null)} onRezervat={reincarca} />
       )}

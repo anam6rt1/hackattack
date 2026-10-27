@@ -117,9 +117,12 @@ public static class QuizEndpoints
     }
 
     /// <summary>The Lecție's active multiple-choice questions with exactly one correct option among at least two.</summary>
+    /// <remarks>"A correct option and a wrong one" is the same rule: the unique index <c>intrebare_varianta_o_corecta</c> allows at most one
+    /// correct option, and two EXISTS probes cost less than counting the options (the same check is used by simulations, mistakes,
+    /// offline packages and Triviador; homework keeps the counts, see TemeEndpoints).</remarks>
     public static IQueryable<Intrebare> IntrebariValide(MarkAiDbContext db, int parcursId) =>
         db.Set<Intrebare>().Where(q => q.ParcursId == parcursId && q.Activa && q.Tip == Intrebare.Grila
-            && q.Variante.Count >= 2 && q.Variante.Count(o => o.Corecta) == 1);
+            && q.Variante.Any(o => o.Corecta) && q.Variante.Any(o => !o.Corecta));
 
     private static async Task<IncercareQuizDto> Dto(MarkAiDbContext db, IncercareQuiz incercare, CancellationToken ct)
     {

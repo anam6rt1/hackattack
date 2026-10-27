@@ -5,6 +5,7 @@ import { api, dataOra } from '@/lib/api'
 import { usePagina } from '@/lib/sesiune'
 import Incarcare from '@/components/Incarcare'
 import Paginare from '@/components/Paginare'
+import { rute } from '@/lib/rute'
 
 function Intrebare({ q, ocupat, final, onRaspunde }) {
   const [valoare, setValoare] = useState(q.valoareAleasa ?? '')
@@ -47,7 +48,7 @@ function Examen({ initial, onInchis }) {
     {eroare && <p className="tv-eroare" role="alert">{eroare}</p>}
     {date.intrebari.map(q => <Intrebare key={q.id} q={q} final={final} ocupat={ocupat || secunde === 0} onRaspunde={trimite} />)}
     {!final && <><p>{date.total - raspunse} întrebări fără răspuns vor conta ca greșite dacă închei acum.</p><button className="tv-btn" disabled={ocupat} onClick={() => trimite(null, true)}>Încheie simularea</button></>}
-    {final && <><h3>Lecții de recapitulat</h3>{date.deRecapitulat.length === 0 ? <p>Ai răspuns corect la toate întrebările.</p> : <ul>{date.deRecapitulat.map(l => <li key={l.parcursId}><Link href={`/parcurs/${l.parcursId}`}>{l.lectie}</Link> · {l.greseli} greșeli</li>)}</ul>}<button className="tv-pastila" onClick={onInchis}>Înapoi la simulări</button></>}
+    {final && <><h3>Lecții de recapitulat</h3>{date.deRecapitulat.length === 0 ? <p>Ai răspuns corect la toate întrebările.</p> : <ul>{date.deRecapitulat.map(l => <li key={l.parcursId}><Link href={rute.parcurs(l.parcursId)}>{l.lectie}</Link> · {l.greseli} greșeli</li>)}</ul>}<button className="tv-pastila" onClick={onInchis}>Înapoi la simulări</button></>}
   </section>
 }
 

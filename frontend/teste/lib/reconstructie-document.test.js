@@ -4,7 +4,7 @@ import { zipSync, unzipSync, strToU8 } from 'fflate'
 import { reconstruiesteDocument } from '@/lib/reconstructie-document.mjs'
 import { marimeFisier } from '@/lib/marime-fisier'
 
-describe('reconstrucția fără reducerea calității', () => {
+describe('reconstrucția documentelor', () => {
   it('PDF păstrează paginile și metadatele, cu structură comprimată', async () => {
     const pdf = await PDFDocument.create()
     pdf.setTitle('Material academic'); pdf.setAuthor('Profesor')
@@ -37,9 +37,11 @@ describe('reconstrucția fără reducerea calității', () => {
   it('Office semnat digital și arhivele prea mari nu sunt rescrise', async () => {
     const entries = { '[Content_Types].xml': strToU8('<Types/>'), 'word/document.xml': strToU8('<document/>'), '_xmlsignatures/sig.xml': strToU8('<signature/>') }
     expect((await reconstruiesteDocument(zipSync(entries), 'docx')).motiv).toMatch(/semnat/)
-    const big = zipSync({ 'word/document.xml': new Uint8Array(65 * 1024 * 1024) })
+    const multe = zipSync(Object.fromEntries(Array.from({ length: 5001 }, (_, i) => [`word/p${i}.xml`, strToU8('x')])))
+    await expect(reconstruiesteDocument(multe, 'docx')).rejects.toThrow(/complexă/)
+    const big = zipSync({ 'word/document.xml': new Uint8Array(161 * 1024 * 1024) })
     await expect(reconstruiesteDocument(big, 'docx')).rejects.toThrow(/complexă/)
-  })
+  }, 60_000)
   it('dimensiunea nu ascunde economii prin rotunjire', () => {
     expect(marimeFisier(1301840)).toContain('1,24 MiB')
     expect(marimeFisier(1301840)).toContain('1.301.840 octeți')

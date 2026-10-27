@@ -1,0 +1,25 @@
+{
+  "name": "telebac-mobil",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TeleBac pentru Android și iOS (Capacitor): aceeași platformă, cu lecțiile descărcate disponibile și fără internet.",
+  "scripts": {
+    "site": "npm --prefix ../frontend run build:aplicatii",
+    "sync": "npm run site && cap sync",
+    "android:apk": "npm run sync && cd android && ./gradlew assembleDebug",
+    "ios:deschide": "npm run sync && cap open ios",
+    "test:android": "node test-android.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.4",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "@playwright/test": "^1.64.1"
+  }
+}

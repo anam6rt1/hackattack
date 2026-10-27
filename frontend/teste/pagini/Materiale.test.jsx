@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import PaginaMateriale from "@/app/materiale/page";
@@ -41,5 +41,41 @@ describe("Materiale: lista materiilor pe pagini", () => {
     const { interogari } = porneste("admin");
     await screen.findByRole("heading", { name: "Materia 1" });
     expect(interogari().at(-1).get("marime")).toBe(String(MATERII_PE_PAGINA_MATERIALE_ADMIN));
+  });
+});
+
+describe("Materiale: căutarea pe pagini", () => {
+  const lectieGasita = (id) => ({ id, titlu: `Lecția ${id}`, clasa: "XII", descriere: null, vizibilitate: "public", autor: "Irina", organizatie: null });
+  const capitolGasit = (id) => ({ id, titlu: `Capitolul ${id}`, capitol: null, parcursId: 1, parcurs: "Lecția 1", clasa: "XII", materieId: 1, materie: "Română" });
+
+  it("arată câte 9 lecții pe pagină, capitolele separat, iar un text nou pornește de la prima pagină", async () => {
+    const cereri = apiFals({
+      "GET /utilizatori/me": { id: 1, nume: "Ana", rol: "elev", organizatii: [] },
+      "GET /materii": { elemente: [materie(1)], total: 1 },
+      "GET /cautare": (c) => {
+        const q = new URLSearchParams(c.query);
+        const p = Number(q.get("pagina") ?? 1), m = Number(q.get("marime"));
+        const pc = Number(q.get("paginaCapitole") ?? 1), mc = Number(q.get("marimeCapitole"));
+        const lectii = Array.from({ length: 20 }, (_, i) => lectieGasita(i + 1)), capitole = Array.from({ length: 12 }, (_, i) => capitolGasit(i + 1));
+        return { lectii: lectii.slice((p - 1) * m, p * m), capitole: capitole.slice((pc - 1) * mc, pc * mc), totalLectii: 20, totalCapitole: 12 };
+      },
+    });
+    render(<SesiuneProvider><PaginaMateriale /></SesiuneProvider>);
+    const u = userEvent.setup();
+    await u.type(await screen.findByLabelText("Caută o lecție sau un capitol"), "lec");
+    expect(await screen.findByRole("heading", { name: "Lecția 1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "20 lecții" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: /^Lecția \d+$/ })).toHaveLength(9);
+    expect(screen.getAllByRole("link", { name: /Capitolul/ })).toHaveLength(10);
+
+    expect(screen.getByRole("navigation", { name: "Paginile capitolelor găsite" })).toBeInTheDocument();
+    await u.click(within(screen.getByRole("navigation", { name: "Paginile lecțiilor găsite" })).getByRole("button", { name: "Pagina 3" }));
+    expect(await screen.findByRole("heading", { name: "Lecția 19" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: /^Lecția \d+$/ })).toHaveLength(2);
+
+    await u.type(screen.getByLabelText("Caută o lecție sau un capitol"), "t");
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Lecția 1" })).toBeInTheDocument());
+    const ultima = new URLSearchParams(cereri.filter((c) => c.cale === "/cautare").at(-1).query);
+    expect(ultima.get("q")).toBe("lect"); expect(ultima.get("pagina")).toBeNull(); expect(ultima.get("marime")).toBe("9");
   });
 });

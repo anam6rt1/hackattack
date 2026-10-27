@@ -1,0 +1,71 @@
+# The desktop and mobile apps, built on demand (Actions → Aplicații → Run workflow): the Windows installer and portable .exe
+# (on Windows, so the icon and version are embedded), the Android APK (debug) and a compile check of the iOS project for the
+# simulator (macOS). Nothing is signed: signing needs a code-signing certificate (Windows), the release keystore (Android) and
+# an Apple Developer account (iOS), which belong to the project owner, not to the repository.
+name: Aplicații
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Desktop Windows (.exe)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Exportul static al site-ului
+        working-directory: frontend
+        run: npm ci && npm run build:aplicatii
+      - name: Instalator și .exe portabil
+        working-directory: desktop
+        run: npm ci && npx electron-builder --win
+      - uses: actions/upload-artifact@v7
+        with:
+          name: telebac-windows
+          path: desktop/dist/*.exe
+
+  android:
+    name: Android (APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Exportul static al site-ului
+        working-directory: frontend
+        run: npm ci && npm run build:aplicatii
+      - name: APK
+        working-directory: mobil
+        run: npm ci && npx cap sync android && cd android && ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v7
+        with:
+          name: telebac-android
+          path: mobil/android/app/build/outputs/apk/debug/app-debug.apk
+
+  ios:
+    name: iOS (compilare pentru simulator)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Exportul static al site-ului
+        working-directory: frontend
+        run: npm ci && npm run build:aplicatii
+      - name: Proiectul Xcode
+        working-directory: mobil
+        run: |
+          npm ci && npx cap sync ios
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build

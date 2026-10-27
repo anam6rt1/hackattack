@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TeleBac</string>
+    <string name="title_activity_main">TeleBac</string>
+    <string name="package_name">ro.telebac.app</string>
+    <string name="custom_url_scheme">ro.telebac.app</string>
+</resources>

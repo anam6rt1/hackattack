@@ -15,13 +15,14 @@ test("un joc întreg cu un robot, până la XP", async ({ page }) => {
   await expect(creeaza).toBeEnabled();
   await page.getByLabel("Jucători").selectOption("2");
   await page.getByRole("button", { name: "Creează o cameră" }).click();
-  await expect(page).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
+  await expect(page).toHaveURL(/\/joc\/camera\?cod=[A-Z0-9]{6}$/);
   await expect(page.getByText("Luceafărul (E2E)").first()).toBeVisible();
   // The easy bot is often wrong, so there are few ties to settle with an estimate (each adds a question).
   await page.getByRole("button", { name: "Ușor" }).click();
   await page.getByRole("button", { name: "Pornește bătălia" }).click();
 
-  const final = page.getByText("Bătălia s-a terminat").first();
+  // The end-of-game window (the same words are also in the side panel and, on phones, in the line above the map).
+  const final = page.locator(".tv-fereastra").getByText("Bătălia s-a terminat").first();
   const deadline = Date.now() + 280_000;
   // The screen changes on the server's clock, so every look and click is short and may miss (it is tried again).
   const scurt = { timeout: 1_000 };
@@ -50,8 +51,8 @@ test("gazda vede al doilea jucător și pe spectator", async ({ page, browser })
   await page.getByLabel("Limba și literatura română").check();
   await page.getByLabel("Jucători").selectOption("2");
   await page.getByRole("button", { name: "Creează o cameră" }).click();
-  await expect(page).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
-  const cod = page.url().split("/").pop()!;
+  await expect(page).toHaveURL(/\/joc\/camera\?cod=[A-Z0-9]{6}$/);
+  const cod = new URL(page.url()).searchParams.get("cod")!;
   const [doi, trei] = [await browser.newPage(), await browser.newPage()];
   const [u2, u3] = [await elevNou("doi"), await elevNou("trei")];
   await intraRapid(doi, u2);
@@ -71,15 +72,15 @@ test("al doilea jucător intră cu codul scris pe pagina /joc", async ({ page, b
   await page.goto("/joc");
   await page.getByLabel("Limba și literatura română").check();
   await page.getByRole("button", { name: "Creează o cameră" }).click();
-  await expect(page).toHaveURL(/\/joc\/[A-Z0-9]{6}$/);
-  const cod = page.url().split("/").pop()!;
+  await expect(page).toHaveURL(/\/joc\/camera\?cod=[A-Z0-9]{6}$/);
+  const cod = new URL(page.url()).searchParams.get("cod")!;
   const al2 = await browser.newPage();
   const u2 = await elevNou("cod");
   await intraRapid(al2, u2);
   await al2.goto("/joc");
   await al2.getByLabel("Codul camerei").fill(cod.toLowerCase());
   await al2.getByRole("button", { name: "Intră în cameră" }).click();
-  await expect(al2).toHaveURL(new RegExp(`/joc/${cod}$`));
+  await expect(al2).toHaveURL(new RegExp(`/joc/camera\\?cod=${cod}$`));
   await expect(page.getByText(`Elev ${u2}`).first()).toBeVisible();
   await al2.close();
 });

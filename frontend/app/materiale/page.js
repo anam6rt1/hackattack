@@ -10,7 +10,8 @@ import { usePagina } from '@/lib/sesiune'
 import { decorSVG, insulaSVG } from '@/app/joc/arta'
 import Incarcare from '@/components/Incarcare'
 import Paginare from '@/components/Paginare'
-import { MATERII_PE_PAGINA_MATERIALE_ADMIN, MATERII_PE_PAGINA_MATERIALE_ELEV, cuPagina } from '@/lib/pagini'
+import { CAPITOLE_PE_PAGINA_CAUTARE, LECTII_PE_PAGINA_CAUTARE, MATERII_PE_PAGINA_MATERIALE_ADMIN, MATERII_PE_PAGINA_MATERIALE_ELEV, cuPagina } from '@/lib/pagini'
+import { rute } from '@/lib/rute'
 
 const DECOR = decorSVG(5)
 const SEMNE = ['castel', 'moara', 'turn', 'casa', 'far', 'conac', 'clopot']
@@ -22,31 +23,38 @@ export default function PaginaMateriale() {
   const [pagina, setPagina] = useState(1)
   const [eroare, setEroare] = useState('')
   const marime = elev?.rol === 'admin' ? MATERII_PE_PAGINA_MATERIALE_ADMIN : MATERII_PE_PAGINA_MATERIALE_ELEV
-  const [cautare, setCautare] = useState('')
-  const [raspuns, setRaspuns] = useState({ q: '', date: null, eroare: '' }) // ultimul răspuns al căutării, cu textul pentru care a venit
+  const [cautare, setCautareText] = useState('')
+  const [paginiCautare, setPaginiCautare] = useState({ lectii: 1, capitole: 1 })
+  const [raspuns, setRaspuns] = useState({ cheie: '', date: null, eroare: '' }) // ultimul răspuns al căutării, cu cererea pentru care a venit
+  // Un text nou pornește ambele liste de la prima pagină.
+  const setCautare = (v) => { setCautareText(v); setPaginiCautare({ lectii: 1, capitole: 1 }) }
 
   useEffect(() => {
     if (elev) api(cuPagina('/materii', pagina, marime)).then((r) => { setMaterii(r.elemente); setTotal(r.total) }).catch((e) => setEroare(e.message))
   }, [elev, pagina, marime])
 
-  // Caută la o pauză scurtă după ultima tastă; răspunsurile pentru un text vechi sunt ignorate.
+  // Caută la o pauză scurtă după ultima tastă (o pagină nouă se cere imediat); răspunsurile pentru o cerere veche sunt ignorate.
   const q = cautare.trim()
+  const cheie = cuPagina(`/cautare?q=${encodeURIComponent(q)}&marimeCapitole=${CAPITOLE_PE_PAGINA_CAUTARE}`
+    + (paginiCautare.capitole > 1 ? `&paginaCapitole=${paginiCautare.capitole}` : ''), paginiCautare.lectii, LECTII_PE_PAGINA_CAUTARE)
+  const primaPagina = paginiCautare.lectii === 1 && paginiCautare.capitole === 1
   useEffect(() => {
     if (q.length < 2) return
     let anulat = false
     const t = setTimeout(() => {
-      api(`/cautare?q=${encodeURIComponent(q)}`)
-        .then((r) => !anulat && setRaspuns({ q, date: r, eroare: '' }))
-        .catch((e) => !anulat && setRaspuns({ q, date: null, eroare: e.message }))
-    }, 300)
+      api(cheie)
+        .then((r) => !anulat && setRaspuns({ cheie, date: r, eroare: '' }))
+        .catch((e) => !anulat && setRaspuns({ cheie, date: null, eroare: e.message }))
+    }, primaPagina ? 300 : 0)
     return () => {
       anulat = true
       clearTimeout(t)
     }
-  }, [q])
+  }, [q, cheie, primaPagina])
   const activ = q.length >= 2
-  const rezultate = activ && raspuns.q === q ? raspuns.date : null
-  const eroareCautare = activ && raspuns.q === q ? raspuns.eroare : ''
+  const rezultate = activ && raspuns.cheie === cheie ? raspuns.date : null
+  const eroareCautare = activ && raspuns.cheie === cheie ? raspuns.eroare : ''
+  const urca = () => window.scrollTo?.({ top: 0, behavior: 'smooth' })
 
   if (!elev || (!materii && !eroare)) return <Incarcare />
 
@@ -68,11 +76,16 @@ export default function PaginaMateriale() {
           {eroareCautare && <p className="tv-eroare">{eroareCautare}</p>}
           {rezultate && (
             <>
-              {rezultate.lectii.length === 0 && rezultate.capitole.length === 0 && <p className="tv-gol">Nu am găsit nimic pentru „{q}”.</p>}
+              {rezultate.totalLectii === 0 && rezultate.totalCapitole === 0 && <p className="tv-gol">Nu am găsit nimic pentru „{q}”.</p>}
+              {rezultate.totalLectii > 0 && (
+                <h3 style={{ margin: '0 0 8px', color: 'var(--navy)' }}>
+                  {rezultate.totalLectii === 1 ? 'O lecție' : `${rezultate.totalLectii} lecții`}
+                </h3>
+              )}
               {rezultate.lectii.length > 0 && (
                 <div className="tv-planuri">
                   {rezultate.lectii.map((l) => (
-                    <Link key={l.id} href={`/parcurs/${l.id}`} className="tv-plan tv-lectie">
+                    <Link key={l.id} href={rute.parcurs(l.id)} className="tv-plan tv-lectie">
                       <span className="tv-butoane">
                         <span className="tv-pastila tv-pastila-aur">{numeClasa(l.clasa)}</span>
                         {l.vizibilitate === 'organizatie' && <span className="tv-pastila">Doar organizația</span>}
@@ -84,13 +97,17 @@ export default function PaginaMateriale() {
                   ))}
                 </div>
               )}
+              <Paginare eticheta="Paginile lecțiilor găsite" pagina={paginiCautare.lectii} totalPagini={Math.ceil(rezultate.totalLectii / LECTII_PE_PAGINA_CAUTARE)}
+                onAlege={(p) => { setPaginiCautare((x) => ({ ...x, lectii: p })); urca() }} />
               {rezultate.capitole.length > 0 && (
                 <>
-                  <h3 style={{ margin: '18px 0 8px', color: 'var(--navy)' }}>Capitole</h3>
+                  <h3 style={{ margin: '18px 0 8px', color: 'var(--navy)' }}>
+                    {rezultate.totalCapitole === 1 ? 'Un capitol' : `${rezultate.totalCapitole} capitole`}
+                  </h3>
                   <ul className="tv-lista">
                     {rezultate.capitole.map((c) => (
                       <li key={c.id}>
-                        <Link href={`/parcurs/${c.parcursId}`} className="tv-rand">
+                        <Link href={rute.parcurs(c.parcursId)} className="tv-rand">
                           <div>
                             <b>{c.titlu}</b>
                             <small>{c.materie} · {c.parcurs} · {numeClasa(c.clasa)}{c.capitol ? ` · ${c.capitol}` : ''}</small>
@@ -99,6 +116,8 @@ export default function PaginaMateriale() {
                       </li>
                     ))}
                   </ul>
+                  <Paginare compact eticheta="Paginile capitolelor găsite" pagina={paginiCautare.capitole} totalPagini={Math.ceil(rezultate.totalCapitole / CAPITOLE_PE_PAGINA_CAUTARE)}
+                    onAlege={(p) => setPaginiCautare((x) => ({ ...x, capitole: p }))} />
                 </>
               )}
             </>
@@ -106,7 +125,7 @@ export default function PaginaMateriale() {
           {activ && !rezultate && !eroareCautare && <p className="tv-asteapta">Se caută...</p>}
           {!activ && <div className="tv-planuri">
             {materii?.map((m, i) => (
-              <Link key={m.id} href={`/materiale/${m.id}`} className="tv-plan tv-materie">
+              <Link key={m.id} href={rute.materie(m.id)} className="tv-plan tv-materie">
                 {/* Același desen pentru o materie pe orice pagină. */}
                 <svg viewBox="40 20 260 160" aria-hidden="true" dangerouslySetInnerHTML={{ __html: insulaSVG({ x: 170, y: 100, seed: 7 + ((pagina - 1) * marime + i) * 13, semn: SEMNE[((pagina - 1) * marime + i) % SEMNE.length] }) }} />
                 <h3>{m.denumire}</h3>
@@ -117,7 +136,7 @@ export default function PaginaMateriale() {
             ))}
             {materii?.length === 0 && <p className="tv-gol">Încă nu există materii.</p>}
           </div>}
-          {!activ && <Paginare pagina={pagina} totalPagini={Math.ceil(total / marime)} onAlege={(p) => { setPagina(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />}
+          {!activ && <Paginare pagina={pagina} totalPagini={Math.ceil(total / marime)} onAlege={(p) => { setPagina(p); urca() }} />}
         </div>
       </div>
     </main>

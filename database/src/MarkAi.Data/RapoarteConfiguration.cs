@@ -24,10 +24,12 @@ internal static class RapoarteConfiguration
         var e = m.Entity<EmailSumar>(); e.ToTable("email_sumar", "mark_ai"); e.HasKey(x => x.MesajId);
         e.HasOne(x => x.Mesaj).WithMany().HasForeignKey(x => x.MesajId).OnDelete(DeleteBehavior.Cascade);
         e.HasIndex(x => x.UtilizatorId);
-        var f = m.Entity<FeedbackPilot>(); f.ToTable("feedback_pilot", "mark_ai"); f.HasKey(x => x.Id); f.Property(x => x.Id).UseIdentityAlwaysColumn();
-        f.Property(x => x.Text).HasMaxLength(2000); f.Property(x => x.Pagina).HasMaxLength(200); f.HasIndex(x => new { x.UtilizatorId, x.CreatLa });
+        var f = m.Entity<MesajContact>(); f.ToTable("mesaj_contact", "mark_ai"); f.HasKey(x => x.Id); f.Property(x => x.Id).UseIdentityAlwaysColumn();
+        f.Property(x => x.Text).HasMaxLength(4000); f.Property(x => x.Pagina).HasMaxLength(200); f.HasIndex(x => new { x.UtilizatorId, x.CreatLa });
+        f.Property(x => x.Nume).HasMaxLength(120); f.Property(x => x.Email).HasMaxLength(200); f.HasIndex(x => new { x.Email, x.CreatLa });
+        f.Property(x => x.Subiect).HasMaxLength(20).HasDefaultValue(MesajContact.Altceva);
         f.HasOne<Utilizator>().WithMany().HasForeignKey(x => x.UtilizatorId).OnDelete(DeleteBehavior.SetNull);
-        foreach (var tip in new[] { typeof(InvitatieElev), typeof(SumarParinte), typeof(RaspunsStatistica), typeof(EmailSumar), typeof(FeedbackPilot) })
+        foreach (var tip in new[] { typeof(InvitatieElev), typeof(SumarParinte), typeof(RaspunsStatistica), typeof(EmailSumar), typeof(MesajContact) })
             foreach (var prop in m.Entity(tip).Metadata.GetProperties()) prop.SetColumnName(Regex.Replace(prop.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());
     }
 }

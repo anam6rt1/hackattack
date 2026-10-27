@@ -41,8 +41,17 @@
 .tv-centru { display: grid; place-items: center; }
 
 /* ============ JOC ============ */
-.tv-joc { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.tv-joc { max-width: 1840px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
 @media (max-width: 960px) { .tv-joc { grid-template-columns: minmax(0, 1fr); } }
+/* On a wide screen the map fills the height of the window as well as the width (--harta-raport = width / height, from Harta.js). */
+.tv-joc > .tv-harta-cadru { width: 100%; max-width: calc((100dvh - 120px) * var(--harta-raport, 1.5625)); justify-self: center; }
+/* On narrow screens: a one-line turn status above the map, so the student need not scroll down to the panel. */
+.tv-joc-stare { display: none; }
+@media (max-width: 960px) {
+  .tv-joc-stare { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-weight: 800; }
+  .tv-joc-stare .tv-runda { width: 34px; height: 34px; font-size: 16px; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #ffe58a; }
+  .tv-joc-stare span:last-child { min-width: 0; line-height: 1.25; }
+}
 
 .tv-harta {
   position: relative; width: 100%; aspect-ratio: 1000 / 640; border-radius: 30px; overflow: hidden; container-type: inline-size;
@@ -55,8 +64,9 @@
 .tv-harta-indiciu { display: none; margin: 6px 4px 0; font-size: 12px; font-weight: 700; color: var(--gri-text); text-align: center; }
 @media (max-width: 700px) {
   .tv-harta-cadru { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; border-radius: 30px; }
-  .tv-harta-cadru .tv-harta { min-width: var(--harta-latime-min, 560px); }
-  .tv-harta-indiciu { display: block; }
+  /* About 58% of the screen's height, at least the map's own minimum width: islands and labels stay readable. */
+  .tv-harta-cadru .tv-harta { min-width: max(var(--harta-latime-min, 560px), calc(58dvh * var(--harta-raport, 1.5625))); }
+  .tv-harta-indiciu { display: block; color: #cfe3f7; }
 }
 .tv-poate { cursor: pointer; }
 .tv-poate .tv-inel { stroke: var(--aur); stroke-width: 6; stroke-dasharray: 14 10; animation: tv-mars 1s linear infinite; }
@@ -82,11 +92,12 @@
 .tv-card { color: var(--navy); background: #fff; border-radius: 26px; padding: 18px; box-shadow: 0 6px 0 #0a4a80, 0 18px 30px -18px #021d3acc; min-width: 0; }
 .tv-card h3 { font-size: 22px; color: var(--maro); }
 .tv-mic { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: #6b7a99; }
-.tv-cod { font-family: var(--titlu); font-weight: 700; font-size: 46px; letter-spacing: .12em; color: var(--maro); line-height: 1; font-variant-numeric: tabular-nums; }
+.tv-cod { font-family: var(--titlu); font-weight: 700; font-size: clamp(30px, 9vw, 42px); letter-spacing: .08em; color: var(--maro); line-height: 1; font-variant-numeric: tabular-nums; }
 .tv-camera-sus { display: flex; gap: 14px; align-items: center; justify-content: space-between; }
+.tv-camera-sus > div:first-child { min-width: 0; }
 .tv-qr { padding: 5px; background: #fff; border-radius: 14px; border: 2px solid #f0e3c4; flex-shrink: 0; line-height: 0; }
-.tv-jucatori { display: grid; gap: 8px; margin-top: 12px; }
-.tv-jucator { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 18px; background: #f5f8fd; border: 2px solid transparent; transition: border-color .3s, background .3s; }
+.tv-jucatori { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 12px; }
+.tv-jucator { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 18px; background: #f5f8fd; border: 2px solid transparent; transition: border-color .3s, background .3s; }
 .tv-randul { border-color: var(--aur); background: #fff8dc; }
 .tv-intra { animation: tv-pop .5s cubic-bezier(.3, 1.6, .5, 1) both; }
 .tv-avatar { border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-family: var(--titlu); font-weight: 700; flex-shrink: 0; border: 3px solid #fff; }
@@ -117,9 +128,10 @@
 /* ---------- fereastra cu întrebarea ---------- */
 .tv-fundal { position: fixed; inset: 0; z-index: 50; background: rgba(6, 34, 66, .62); display: grid; place-items: center; padding: 16px; overflow: auto; }
 .tv-fereastra { position: relative; width: 100%; max-width: 560px; background: #fff; border-radius: 30px; padding: 46px 22px 22px; box-shadow: 0 8px 0 #0a4a80, 0 30px 60px -20px #000c; animation: tv-pop .45s cubic-bezier(.3, 1.5, .5, 1) both; margin-top: 24px; }
-.tv-eticheta-sus { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 8px 22px; text-align: center; box-shadow: 0 4px 0 #00000022; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+.tv-eticheta-sus { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 8px 22px; text-align: center; box-shadow: 0 4px 0 #00000022; white-space: nowrap; max-width: calc(100% - 136px); overflow: hidden; text-overflow: ellipsis; }
 .tv-eticheta-sus b { font-family: var(--titlu); font-weight: 700; color: var(--maro); font-size: 19px; }
 .tv-eticheta-sus small { display: block; color: #a06a3a; font-weight: 700; font-size: 12px; }
+.tv-eticheta-sus b, .tv-eticheta-sus small { display: block; overflow: hidden; text-overflow: ellipsis; }
 .tv-cronometru { position: absolute; top: 14px; right: 16px; width: 48px; height: 48px; }
 .tv-cronometru svg { width: 48px; height: 48px; transform: rotate(-90deg); }
 .tv-cronometru span { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--titlu); font-weight: 700; color: var(--maro); font-size: 17px; font-variant-numeric: tabular-nums; }
@@ -344,6 +356,14 @@ textarea.tv-camp-text { resize: vertical; }
 .tv-cutie { background: #fff; border: 2px solid #ece3cd; border-radius: 24px; padding: 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
 .tv-cutie h3 { font-size: 21px; color: var(--navy); }
 .tv-cutie p { margin: 0; color: var(--gri-text); }
+/* Pagina de contact: formularul (2/3) și coloana laterală (1/3) din .tv-panou; câmpul-capcană pentru roboți nu se vede și nu se citește. */
+.tv-contact-titlu { font-size: 26px; color: var(--navy); }
+.tv-contact-lateral { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.tv-contact-numar { justify-self: end; font-size: 12px; }
+.tv-btn.tv-contact-buton { justify-self: start; width: auto; min-width: 220px; }
+@media (max-width: 520px) { .tv-btn.tv-contact-buton { width: 100%; min-width: 0; } }
+.tv-contact-capcana { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.tv-indiciu code, .tv-cutie code { background: #eef3fb; border-radius: 6px; padding: 1px 6px; font-size: .92em; overflow-wrap: anywhere; }
 .tv-nivel { display: flex; gap: 16px; align-items: center; }
 .tv-nivel-insigna { width: 76px; height: 76px; flex-shrink: 0; border-radius: 50%; background: var(--aur); color: var(--maro); display: grid; place-items: center; font-family: var(--titlu); font-weight: 700; font-size: 34px; box-shadow: 0 0 0 6px #fff, 0 0 0 10px #ffe58a; }
 .tv-bara { height: 14px; border-radius: 99px; background: #eef3fb; overflow: hidden; }
@@ -412,6 +432,9 @@ a.tv-pastila { text-decoration: none; }
 /* Profesori: „și alte X sesiuni” sub următoarea ședință a unui profesor. */
 .tv-alte-sesiuni { justify-self: start; margin-top: 6px; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 800; color: var(--ocean-adanc); }
 .tv-alte-sesiuni:hover { text-decoration: underline; }
+/* The window with all of a professor's sessions: the list scrolls inside it, the header and the close button stay in view. */
+.tv-fereastra.tv-fereastra-sedinte { max-width: 640px; padding-top: 26px; display: grid; gap: 14px; }
+.tv-lista-sedinte { max-height: min(56dvh, 520px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
 /* =====================================================================
    STILURILE  —  se aplică singure după data-theme de pe <html> (alese în /profil sau în meniul contului)
    (Acvatic = stilul de mai sus; aici doar ce se schimbă pentru Realist și Pixel.)

@@ -8,7 +8,7 @@ test("elevul citește un capitol, trece testul și lecția apare terminată", as
   await page.goto("/materiale");
   await page.getByRole("link", { name: /Limba și literatura română/ }).first().click();
   await page.getByRole("link", { name: /Luceafărul \(E2E\)/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/parcurs/${lectie()}$`));
+  await expect(page).toHaveURL(new RegExp(`/parcurs\\?id=${lectie()}$`));
 
   // The first chapter is recommended; its notes mark it as read and the recommendation moves on.
   await page.getByRole("button", { name: /Capitolul 1: Geneza poemului \(recomandat acum\)/ }).click();

@@ -223,6 +223,12 @@ public static class AutentificareEndpoints
 
         var me = app.MapGroup("/utilizatori/me").WithTags("Autentificare").RequireAuthorization();
         me.MapGet("", async (HttpContext h, MarkAiDbContext db, CancellationToken ct) => await Curent(db, h.User.Id(), ct));
+        // The desktop and mobile apps' game connection: a short token for /hub only (see Tokenuri.EmiteJoc).
+        me.MapPost("/token-joc", (HttpContext h, Tokenuri t) =>
+        {
+            h.Response.Headers.CacheControl = "no-store";
+            return new { Token = t.EmiteJoc(h.User) };
+        });
         me.MapPatch("", async (ActualizareProfil c, HttpContext h, MarkAiDbContext db, CancellationToken ct) =>
         {
             var u = await db.Utilizatori.SingleAsync(x => x.Id == h.User.Id(), ct);

@@ -37,7 +37,7 @@ it('oprește procesarea la anulare și la timeout', async () => {
   expect(stop).toHaveBeenCalledOnce()
   vi.useFakeTimers(); stop = mockWorker(null)
   const f = fisier(), timeout = optimizeazaDocument(f)
-  await vi.advanceTimersByTimeAsync(20000)
+  await vi.advanceTimersByTimeAsync(21000) // 20 s plus 1 s per started MiB
   expect((await timeout).fisier).toBe(f)
   expect(stop).toHaveBeenCalledOnce()
 })

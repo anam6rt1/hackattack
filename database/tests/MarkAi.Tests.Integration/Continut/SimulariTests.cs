@@ -63,6 +63,27 @@ public class SimulariTests : TestCuHarness
         (await elev.GetJson("/simulari/optiuni")).GetArrayLength().ShouldBe(1);
     }
     [Fact]
+    public async Task OptiunileTinuteMinutulNuAmestecaOrganizatiile()
+    {
+        // The options are kept for a minute per group of organisations: an outsider must never get a member's cached answer.
+        await h.Db(async db => {
+            var liceu = await db.Set<Organizatie>().Where(o => o.Nume == "Liceul de Test").Select(o => o.Id).SingleAsync();
+            var p = new Parcurs { MaterieId = 2, Titlu = "Doar pentru liceu", Clasa = "Bac", Vizibilitate = Parcurs.DoarOrganizatie, OrganizatieId = liceu, CreatLa = DateTime.UtcNow };
+            db.Add(p); await db.SaveChangesAsync();
+            for (var i = 0; i < 2; i++) db.Add(new Intrebare { ParcursId = p.Id, MaterieId = 2, Text = $"Internă {i}", Variante = [new() { Text = "Da", Corecta = true }, new() { Text = "Nu" }] });
+            var membru = new Utilizator { Nume = "Membru Liceu", Username = "membruliceu", Email = "membruliceu@example.invalid", ParolaHash = (await db.Utilizatori.SingleAsync(u => u.Username == "george")).ParolaHash, EmailConfirmatLa = DateTime.UtcNow, CreatLa = DateTime.UtcNow, Clasa = "XII" };
+            db.Add(membru); await db.SaveChangesAsync();
+            db.Add(new UtilizatorRol { UtilizatorId = membru.Id, RolId = await db.Set<Rol>().Where(r => r.Nume == "elev").Select(r => r.Id).SingleAsync(), AtribuitLa = DateTime.UtcNow });
+            db.Add(new MembruOrganizatie { OrganizatieId = liceu, UtilizatorId = membru.Id, Rol = "elev", Stare = MembruOrganizatie.Aprobat, CerutLa = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        });
+        static bool AreMateria2(JsonElement o) => o.EnumerateArray().Any(x => x.Int("materieId") == 2);
+        AreMateria2(await elev.GetJson("/simulari/optiuni")).ShouldBeFalse();
+        using var membru = await h.Login("membruliceu");
+        AreMateria2(await membru.GetJson("/simulari/optiuni")).ShouldBeTrue();
+        AreMateria2(await elev.GetJson("/simulari/optiuni")).ShouldBeFalse();
+    }
+    [Fact]
     public async Task AccesulRetrasLaMaterialeAscundeSimularea()
     {
         var s = await Incepe(); await h.Db(async db => { var p = await db.Set<Parcurs>().FindAsync(lectie); p!.Publicat = false; await db.SaveChangesAsync(); });

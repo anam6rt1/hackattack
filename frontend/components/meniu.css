@@ -123,7 +123,9 @@
 .mn-stiluri .mn-tema { grid-template-columns: 1fr; grid-column: auto; text-align: center; }
 .mn-cont-text { display: grid; line-height: 1.1; }
 .mn-cont-text small { font-family: var(--font-text), sans-serif; font-size: 11px; font-weight: 800; color: #6b7a99; }
-.mn-popover { position: absolute; right: 0; top: calc(100% + 10px); width: min(320px, calc(100vw - 32px)); background: #fff; border-radius: 22px; padding: 12px; box-shadow: 0 6px 0 #0a4a80, 0 20px 40px -16px #021d3acc; z-index: 45; display: grid; gap: 10px; }
+.mn-popover { position: absolute; right: 0; top: calc(100% + 10px); width: min(320px, calc(100vw - 32px)); background: #fff; border-radius: 22px; padding: 12px; box-shadow: 0 6px 0 #0a4a80, 0 20px 40px -16px #021d3acc; z-index: 45; display: grid; gap: 10px;
+  /* Under the sticky bar, a taller popover cannot be scrolled into view with the page: it scrolls on its own (short screens, phones held sideways). */
+  max-height: calc(100dvh - 84px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; }
 .mn-pop-titlu { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: #6b7a99; padding: 2px 6px; }
 .mn-teme { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .mn-tema { display: grid; grid-template-columns: 22px 1fr; column-gap: 8px; align-items: center; text-align: left; border: 2px solid #eef3fb; background: #f7faff; border-radius: 14px; padding: 7px 8px; font: inherit; font-size: 13px; font-weight: 700; color: #15305a; cursor: pointer; }
@@ -143,3 +145,17 @@
   .mn-cont-text small { display: none; }
 }
 @media (max-width: 560px) { .mn-cont-text { display: none; } .mn-cont-buton { padding-right: 5px; } }
+
+/* Subsolul site-ului (SubsolSite): aceleași culori ca bara de sus, deci urmează tema anotimpului. */
+.mn-subsol {
+  background: var(--mn-jos, #0d5c9e);
+  background-image: linear-gradient(0deg, var(--mn-sus, #1478bf) 0, var(--mn-jos, #0d5c9e) 100%);
+  color: #e3f2ff;
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  font-family: var(--font-text), 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+}
+.mn-subsol-interior { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.mn-subsol-link { display: inline-block; color: #6b3410; background: #ffc61a; border-radius: 999px; padding: 6px 14px; font-weight: 800; text-decoration: none; box-shadow: 0 3px 0 #d9a100; }
+.mn-subsol-link:hover { background: #ffd54d; }
+.mn-subsol-link:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }

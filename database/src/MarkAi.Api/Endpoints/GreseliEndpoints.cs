@@ -22,7 +22,7 @@ public static class GreseliEndpoints
         var lectii = acces.Parcursuri(a).Where(p => p.Publicat);
         var uid = h.User.Id();
         return db.Set<Greseala>().Where(g => g.UtilizatorId == uid && g.CorecteConsecutive < 2 && g.Intrebare.Activa
-            && g.Intrebare.Tip == Intrebare.Grila && g.Intrebare.Variante.Count >= 2 && g.Intrebare.Variante.Count(v => v.Corecta) == 1
+            && g.Intrebare.Tip == Intrebare.Grila && g.Intrebare.Variante.Any(v => v.Corecta) && g.Intrebare.Variante.Any(v => !v.Corecta)
             && lectii.Any(p => p.Id == g.Intrebare.ParcursId));
     }
     public static void Mapeaza(WebApplication app)

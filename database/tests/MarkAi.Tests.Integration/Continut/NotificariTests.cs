@@ -36,9 +36,9 @@ public class NotificariTests : TestCuHarness
     private Task Proceseaza() => h.Serviciu<ProcesorNotificari>().RuleazaOdataAsync(Ct);
     private static object Abonament(string endpoint = "https://fcm.googleapis.com/test") => new { endpoint, keys = new { p256dh = WebPush.VapidHelper.GenerateVapidKeys().PublicKey, auth = WebEncoders.Base64UrlEncode(new byte[16]) } };
     [Fact]
-    public async Task TotulEsteDezactivatImplicitSiNuSeTrimiteNimic()
+    public async Task DoarDeciziileSuntActivateImplicitIarRestulNuSeTrimite()
     {
-        var p = await elev.GetJson("/utilizatori/me/notificari"); p.Bool("sedinte").ShouldBeFalse(); p.Bool("decizii").ShouldBeFalse(); p.Bool("temeNoi").ShouldBeFalse(); p.Bool("termeneTeme").ShouldBeFalse();
+        var p = await elev.GetJson("/utilizatori/me/notificari"); p.Bool("sedinte").ShouldBeFalse(); p.Bool("decizii").ShouldBeTrue(); p.Bool("temeNoi").ShouldBeFalse(); p.Bool("termeneTeme").ShouldBeFalse();
         await Proceseaza(); (await h.Db(db => db.Set<Notificare>().CountAsync())).ShouldBe(0);
     }
     [Fact]

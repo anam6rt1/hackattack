@@ -1,7 +1,7 @@
 'use client'
 // Harta cu insule, de orice mărime (vine de la server). Insulele pe care le poți ataca au marginea aurie și se pot apăsa.
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { HARTA_DEMO } from './date-harta'
 import { insulaSVG, proprietarSVG, valuriSVG, barcaSVG } from './arta'
 
@@ -32,11 +32,19 @@ export default function Harta({ harta = HARTA_DEMO, proprietari = {}, jucatori =
   const decor = useMemo(() => fundal(latime, inaltime) + poduriSVG(harta), [harta, latime, inaltime])
   // Pe hărțile mari etichetele ar acoperi insulele: păstrăm doar numele
   const compact = harta.insule.length > 15
+  // Pe telefon harta e mai lată decât ecranul: la rândul tău, cadrul se mută singur la prima insulă pe care o poți ataca.
+  const cadru = useRef(null)
+  const primaTinta = tinte.length ? harta.insule.find((i) => i.id === tinte[0]) : null
+  useEffect(() => {
+    const c = cadru.current
+    if (!c || !primaTinta || c.scrollWidth <= c.clientWidth) return
+    c.scrollTo({ left: (primaTinta.x / latime) * c.scrollWidth - c.clientWidth / 2, behavior: 'smooth' })
+  }, [primaTinta, latime])
 
   return (
     // Pe telefon harta își păstrează o lățime minimă (după mărimea ei), într-un cadru care se glisează în lateral, ca insulele și
     // etichetele să rămână lizibile.
-    <div className="tv-harta-cadru" style={{ '--harta-latime-min': `${Math.max(560, Math.round(latime * 0.45))}px` }}>
+    <div className="tv-harta-cadru" ref={cadru} style={{ '--harta-latime-min': `${Math.max(560, Math.round(latime * 0.45))}px`, '--harta-raport': latime / inaltime }}>
       <div className="tv-harta" style={{ aspectRatio: `${latime} / ${inaltime}` }}>
         <svg viewBox={`0 0 ${latime} ${inaltime}`} role="img" aria-label="Harta jocului cu insule">
           <g dangerouslySetInnerHTML={{ __html: decor }} />

@@ -13,7 +13,7 @@ var setari = e2e ? new Dictionary<string, string?>
 {
     ["Limite:AutentificariPeMinut"] = "10000", ["Limite:InregistrariPeOra"] = "10000", ["Limite:EmailuriPeOra"] = "10000",
     ["Limite:SmsPeOra"] = "10000", ["Limite:CereriPeMinut"] = "100000", ["Limite:CereriAiPeMinut"] = "10000", ["Sms:MaxPeZi"] = "10000",
-    ["Limite:PauzaQuizSecunde"] = "0",
+    ["Limite:PauzaQuizSecunde"] = "0", ["Limite:ContactPeOra"] = "10000",
 } : null;
 var conexiuneExistenta = Environment.GetEnvironmentVariable("MARKAI_PREVIEW_CONNECTION");
 var directorExistent = Environment.GetEnvironmentVariable("MARKAI_PREVIEW_STORAGE");

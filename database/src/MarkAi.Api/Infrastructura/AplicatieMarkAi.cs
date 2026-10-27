@@ -180,7 +180,8 @@ public static class AplicatieMarkAi
         RapoarteEndpoints.Mapeaza(app);
         InvitatiiEndpoints.Mapeaza(app);
         SumareParintiEndpoints.Mapeaza(app);
-        FeedbackEndpoints.Mapeaza(app);
+        ContactEndpoints.Mapeaza(app);
+        OfflineEndpoints.Mapeaza(app);
         AdminEndpoints.Mapeaza(app);
         OrganizatiiEndpoints.Mapeaza(app);
         ElevEndpoints.Mapeaza(app);

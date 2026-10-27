@@ -189,7 +189,7 @@ describe("fereastra unui capitol", () => {
 
   it("are linkul către testul lecției", async () => {
     deschide(faraVideo);
-    expect(screen.getByRole("link", { name: "Testul lecției →" })).toHaveAttribute("href", "/test/5");
+    expect(screen.getByRole("link", { name: "Testul lecției →" })).toHaveAttribute("href", "/test?id=5");
   });
 
   it("o eroare la încărcare e afișată", async () => {

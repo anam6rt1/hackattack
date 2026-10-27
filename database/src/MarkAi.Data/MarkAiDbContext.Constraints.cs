@@ -16,6 +16,7 @@ public partial class MarkAiDbContext
         SimulariNotificariConfiguration.Configure(modelBuilder);
         RapoarteConfiguration.Configure(modelBuilder);
         SedinteConfiguration.Configure(modelBuilder);
+        OfflineConfiguration.Configure(modelBuilder);
         modelBuilder.Entity<EvenimentRecompensa>().Property(x => x.XpAcordat).HasDefaultValue(0);
         modelBuilder.Entity<EvenimentRecompensa>().Property(x => x.PuncteMaterie).HasDefaultValue(0);
         modelBuilder.Entity<RegulaBackground>().Property(x => x.Prioritate).HasDefaultValue(0);
